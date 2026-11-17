@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'profile_api.dart';
 
@@ -72,7 +73,11 @@ class ProfileSession extends ChangeNotifier {
       email = profile.email;
       avatarBytes = bytes;
       notifyListeners();
-    } on Object catch (_) {
+    } on PostgrestException catch (_) {
+      _started = false;
+    } on FunctionException catch (_) {
+      _started = false;
+    } on StorageException catch (_) {
       _started = false;
     }
   }

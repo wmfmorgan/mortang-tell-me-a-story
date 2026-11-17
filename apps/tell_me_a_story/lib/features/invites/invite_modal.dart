@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -122,7 +123,7 @@ class _InviteModalState extends State<InviteModal> {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
       setState(() => _unlinked = _notPassed(rows));
-    } catch (_) {
+    } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _unlinked = const []);
     }
@@ -135,7 +136,7 @@ class _InviteModalState extends State<InviteModal> {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
       setState(() => _notInvited = _notPassed(rows));
-    } catch (_) {
+    } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _notInvited = const []);
     }
@@ -171,7 +172,10 @@ class _InviteModalState extends State<InviteModal> {
     } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
+    } on FunctionException catch (_) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
     } finally {
@@ -214,7 +218,14 @@ class _InviteModalState extends State<InviteModal> {
         email: draft,
         writeEmail: true,
       );
-    } catch (error) {
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _rowBusyId = null;
+        _rowError[person.id] = mapRpcError(error) ?? 'Try again';
+      });
+      return;
+    } on FunctionException catch (error) {
       if (!mounted) return;
       setState(() {
         _rowBusyId = null;
@@ -240,7 +251,10 @@ class _InviteModalState extends State<InviteModal> {
     } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
+    } on FunctionException catch (_) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
     } finally {
@@ -265,7 +279,10 @@ class _InviteModalState extends State<InviteModal> {
       if (!mounted) return;
       _toast('Invite sent');
       Navigator.of(context).pop();
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      _toast('Couldn’t send invite. Try again.');
+    } on FunctionException catch (_) {
       if (!mounted) return;
       _toast('Couldn’t send invite. Try again.');
     } finally {
@@ -288,7 +305,10 @@ class _InviteModalState extends State<InviteModal> {
         _linkUrl = created.inviteUrl;
         _linkController.text = created.inviteUrl;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      _toast('Couldn’t send invite. Try again.');
+    } on FunctionException catch (_) {
       if (!mounted) return;
       _toast('Couldn’t send invite. Try again.');
     } finally {

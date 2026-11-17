@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
 import 'magic_link_redirect.dart';
 
@@ -55,9 +56,12 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
 
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-  MagicLinkSender get _sender =>
-      widget.sender ??
-      GoTrueMagicLinkSender(widget.auth ?? Supabase.instance.client.auth);
+  MagicLinkSender? get _sender {
+    if (widget.sender != null) return widget.sender;
+    final auth = widget.auth ?? readGoTrueClient();
+    if (auth == null) return null;
+    return GoTrueMagicLinkSender(auth);
+  }
 
   @override
   void dispose() {
@@ -77,8 +81,17 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
       _error = null;
     });
 
+    final sender = _sender;
+    if (sender == null) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Request failed';
+        _sending = false;
+      });
+      return;
+    }
     try {
-      await _sender.send(email, redirectTo: magicLinkEmailRedirectTo());
+      await sender.send(email, redirectTo: magicLinkEmailRedirectTo());
       if (!mounted) return;
       setState(() => _sent = true);
     } on AuthException catch (e) {
@@ -86,9 +99,6 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
       setState(() {
         _error = e.message.isEmpty ? 'Request failed' : e.message;
       });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'Request failed');
     } finally {
       if (mounted) setState(() => _sending = false);
     }

@@ -20,6 +20,8 @@ import 'all_stories_card.dart';
 import 'all_stories_loader.dart';
 import 'all_stories_logic.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Viewport widths for the 3 / 2 / 1 card grid. Landing has no grid
 /// breakpoints, so these are the spec-allowed fill.
 const allStoriesDesktopWidth = 1200.0;
@@ -123,7 +125,16 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         _canWrite = chrome.canWrite;
         _phase = _Phase.ready;
       });
-    } catch (_) {
+    } on PostgrestException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _phase = _Phase.error);
+    } on FunctionException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _phase = _Phase.error);
+    } on AuthException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _phase = _Phase.error);
+    } on StorageException catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() => _phase = _Phase.error);
     }
@@ -148,7 +159,25 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         stewarded: stewarded,
         canWrite: mine.any((row) => row.id == widget.familyId),
       );
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      return (
+        families: const <MemberFamily>[],
+        stewarded: const <StewardFamily>[],
+        canWrite: false,
+      );
+    } on FunctionException catch (_) {
+      return (
+        families: const <MemberFamily>[],
+        stewarded: const <StewardFamily>[],
+        canWrite: false,
+      );
+    } on AuthException catch (_) {
+      return (
+        families: const <MemberFamily>[],
+        stewarded: const <StewardFamily>[],
+        canWrite: false,
+      );
+    } on StorageException catch (_) {
       return (
         families: const <MemberFamily>[],
         stewarded: const <StewardFamily>[],

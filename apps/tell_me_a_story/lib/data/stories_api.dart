@@ -630,7 +630,11 @@ class StoriesApi implements StoriesGateway {
           thumb = await _client.storage
               .from(storyPhotosBucket)
               .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
-        } catch (_) {
+        } on StorageException catch (_) {
+          thumb = null;
+        } on PostgrestException catch (_) {
+          thumb = null;
+        } on FunctionException catch (_) {
           thumb = null;
         }
       }
@@ -856,7 +860,7 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
       final bytes = cached ?? await gateway.downloadBytes(path);
       if (cached == null) seen[path] = bytes;
       if (bytes.isNotEmpty) out[story.id] = bytes;
-    } catch (_) {
+    } on StorageException catch (_) {
       // A missing thumb stays a parchment blank.
     }
   }

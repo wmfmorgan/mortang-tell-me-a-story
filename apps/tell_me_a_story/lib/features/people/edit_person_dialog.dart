@@ -9,6 +9,8 @@ import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../family/family_blur_dialog.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Edit person. The gate is [Person.userId] from the people row.
 Future<Person?> showEditPersonDialog(
   BuildContext context, {
@@ -85,7 +87,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       );
       if (!mounted || _removed || _picture != null) return;
       setState(() => _existingUrl = url);
-    } catch (_) {}
+    } on PostgrestException catch (_) {
+    } on FunctionException catch (_) {
+    } on AuthException catch (_) {
+    } on StorageException catch (_) {}
   }
 
   @override
@@ -175,7 +180,22 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(person);
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save person. Try again.')),
+      );
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save person. Try again.')),
+      );
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save person. Try again.')),
+      );
+    } on StorageException catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save person. Try again.')),

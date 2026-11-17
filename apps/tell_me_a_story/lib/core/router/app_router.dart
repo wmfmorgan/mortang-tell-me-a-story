@@ -22,6 +22,7 @@ import '../../features/drafts/drafts_page.dart';
 import '../../features/perspectives/add_perspective_page.dart';
 import '../../features/stories/new_story_page.dart';
 import '../navigation/unsaved_guard.dart';
+import '../supabase/auth_user_id.dart';
 import '../../features/search/search_page.dart';
 import '../../data/manage_families_api.dart';
 import '../../features/all_stories/all_stories_page.dart';
@@ -209,7 +210,15 @@ Future<String> appStartPath(FamiliesGateway? families) async {
     if (stewarded.any((family) => family.countsForManage())) {
       return AppRoutes.manageFamilies;
     }
-  } catch (_) {
+  } on PostgrestException catch (_) {
+    return AppRoutes.familyLanding;
+  } on FunctionException catch (_) {
+    return AppRoutes.familyLanding;
+  } on AuthException catch (_) {
+    return AppRoutes.familyLanding;
+  } on StorageException catch (_) {
+    return AppRoutes.familyLanding;
+  } on Exception catch (_) {
     return AppRoutes.familyLanding;
   }
   return AppRoutes.timeline;
@@ -218,6 +227,7 @@ Future<String> appStartPath(FamiliesGateway? families) async {
 GoRouter createAppRouter({
   required AuthRefresh authRefresh,
   InviteGateway? inviteApi,
+  InviteLinkGateway? inviteLinkApi,
   PeopleGateway? peopleApi,
   PlacesGateway? placesApi,
   MapboxSearchGateway? mapboxSearch,
@@ -270,7 +280,13 @@ GoRouter createAppRouter({
               if (mine.isNotEmpty) return AppRoutes.familyLanding;
               return AppRoutes.timeline;
             }
-          } catch (_) {
+          } on PostgrestException catch (_) {
+            return AppRoutes.familyLanding;
+          } on FunctionException catch (_) {
+            return AppRoutes.familyLanding;
+          } on AuthException catch (_) {
+            return AppRoutes.familyLanding;
+          } on StorageException catch (_) {
             return AppRoutes.familyLanding;
           }
         }
@@ -294,7 +310,13 @@ GoRouter createAppRouter({
               if (next != AppRoutes.familyLanding) return next;
             }
           }
-        } catch (_) {
+        } on PostgrestException catch (_) {
+          return null;
+        } on FunctionException catch (_) {
+          return null;
+        } on AuthException catch (_) {
+          return null;
+        } on StorageException catch (_) {
           return null;
         }
       }
@@ -357,6 +379,7 @@ GoRouter createAppRouter({
         path: AppRoutes.invite,
         builder: (context, state) => InviteSignInPage(
           token: Uri.decodeComponent(state.pathParameters['token']!),
+          previewApi: inviteLinkApi,
           inviteApi: inviteApi,
           authRefresh: authRefresh,
           signedIn: () => authRefresh.isSignedIn,
@@ -469,9 +492,5 @@ GoRouter createAppRouter({
 }
 
 String? _signedInUserId() {
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
+  return readAuthUserId();
 }

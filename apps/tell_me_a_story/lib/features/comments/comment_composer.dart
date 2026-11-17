@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/comments_api.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Inline short comment field + Post. Empty/whitespace Post is a no-op.
 class CommentComposer extends StatefulWidget {
   const CommentComposer({
@@ -63,8 +65,10 @@ class _CommentComposerState extends State<CommentComposer> {
       await widget.onPost(body);
       if (!mounted) return;
       _controller.clear();
-    } catch (_) {
-      // Caller shows SnackBar; keep text.
+    } on PostgrestException catch (error) {
+      rethrow;
+    } on FunctionException catch (error) {
+      rethrow;
     } finally {
       if (mounted) setState(() => _busy = false);
     }

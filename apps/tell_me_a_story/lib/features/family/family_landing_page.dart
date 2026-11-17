@@ -23,6 +23,8 @@ import '../stories/story_date.dart';
 import 'family_role.dart';
 import 'start_timeline_host.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Default home for a live family. Hero, then the Latest shelf.
 class FamilyLandingPage extends StatefulWidget {
   const FamilyLandingPage({
@@ -102,7 +104,19 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       }
       memberIds = rows.map((row) => row.id).toSet();
       FamilyMembership.remember(memberIds);
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    } on FunctionException catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    } on AuthException catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    } on StorageException catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -123,7 +137,13 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         } else {
           tree = await FamiliesApi().listFamilyTree(familyId);
         }
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        tree = const [];
+      } on FunctionException catch (_) {
+        tree = const [];
+      } on AuthException catch (_) {
+        tree = const [];
+      } on StorageException catch (_) {
         tree = const [];
       }
     }
@@ -132,7 +152,13 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     if (familyId != null) {
       try {
         latest = latestShelf(await _fetchLatest(familyId), now: _now);
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        latest = const [];
+      } on FunctionException catch (_) {
+        latest = const [];
+      } on AuthException catch (_) {
+        latest = const [];
+      } on StorageException catch (_) {
         latest = const [];
       }
     }
@@ -179,7 +205,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         return await (families as FamilyCoverClient).download(path);
       }
       if (families == null) return await FamilyCoversApi().download(path);
-    } catch (_) {
+    } on StorageException catch (_) {
       return null;
     }
     return null;
@@ -214,7 +240,19 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     try {
       final api = widget.storiesApi ?? StoriesApi();
       stories = await api.listPublished(family.id);
-    } catch (error) {
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      _snack(mapRpcError(error) ?? 'Try again');
+      return;
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      _snack(mapRpcError(error) ?? 'Try again');
+      return;
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      _snack(mapRpcError(error) ?? 'Try again');
+      return;
+    } on StorageException catch (error) {
       if (!mounted) return;
       _snack(mapRpcError(error) ?? 'Try again');
       return;
@@ -271,13 +309,18 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       if (!mounted) return;
       setState(() => _loading = true);
       await _load();
-    } catch (error) {
+    } on CoverPhotoException catch (error) {
+      if (!mounted) return;
+      _snack(error.message);
+    } on PostgrestException catch (error) {
       if (!mounted) return;
       _snack(
-        error is CoverPhotoException
-            ? error.message
-            : mapRpcError(error) ??
-                  'Couldn’t save the family photo. Try again.',
+        mapRpcError(error) ?? 'Couldn’t save the family photo. Try again.',
+      );
+    } on StorageException catch (error) {
+      if (!mounted) return;
+      _snack(
+        mapRpcError(error) ?? 'Couldn’t save the family photo. Try again.',
       );
     }
   }

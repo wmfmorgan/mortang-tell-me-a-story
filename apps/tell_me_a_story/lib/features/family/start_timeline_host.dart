@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
@@ -12,11 +13,7 @@ import 'start_timeline_dialog.dart';
 /// Signed-in user id, or [override] when a host already has one.
 String? signedInUserId({String? override}) {
   if (override != null) return override;
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
+  return readAuthUserId();
 }
 
 /// Branch dialog shared by signed-in hosts. The caller reloads and snacks.

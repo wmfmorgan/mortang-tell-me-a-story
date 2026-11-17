@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
@@ -79,7 +80,16 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
         _sessionFamilyId = session ?? FamilySelection.id;
         _loading = false;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on StorageException catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
@@ -128,11 +138,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
   }
 
   String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   Future<void> _startTimeline() async {

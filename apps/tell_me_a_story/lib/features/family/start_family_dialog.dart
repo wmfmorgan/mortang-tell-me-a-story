@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/manage_families_api.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Stitch `78ba55e6adf1449685fe9dadcc1ccdfc`. Returns the new family id.
 Future<String?> showStartFamilyDialog(
   BuildContext context, {
@@ -67,7 +69,25 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
         _busy = false;
         _error = e.message;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Couldn\'t create the family. Try again.';
+      });
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Couldn\'t create the family. Try again.';
+      });
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Couldn\'t create the family. Try again.';
+      });
+    } on StorageException catch (_) {
       if (!mounted) return;
       setState(() {
         _busy = false;

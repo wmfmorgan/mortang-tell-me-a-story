@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
@@ -199,11 +200,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   String? get _currentUserId {
     if (widget.currentUserId != null) return widget.currentUserId;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   StoriesGateway get _stories =>
@@ -355,10 +352,26 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         ];
       });
       await _reloadPerspectives();
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on StorageException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       _confirming = false;
     }
@@ -369,10 +382,16 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       final rows = await _perspectivesApi.listForStory(widget.storyId);
       if (!mounted) return;
       setState(() => _perspectives = rows);
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     }
   }
 
@@ -404,12 +423,24 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           canWrite = memberOfStoryFamily;
           try {
             tree = await widget.familiesApi!.listFamilyTree(story.familyId);
-          } catch (_) {
+          } on PostgrestException catch (_) {
+            tree = const [];
+          } on FunctionException catch (_) {
+            tree = const [];
+          } on AuthException catch (_) {
+            tree = const [];
+          } on StorageException catch (_) {
             tree = const [];
           }
           try {
             stewarded = await widget.familiesApi!.listStewarded();
-          } catch (_) {
+          } on PostgrestException catch (_) {
+            stewarded = const [];
+          } on FunctionException catch (_) {
+            stewarded = const [];
+          } on AuthException catch (_) {
+            stewarded = const [];
+          } on StorageException catch (_) {
             stewarded = const [];
           }
           if (!canWrite) {
@@ -421,7 +452,16 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   mineIds.contains(row.id),
             );
           }
-        } catch (_) {
+        } on PostgrestException catch (_) {
+          canWrite = false;
+          memberOfStoryFamily = false;
+        } on FunctionException catch (_) {
+          canWrite = false;
+          memberOfStoryFamily = false;
+        } on AuthException catch (_) {
+          canWrite = false;
+          memberOfStoryFamily = false;
+        } on StorageException catch (_) {
           canWrite = false;
           memberOfStoryFamily = false;
         }
@@ -431,7 +471,13 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       try {
         final all = await _people.listTreePeople(story.familyId);
         people = all.where((p) => story.personIds.contains(p.id)).toList();
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        loadError = true;
+      } on FunctionException catch (_) {
+        loadError = true;
+      } on AuthException catch (_) {
+        loadError = true;
+      } on StorageException catch (_) {
         loadError = true;
       }
 
@@ -440,7 +486,13 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (placeId != null && placeId.isNotEmpty) {
         try {
           place = await _places.getPlace(placeId);
-        } catch (_) {
+        } on PostgrestException catch (_) {
+          loadError = true;
+        } on FunctionException catch (_) {
+          loadError = true;
+        } on AuthException catch (_) {
+          loadError = true;
+        } on StorageException catch (_) {
           loadError = true;
         }
       }
@@ -454,25 +506,31 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             previews[photo.id] = await _photosApi.downloadBytes(
               photo.effectiveStoragePath,
             );
-          } catch (_) {
+          } on StorageException catch (_) {
             // Missing bytes fall back to PhotoStrip placeholder icon.
           }
         }
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        loadError = true;
+      } on FunctionException catch (_) {
         loadError = true;
       }
 
       List<Comment> comments = const [];
       try {
         comments = await _commentsApi.listForStory(story.id);
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        loadError = true;
+      } on FunctionException catch (_) {
         loadError = true;
       }
 
       List<Perspective> perspectives = const [];
       try {
         perspectives = await _perspectivesApi.listForStory(story.id);
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        loadError = true;
+      } on FunctionException catch (_) {
         loadError = true;
       }
 
@@ -481,7 +539,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (avatarPath != null) {
         try {
           authorBytes = await _profile.downloadAvatar(avatarPath);
-        } catch (_) {
+        } on AuthException catch (_) {
           authorBytes = null;
         }
       }
@@ -506,18 +564,39 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _notFound = false;
       });
       if (loadError) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Try again')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Try again'),
+            action: SnackBarAction(label: 'Retry', onPressed: _load),
+          ),
+        );
       }
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _notFound = false;
         _story = null;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mapRpcError(error) ?? 'Try again'),
+          action: SnackBarAction(label: 'Retry', onPressed: _load),
+        ),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _notFound = false;
+        _story = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mapRpcError(error) ?? 'Try again'),
+          action: SnackBarAction(label: 'Retry', onPressed: _load),
+        ),
+      );
     }
   }
 
@@ -652,7 +731,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   ) async {
     try {
       return await read();
-    } on Exception catch (error) {
+    } on PostgrestException catch (error) {
+      remember(error);
+      return null;
+    } on FunctionException catch (error) {
       remember(error);
       return null;
     }
@@ -701,9 +783,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       } else {
         context.go(AppRoutes.timeline);
       }
-    } catch (error) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      final message = error is OriginRpcException ? error.message : 'Try again';
+      final message = error is OriginRpcException
+          ? error.message
+          : (mapRpcError(error) ?? 'Try again');
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     }
@@ -739,10 +823,26 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       } else {
         context.go(AppRoutes.timeline);
       }
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on StorageException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       _confirming = false;
     }
@@ -781,10 +881,29 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _comments = [..._comments, created];
         _composingComment = false;
       });
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      rethrow;
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      rethrow;
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      rethrow;
+    } on StorageException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
       rethrow;
     }
   }
@@ -843,7 +962,16 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _photoError = false;
         _pendingPhotoBytes = null;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      setState(() => _photoError = true);
+    } on StorageException catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     }
@@ -859,10 +987,26 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _photos = _photos.where((p) => p.id != photo.id).toList();
         _previews = Map.of(_previews)..remove(photo.id);
       });
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on StorageException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -901,10 +1045,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         ];
         _editingCommentId = null;
       });
-    } catch (_) {
+    } on AuthException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
       rethrow;
     }
   }
@@ -917,10 +1062,26 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _comments = _comments.where((c) => c.id != row.id).toList();
         if (_editingCommentId == row.id) _editingCommentId = null;
       });
-    } catch (_) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on StorageException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     }
   }
 
@@ -1039,6 +1200,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                       (_canEditStory ||
                           (_canWrite && photo.uploaderId == _currentUserId)),
                   onRetry: _onRetryPhoto,
+                  retryLabel: 'Retry',
                   uploadFailed: _photoError,
                   canAdd: canAddPhoto,
                   columns: columns,

@@ -23,6 +23,13 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+class _StubInviteLinkApi implements InviteLinkGateway {
+  @override
+  Future<InvitePreview> validateInviteToken(String token) async {
+    return const InvitePreview(valid: true, familyName: 'Family');
+  }
+}
+
 class _StubInviteApi implements InviteGateway {
   @override
   Future<AcceptInviteResult> acceptInvite({required String token}) async {
@@ -184,8 +191,13 @@ class _StubStoriesApi implements StoriesGateway {
   }
 
   @override
-  Future<Story> getStory(String storyId) {
-    throw UnimplementedError();
+  Future<Story> getStory(String storyId) async {
+    return Story(
+      id: storyId,
+      familyId: 'family-1',
+      authorId: 'author',
+      status: StoryStatus.draft,
+    );
   }
 
   @override
@@ -296,6 +308,7 @@ GoRouter _router({required AuthRefresh auth}) {
     photosApi: _StubPhotosApi(),
     commentsApi: _StubCommentsApi(),
     perspectivesApi: _StubPerspectivesApi(),
+    familiesApi: _MemberOf(['family-1']),
   );
 }
 
@@ -332,6 +345,9 @@ void main() {
     final router = createAppRouter(
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
+      familiesApi: _MemberOf(['family-1']),
+      storiesApi: _StubStoriesApi(),
+      photosApi: _StubPhotosApi(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -354,6 +370,9 @@ void main() {
       final router = createAppRouter(
         authRefresh: auth,
         inviteApi: _StubInviteApi(),
+        familiesApi: _MemberOf(['family-1']),
+        storiesApi: _StubStoriesApi(),
+        photosApi: _StubPhotosApi(),
       );
 
       await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -380,6 +399,7 @@ void main() {
     final router = createAppRouter(
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
+      inviteLinkApi: _StubInviteLinkApi(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -401,6 +421,9 @@ void main() {
     final router = createAppRouter(
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
+      familiesApi: _MemberOf(['family-1']),
+      storiesApi: _StubStoriesApi(),
+      photosApi: _StubPhotosApi(),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),
@@ -435,6 +458,8 @@ void main() {
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
       familiesApi: _MemberOf(['ada']),
+      storiesApi: _StubStoriesApi(),
+      photosApi: _StubPhotosApi(),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),
@@ -490,6 +515,8 @@ void main() {
       authRefresh: auth,
       inviteApi: _StubInviteApi(),
       familiesApi: _MemberOf(['family-1']),
+      storiesApi: _StubStoriesApi(),
+      photosApi: _StubPhotosApi(),
       peopleApi: _StubPeopleApi(),
       placesApi: _StubPlacesApi(),
       mapboxSearch: _StubMapboxSearch(),

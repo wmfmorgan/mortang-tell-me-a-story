@@ -254,7 +254,7 @@ class PhotosApi implements PhotosGateway {
     );
     try {
       await _upload(path, compressed);
-    } catch (e) {
+    } on StorageException catch (e) {
       throw StorageFailedException(code: 'STORAGE_FAILED', cause: e);
     }
     final payload = <String, dynamic>{
@@ -268,7 +268,7 @@ class PhotosApi implements PhotosGateway {
     try {
       final row = await _insert(payload);
       return Photo.fromJson(row);
-    } catch (e) {
+    } on PostgrestException catch (e) {
       await _remove([path]);
       rethrow;
     }

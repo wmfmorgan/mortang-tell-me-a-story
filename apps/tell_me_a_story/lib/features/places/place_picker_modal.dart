@@ -9,6 +9,8 @@ import '../../data/mapbox_search.dart';
 import '../../data/places_api.dart';
 import 'place_map.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Locked Mapbox failure copy (chrome lock).
 const placeMapFailureCopy =
     'Couldn’t load the map. Check your connection and try again.';
@@ -110,7 +112,25 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _favorites = favorites;
         _recents = recents;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _favorites = const [];
+        _recents = const [];
+      });
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _favorites = const [];
+        _recents = const [];
+      });
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _favorites = const [];
+        _recents = const [];
+      });
+    } on StorageException catch (_) {
       if (!mounted) return;
       setState(() {
         _favorites = const [];
@@ -151,7 +171,28 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _searching = false;
         if (hits.isNotEmpty) _tab = _PlaceTab.search;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hits = const [];
+        _searching = false;
+        _mapFailed = true;
+      });
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hits = const [];
+        _searching = false;
+        _mapFailed = true;
+      });
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hits = const [];
+        _searching = false;
+        _mapFailed = true;
+      });
+    } on StorageException catch (_) {
       if (!mounted) return;
       setState(() {
         _hits = const [];
@@ -184,7 +225,25 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _busy = false;
       });
       return;
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update place. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update place. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update place. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on StorageException catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t update place. Try again.')),
@@ -220,7 +279,25 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _busy = false;
         _hits = const [];
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save place. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save place. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save place. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on StorageException catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save place. Try again.')),
@@ -250,7 +327,25 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _busy = false;
       });
       await _loadLists();
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update favorite. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update favorite. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update favorite. Try again.')),
+      );
+      setState(() => _busy = false);
+    } on StorageException catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t update favorite. Try again.')),

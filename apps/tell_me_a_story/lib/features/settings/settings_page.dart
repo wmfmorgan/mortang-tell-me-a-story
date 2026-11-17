@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/navigation/unsaved_guard.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
@@ -159,7 +160,28 @@ class _SettingsPageState extends State<SettingsPage> {
         email: profile?.email,
         avatarBytes: bytes,
       );
-    } on Object catch (error) {
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadErrorMessage = mapRpcError(error) ?? _profileLoadFailureCopy;
+      });
+      return;
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadErrorMessage = mapRpcError(error) ?? _profileLoadFailureCopy;
+      });
+      return;
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadErrorMessage = mapRpcError(error) ?? _profileLoadFailureCopy;
+      });
+      return;
+    } on StorageException catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -193,7 +215,19 @@ class _SettingsPageState extends State<SettingsPage> {
         stewarded = await live.listStewarded();
         memberIds = rows.map((row) => row.id).toSet();
       }
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    } on FunctionException catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    } on AuthException catch (_) {
+      rows = const [];
+      stewarded = const [];
+      memberIds = {};
+    } on StorageException catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -212,11 +246,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   Future<void> _startTimeline() async {
@@ -378,7 +408,46 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return true;
       setState(() {});
       return true;
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return false;
+      if (!nameSaved) {
+        ProfileSession.instance.apply(
+          displayName: _displayName,
+          email: _storedEmail,
+          avatarBytes: _savedBytes,
+        );
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save your profile. Try again.')),
+      );
+      return false;
+    } on FunctionException catch (_) {
+      if (!mounted) return false;
+      if (!nameSaved) {
+        ProfileSession.instance.apply(
+          displayName: _displayName,
+          email: _storedEmail,
+          avatarBytes: _savedBytes,
+        );
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save your profile. Try again.')),
+      );
+      return false;
+    } on AuthException catch (_) {
+      if (!mounted) return false;
+      if (!nameSaved) {
+        ProfileSession.instance.apply(
+          displayName: _displayName,
+          email: _storedEmail,
+          avatarBytes: _savedBytes,
+        );
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t save your profile. Try again.')),
+      );
+      return false;
+    } on StorageException catch (_) {
       if (!mounted) return false;
       if (!nameSaved) {
         ProfileSession.instance.apply(

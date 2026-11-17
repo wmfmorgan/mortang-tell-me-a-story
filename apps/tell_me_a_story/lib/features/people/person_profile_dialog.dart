@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
@@ -77,11 +78,7 @@ Future<void> showPersonProfile(
 }
 
 String? _sessionUserId() {
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
+  return readAuthUserId();
 }
 
 class PersonProfileDialog extends StatefulWidget {
@@ -129,7 +126,13 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
       if (profile == null) missing = true;
     } on PersonProfileNotFound {
       missing = true;
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      missing = true;
+    } on FunctionException catch (_) {
+      missing = true;
+    } on AuthException catch (_) {
+      missing = true;
+    } on StorageException catch (_) {
       missing = true;
     }
     Person? editor;
@@ -138,7 +141,13 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (profile != null && !missing) {
       try {
         editor = await widget.people.personForEdit(widget.personId);
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        editor = null;
+      } on FunctionException catch (_) {
+        editor = null;
+      } on AuthException catch (_) {
+        editor = null;
+      } on StorageException catch (_) {
         editor = null;
       }
       try {
@@ -146,13 +155,25 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
           personId: widget.personId,
           path: profile.avatarPath,
         );
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        pictureUrl = null;
+      } on FunctionException catch (_) {
+        pictureUrl = null;
+      } on AuthException catch (_) {
+        pictureUrl = null;
+      } on StorageException catch (_) {
         pictureUrl = null;
       }
       try {
         final load = widget.loadStories ?? _defaultPersonStories;
         stories = await load(widget.personId);
-      } catch (_) {
+      } on PostgrestException catch (_) {
+        stories = const [];
+      } on FunctionException catch (_) {
+        stories = const [];
+      } on AuthException catch (_) {
+        stories = const [];
+      } on StorageException catch (_) {
         stories = const [];
       }
     }
@@ -224,7 +245,25 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (yes != true || !mounted) return;
     try {
       await widget.people.markPassedAway(personId: profile.id, value: mark);
-    } catch (error) {
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      return;
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      return;
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      return;
+    } on StorageException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
@@ -605,7 +644,13 @@ String _lifeLine(PersonProfile profile) {
 Future<List<PersonStoryCard>> _defaultPersonStories(String personId) async {
   try {
     return await StoriesApi().storiesForPerson(personId);
-  } catch (_) {
+  } on PostgrestException catch (_) {
+    return const [];
+  } on FunctionException catch (_) {
+    return const [];
+  } on AuthException catch (_) {
+    return const [];
+  } on StorageException catch (_) {
     return const [];
   }
 }

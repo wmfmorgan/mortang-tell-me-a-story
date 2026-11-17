@@ -1744,11 +1744,11 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
     expect(find.byKey(const Key('photo-thumb')), findsNothing);
 
     photos.failUpload = false;
-    final retry = find.text('Try again');
+    final retry = find.text('Retry');
     await tester.ensureVisible(retry);
     await tester.tap(retry);
     await tester.pumpAndSettle();

@@ -76,7 +76,7 @@ class _LeaveStoryDialogState extends State<_LeaveStoryDialog> {
     var ok = false;
     try {
       ok = await widget.save();
-    } catch (error, stack) {
+    } on Exception catch (error, stack) {
       FlutterError.reportError(
         FlutterErrorDetails(exception: error, stack: stack),
       );

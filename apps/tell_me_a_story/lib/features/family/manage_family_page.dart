@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/navigation/unsaved_guard.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
@@ -148,7 +149,16 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
         _loading = false;
         _missing = false;
       });
-    } catch (_) {
+    } on PostgrestException catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on FunctionException catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on StorageException catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
@@ -165,12 +175,10 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
 
   String? _sessionUserId() {
     final injected = widget.currentUserId;
+
     if (injected != null) return injected;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+
+    return readAuthUserId();
   }
 
   Future<void> _startTimeline() async {
