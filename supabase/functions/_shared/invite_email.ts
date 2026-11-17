@@ -47,11 +47,7 @@ export async function sendInviteEmail(
         html,
       }),
     });
-    if (!res.ok) {
-      const detail = await res.text();
-      console.error("invite email provider failed", detail);
-      return errorResponse("VALIDATION", emailSendFailedMessage, 502);
-    }
+    if (!res.ok) return providerFailure(res);
     return null;
   }
 
@@ -67,11 +63,7 @@ export async function sendInviteEmail(
         HTML: html,
       }),
     });
-    if (!res.ok) {
-      const detail = await res.text();
-      console.error("invite email provider failed", detail);
-      return errorResponse("VALIDATION", emailSendFailedMessage, 502);
-    }
+    if (!res.ok) return providerFailure(res);
   } catch (error) {
     console.error("invite email provider failed", error);
     return errorResponse("VALIDATION", emailSendFailedMessage, 502);
@@ -81,6 +73,19 @@ export async function sendInviteEmail(
 
 export function emailNotConfiguredResponse(): Response {
   return errorResponse("VALIDATION", emailNotConfiguredMessage, 503);
+}
+
+async function providerFailure(res: Response): Promise<Response> {
+  const detail = await res.text();
+  console.error("invite email provider failed", detail);
+  const rejected = res.status === 422 ||
+    (res.status >= 400 && res.status < 500 &&
+      detail.includes("validation_error"));
+  return errorResponse(
+    "VALIDATION",
+    emailSendFailedMessage,
+    rejected ? 400 : 502,
+  );
 }
 
 function resendKey(): string {

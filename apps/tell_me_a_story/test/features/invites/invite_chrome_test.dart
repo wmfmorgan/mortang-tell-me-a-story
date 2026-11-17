@@ -126,6 +126,25 @@ void main() {
     expect(find.byType(InviteModal), findsNothing);
   });
 
+  testWidgets(
+    'a name in the email field shows an inline error and creates nothing',
+    (tester) async {
+      final api = _StubInviteApi();
+      await _open(tester, api);
+      await tester.enterText(
+        find.byKey(const Key('invite-email')),
+        '  joe blow  ',
+      );
+      await tester.tap(find.byKey(const Key('invite-send')));
+      await tester.pump();
+
+      expect(find.text('Please enter a full email address.'), findsOneWidget);
+      expect(api.creates, 0);
+      expect(api.emails, isEmpty);
+      expect(find.byType(InviteModal), findsOneWidget);
+    },
+  );
+
   testWidgets('text invite is a placeholder and does not create an invite', (
     tester,
   ) async {

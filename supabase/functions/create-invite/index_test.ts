@@ -53,6 +53,42 @@ function dbWith(opts: {
   };
 }
 
+Deno.test("a malformed email is validation and is not stored", async () => {
+  let inserted = false;
+  const res = await createInvite(
+    post({ family_id: familyId, email: "joe blow" }),
+    {
+      db: dbWith({
+        onInsert: () => {
+          inserted = true;
+        },
+      }),
+    },
+  );
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), {
+    code: "VALIDATION",
+    message: "Please enter a full email address.",
+  });
+  assertEquals(inserted, false);
+});
+
+Deno.test("a blank email still creates a link invite", async () => {
+  let stored: string | null = "unset";
+  const res = await createInvite(
+    post({ family_id: familyId, email: "   " }),
+    {
+      db: dbWith({
+        onInsert: (_person, email) => {
+          stored = email;
+        },
+      }),
+    },
+  );
+  assertEquals(res.status, 201);
+  assertEquals(stored, null);
+});
+
 Deno.test("absent person_id still returns 201", async () => {
   let asserted = false;
   let inserted: string | null = "unset";
