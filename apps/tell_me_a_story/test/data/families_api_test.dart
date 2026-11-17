@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/photos_api.dart';
+import 'package:tell_me_a_story/data/unexpected_payload_exception.dart';
 
 void main() {
   test('listStewarded with no signed-in user throws NotSignedInException', () {
@@ -57,9 +60,48 @@ void main() {
     expect(families.single.originStoryId, 'story-1');
   });
 
-  test('listFamilyTree returns none when the rpc is not a list', () async {
-    final families = await _api({'id': 'parent'}).listFamilyTree('parent');
+  test('listFamilyTree keeps an empty list empty', () async {
+    final families = await _api(<Object?>[]).listFamilyTree('parent');
     expect(families, isEmpty);
+  });
+
+  test('listFamilyTree throws when the rpc is not a list', () async {
+    await expectLater(
+      _api({'id': 'parent'}).listFamilyTree('parent'),
+      throwsA(
+        isA<UnexpectedPayloadException>().having(
+          (error) => error.rpc,
+          'rpc',
+          'list_family_tree',
+        ),
+      ),
+    );
+  });
+
+  test('a missing member avatar is null and a database error throws', () async {
+    final missing = await readStorageOrNull<Uint8List>(
+      Future.error(const StorageException('missing', statusCode: '404')),
+    );
+    expect(missing, isNull);
+    await expectLater(
+      readStorageOrNull<Uint8List>(
+        Future.error(const PostgrestException(message: 'no bytes')),
+      ),
+      throwsA(isA<PostgrestException>()),
+    );
+  });
+
+  test('listOriginDependents throws when the rpc is not a list', () async {
+    await expectLater(
+      _api({'id': 'story'}).listOriginDependents('story'),
+      throwsA(
+        isA<UnexpectedPayloadException>().having(
+          (error) => error.rpc,
+          'rpc',
+          'list_origin_dependents',
+        ),
+      ),
+    );
   });
 }
 

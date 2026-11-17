@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 
+import '../support/json_http_client.dart';
+
 void main() {
   test('storedStoryTitle trims and clears blank titles', () {
     expect(storedStoryTitle(null), isNull);
@@ -134,7 +136,16 @@ void main() {
       authorId: 'u1',
       status: StoryStatus.draft,
     );
-    expect(() => undated.publishedStart, throwsA(isA<StateError>()));
+    expect(
+      () => undated.publishedStart,
+      throwsA(
+        isA<MissingPublishedStartException>().having(
+          (error) => error.storyId,
+          'storyId',
+          'undated',
+        ),
+      ),
+    );
   });
 
   test('lib does not force a story start date with timeframeStart!', () {
@@ -278,6 +289,41 @@ void main() {
 
     expect(story.photoPaths, ['f1/s1/a.jpg']);
   });
+
+  test('publish throws VALIDATION when the draft is not ready', () async {
+    final api = StoriesApi(
+      client: SupabaseClient(
+        'http://localhost',
+        'test-anon-key',
+        httpClient: JsonHttpClient({
+          'id': 's1',
+          'family_id': 'f1',
+          'author_id': 'u1',
+          'status': 'draft',
+        }),
+      ),
+    );
+    await expectLater(
+      api.publish('s1'),
+      throwsA(isA<StoryValidationException>()),
+    );
+  });
+
+  test(
+    'a missing story thumbnail is null and a database error throws',
+    () async {
+      final missing = await readStorageOrNull<String>(
+        Future.error(const StorageException('missing', statusCode: '404')),
+      );
+      expect(missing, isNull);
+      await expectLater(
+        readStorageOrNull<String>(
+          Future.error(const PostgrestException(message: 'no url')),
+        ),
+        throwsA(isA<PostgrestException>()),
+      );
+    },
+  );
 
   test('downloadFirstThumbs requests each effective path once', () async {
     final requested = <String>[];

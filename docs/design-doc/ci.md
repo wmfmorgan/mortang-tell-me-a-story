@@ -13,7 +13,7 @@ One file, `.github/workflows/ci.yml`, four jobs, no secrets. The jobs are `flutt
 | `e2e` | repo root, drive step in `apps/tell_me_a_story` | `bash e2e/check_flows.sh` → `supabase start` with the workflow's `-x` exclusions → `flutter drive` on `integration_test/e2e_test.dart` |
 
 - `flutter analyze` is the lint and the typecheck for Dart. `flutter test` is the unit tests. `dart format` runs after pub get because the formatter's style follows the package language version.
-- `deno test` type-checks only the modules its tests load. `deno check` covers every `index.ts` and all of `_shared`. The Deno tests use injected fake DBs and need only `--allow-env`.
+- `deno test` type-checks only the modules its tests load. `deno check` covers every `index.ts` and all of `_shared`. The Deno tests use injected fake DBs and need `--allow-env` and `--allow-read=supabase/functions`.
 - `pgtap` starts only the local database container (with the auth, storage and realtime schemas `config.toml` enables), applies every migration to an empty database, then runs `supabase/tests`. Not bare Postgres: the migrations depend on Supabase's `auth`, `storage`, roles, `extensions` schema and realtime publication.
 - Prod isolation: the job has no secrets, so the CLI has no token and cannot reach the hosted project. No `link`, `--linked`, `--db-url`, `db push`, `db reset`, `db pull` or `migration` commands in CI, ever.
 - 🚫 Not in CI: `deno lint` (never gated, no baseline), a full `supabase start` with no `-x` exclusions, `flutter build`, coverage, caching beyond what the setup actions do by default. The `e2e` job is in this file. It is the only job that runs `supabase start` and `flutter drive`, and only against local Supabase (Exception E2E).

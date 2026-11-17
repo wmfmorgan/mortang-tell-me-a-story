@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'family_covers.dart';
+import 'photos_api.dart';
 import 'recovery_window.dart';
 import 'rpc_error.dart';
+import 'unexpected_payload_exception.dart';
 
 /// A family the signed-in member can already read.
 class MemberFamily {
@@ -383,11 +385,7 @@ class FamiliesApi
   }
 
   @override
-  Future<List<MemberFamily>> listMine() {
-    return _listMine();
-  }
-
-  Future<List<MemberFamily>> _listMine() async {
+  Future<List<MemberFamily>> listMine() async {
     final uid = _requireUserId();
     final rows = await _client
         .from('memberships')
@@ -419,7 +417,9 @@ class FamiliesApi
     final rows = familyTreeRows(
       await _client.rpc('list_family_tree', params: {'fid': familyId}),
     );
-    if (rows == null) return const [];
+    if (rows == null) {
+      throw const UnexpectedPayloadException('list_family_tree');
+    }
     return [for (final row in rows) TreeFamily.fromJson(row)];
   }
 
@@ -453,7 +453,9 @@ class FamiliesApi
       if (mapped != null) throw mapped;
       rethrow;
     }
-    if (rows is! List) return const [];
+    if (rows is! List) {
+      throw const UnexpectedPayloadException('list_origin_dependents');
+    }
     final dependents = <OriginDependent>[];
     for (final row in rows) {
       final map = row is Map<String, dynamic>
@@ -544,14 +546,11 @@ class FamiliesApi
         displayName = profile['display_name'] as String?;
         avatarPath = profile['avatar_path'] as String?;
       }
-      Uint8List? bytes;
-      if (avatarPath != null && avatarPath.isNotEmpty) {
-        try {
-          bytes = await _client.storage.from('avatars').download(avatarPath);
-        } on Exception catch (_) {
-          bytes = null;
-        }
-      }
+      final bytes = avatarPath == null || avatarPath.isEmpty
+          ? null
+          : await readStorageOrNull(
+              _client.storage.from('avatars').download(avatarPath),
+            );
       people.add(
         FamilyPerson(
           userId: userId,

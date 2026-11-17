@@ -73,7 +73,7 @@ void main() {
         bytes: Uint8List(0),
         sortOrder: 20,
       ),
-      throwsA(isA<StateError>()),
+      throwsA(isA<PhotoCapException>()),
     );
   });
 
@@ -96,12 +96,7 @@ void main() {
 
   test('ensurePhotoCap throws PHOTO_CAP at 20', () {
     expect(() => ensurePhotoCap(19), returnsNormally);
-    expect(
-      () => ensurePhotoCap(20),
-      throwsA(
-        isA<StateError>().having((e) => e.message, 'message', 'PHOTO_CAP'),
-      ),
-    );
+    expect(() => ensurePhotoCap(20), throwsA(isA<PhotoCapException>()));
   });
 
   test(
@@ -495,20 +490,14 @@ void main() {
     );
   });
 
-  test('any exception is null and an Error still throws', () async {
-    final failed = await downloadStoryPhotoBytes(
-      _ThrowingPhotos(const PostgrestException(message: 'no bytes')),
-      'fam/story/a.jpg',
-      failure: StoryPhotoFailure.any,
-    );
-    expect(failed, isNull);
+  test('a non-storage failure is not turned into a missing photo', () async {
     await expectLater(
       downloadStoryPhotoBytes(
-        _ThrowingPhotos(StateError('bug')),
+        _ThrowingPhotos(const PostgrestException(message: 'no bytes')),
         'fam/story/a.jpg',
-        failure: StoryPhotoFailure.any,
+        failure: StoryPhotoFailure.storageOrTransport,
       ),
-      throwsA(isA<StateError>()),
+      throwsA(isA<PostgrestException>()),
     );
   });
 }

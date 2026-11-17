@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 
 void main() {
@@ -34,6 +35,24 @@ void main() {
 
     ProfileSession.instance.bindUser('user-a');
 
+    expect(ProfileSession.instance.displayName, 'Ada');
+  });
+
+  test('a failed profile load is recorded and can load again', () async {
+    ProfileSession.loadOwn = () async {
+      throw Exception('profile down');
+    };
+
+    await ProfileSession.instance.ensureLoaded();
+
+    expect(ProfileSession.instance.loadFailed, isTrue);
+    expect(ProfileSession.instance.displayName, isNull);
+    expect(ProfileSession.instance.avatarBytes, isNull);
+
+    ProfileSession.loadOwn = () async =>
+        OwnProfile(id: 'user-a', displayName: 'Ada', email: 'ada@example.com');
+    await ProfileSession.instance.ensureLoaded();
+    expect(ProfileSession.instance.loadFailed, isFalse);
     expect(ProfileSession.instance.displayName, 'Ada');
   });
 

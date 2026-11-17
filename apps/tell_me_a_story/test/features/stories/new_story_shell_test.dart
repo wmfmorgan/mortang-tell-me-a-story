@@ -637,6 +637,20 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
   });
 
+  testWidgets('autosave with no family shows Not saved', (tester) async {
+    final invite = _FakeInviteApi(familyId: null);
+    final stories = _AutosaveStories();
+    await tester.pumpWidget(_shell(invite: invite, stories: stories));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
+    await tester.pump(kAutosavePause);
+    await tester.pump();
+
+    expect(find.text('Not saved'), findsOneWidget);
+    expect(stories.createIds, isEmpty);
+    expect(invite.createFamilyCalls, 0);
+  });
+
   testWidgets(
     'Save draft and Publish still work, and a missing date blocks publish',
     (tester) async {
