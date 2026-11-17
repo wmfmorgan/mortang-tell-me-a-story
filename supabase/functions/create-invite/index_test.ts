@@ -7,14 +7,26 @@ const familyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const personId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 function post(body: unknown): Request {
+  return rawPost(JSON.stringify(body));
+}
+
+function rawPost(body: string): Request {
   return new Request("http://local/create-invite", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: "Bearer test-token",
     },
-    body: JSON.stringify(body),
+    body,
   });
+}
+
+const invalidJson = { code: "VALIDATION", message: "Invalid JSON body" };
+
+async function expectInvalidJson(body: string): Promise<void> {
+  const res = await createInvite(rawPost(body));
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), invalidJson);
 }
 
 function dbWith(opts: {
@@ -153,6 +165,15 @@ Deno.test("a raw database insert error stays generic", async () => {
   assertEquals(json.code, "VALIDATION");
   assertEquals(json.message, "Could not create invite");
   assertEquals(JSON.stringify(json).includes("duplicate key"), false);
+});
+
+Deno.test("create-invite rejects an empty body", () => expectInvalidJson(""));
+
+Deno.test("create-invite rejects invalid JSON", () => expectInvalidJson("{"));
+
+Deno.test("create-invite rejects a non-object body", async () => {
+  await expectInvalidJson("[1]");
+  await expectInvalidJson("\"hi\"");
 });
 
 Deno.test("mapRpcError still has the four prefixes", () => {

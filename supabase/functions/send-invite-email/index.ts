@@ -1,8 +1,9 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import { sendInviteEmail } from "../_shared/invite_email.ts";
+import { readJsonObject } from "../_shared/json_object.ts";
 import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
-Deno.serve(async (req) => {
+export async function handleSendInviteEmail(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -15,12 +16,9 @@ Deno.serve(async (req) => {
     return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   }
 
-  let body: { invite_id?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return errorResponse("VALIDATION", "Invalid JSON body", 400);
-  }
+  const parsed = await readJsonObject(req);
+  if (parsed instanceof Response) return parsed;
+  const body = parsed as { invite_id?: string };
   const inviteId = body.invite_id?.trim();
   if (!inviteId) {
     return errorResponse("VALIDATION", "invite_id is required", 400);
@@ -77,4 +75,8 @@ Deno.serve(async (req) => {
   });
   if (failed) return failed;
   return jsonResponse({ sent: true });
-});
+}
+
+if (import.meta.main) {
+  Deno.serve(handleSendInviteEmail);
+}

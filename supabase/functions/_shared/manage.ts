@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 import { corsHeaders, errorResponse, jsonResponse } from "./cors.ts";
+import { readJsonObject } from "./json_object.ts";
 import { bearerToken, userClient } from "./supabase.ts";
 
 export type ManageBody = Record<string, unknown>;
@@ -37,16 +38,8 @@ export async function handleManage(
   if (!auth) {
     return errorResponse("AUTH_REQUIRED", "Sign-in required", 401);
   }
-  let body: ManageBody;
-  try {
-    const parsed = await req.json();
-    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return errorResponse("VALIDATION", "Invalid JSON body", 400);
-    }
-    body = parsed as ManageBody;
-  } catch {
-    return errorResponse("VALIDATION", "Invalid JSON body", 400);
-  }
+  const body = await readJsonObject(req);
+  if (body instanceof Response) return body;
 
   const userSb = userClient(auth);
   const {
