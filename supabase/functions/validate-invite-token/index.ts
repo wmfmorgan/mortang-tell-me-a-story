@@ -14,7 +14,7 @@ type StoredInvite = {
 
 export type InviteLookup = (
   token: string,
-) => Promise<{ row: InviteRow | null; error: string | null }>;
+) => Promise<{ row: InviteRow | null; failed: boolean }>;
 
 function embedName(value: unknown): string | null {
   const row = Array.isArray(value) ? value[0] : value;
@@ -58,7 +58,7 @@ function toInviteRow(stored: StoredInvite): InviteRow {
 
 async function liveLookup(token: string): Promise<{
   row: InviteRow | null;
-  error: string | null;
+  failed: boolean;
 }> {
   const { data, error } = await serviceClient()
     .from("invites")
@@ -67,9 +67,9 @@ async function liveLookup(token: string): Promise<{
     )
     .eq("token", token)
     .maybeSingle();
-  if (error) return { row: null, error: LOOKUP_FAILED };
-  if (!data) return { row: null, error: null };
-  return { row: toInviteRow(data as StoredInvite), error: null };
+  if (error) return { row: null, failed: true };
+  if (!data) return { row: null, failed: false };
+  return { row: toInviteRow(data as StoredInvite), failed: false };
 }
 
 export function validateInviteToken(
@@ -93,8 +93,8 @@ async function handleValidateInviteToken(
   const token = new URL(req.url).searchParams.get("token")?.trim() ?? "";
   if (!token) return jsonResponse(tokenRequired());
 
-  const { row, error } = await lookup(token);
-  if (error) return errorResponse("VALIDATION", LOOKUP_FAILED, 400);
+  const { row, failed } = await lookup(token);
+  if (failed) return errorResponse("VALIDATION", LOOKUP_FAILED, 400);
   return jsonResponse(decideInvite(row));
 }
 

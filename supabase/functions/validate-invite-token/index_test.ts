@@ -23,17 +23,16 @@ const live = {
   inviter_name: "Ada",
 };
 
-Deno.test("a database lookup error hides the database text", async () => {
-  const raw = 'relation "invites" does not exist';
+Deno.test("a failed invite lookup returns the fixed validation message", async () => {
   const res = await validateInviteToken(
     new Request("http://local/validate-invite-token?token=abc"),
-    { lookup: () => Promise.resolve({ row: null, error: raw }) },
+    { lookup: () => Promise.resolve({ row: null, failed: true }) },
   );
-  const json = await res.json();
   assertEquals(res.status, 400);
-  assertEquals(json.code, "VALIDATION");
-  assertEquals(json.message, "Could not look up invite");
-  assertEquals(JSON.stringify(json).includes("relation"), false);
+  assertEquals(await res.json(), {
+    code: "VALIDATION",
+    message: "Could not look up invite",
+  });
 });
 
 Deno.test("a live invite returns the inviter name", () => {

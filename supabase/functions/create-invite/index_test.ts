@@ -161,7 +161,7 @@ Deno.test("a raw database insert error stays generic", async () => {
 
 Deno.test("create-invite rejects a non-string family_id", async () => {
   const res = await createInvite(
-    post({ family_id: 12, email: { to: "a@b.co" }, person_id: true }),
+    post({ family_id: 12 }),
     { db: dbWith({}) },
   );
   const json = await res.json();
