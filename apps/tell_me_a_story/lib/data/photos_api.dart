@@ -182,7 +182,7 @@ enum StoryPhotoFailure {
   storageOrTransport,
 }
 
-/// A missing storage object is null. Any other error still throws.
+/// Any storage failure returns null. Any other error still throws.
 Future<T?> readStorageOrNull<T>(Future<T> read) async {
   try {
     return await read;

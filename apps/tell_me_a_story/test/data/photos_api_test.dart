@@ -446,6 +446,23 @@ void main() {
     },
   );
 
+  test('readStorageOrNull returns null for a storage failure', () async {
+    final missing = await readStorageOrNull<Uint8List>(
+      Future.error(const StorageException('missing', statusCode: '404')),
+    );
+    expect(missing, isNull);
+    final failed = await readStorageOrNull<Uint8List>(
+      Future.error(const StorageException('denied', statusCode: '403')),
+    );
+    expect(failed, isNull);
+    await expectLater(
+      readStorageOrNull<Uint8List>(
+        Future.error(const PostgrestException(message: 'no bytes')),
+      ),
+      throwsA(isA<PostgrestException>()),
+    );
+  });
+
   test('downloadStoryPhotoBytes returns the file bytes', () async {
     final bytes = Uint8List.fromList([1, 2, 3]);
     final loaded = await downloadStoryPhotoBytes(

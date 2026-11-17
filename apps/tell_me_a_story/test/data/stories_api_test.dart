@@ -309,22 +309,6 @@ void main() {
     );
   });
 
-  test(
-    'a missing story thumbnail is null and a database error throws',
-    () async {
-      final missing = await readStorageOrNull<String>(
-        Future.error(const StorageException('missing', statusCode: '404')),
-      );
-      expect(missing, isNull);
-      await expectLater(
-        readStorageOrNull<String>(
-          Future.error(const PostgrestException(message: 'no url')),
-        ),
-        throwsA(isA<PostgrestException>()),
-      );
-    },
-  );
-
   test('downloadFirstThumbs requests each effective path once', () async {
     final requested = <String>[];
     final gateway = _RecordingPhotos(
