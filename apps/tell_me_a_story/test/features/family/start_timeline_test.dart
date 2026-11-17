@@ -22,7 +22,7 @@ import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/start_timeline_dialog.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
-import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
+import 'package:tell_me_a_story/features/timeline/callout_layout.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 class _LookupFailure implements Exception {

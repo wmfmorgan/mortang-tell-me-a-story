@@ -22,7 +22,7 @@ import 'far_rail.dart';
 import 'full_card_rail.dart';
 import 'mid_rail.dart';
 import 'origin_banner.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 import 'timeline_zoom.dart';
 
 const _storiesLoadError = "Couldn't load stories.";

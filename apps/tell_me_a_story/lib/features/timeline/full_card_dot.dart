@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 
 class FullCardDot extends StatelessWidget {
   const FullCardDot({super.key, required this.focused, required this.branched});

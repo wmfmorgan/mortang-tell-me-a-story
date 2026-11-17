@@ -7,7 +7,7 @@ import 'days_card_probe.dart';
 import 'days_card_slot.dart';
 import 'full_card.dart';
 import 'full_card_dot.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 
 const _narrowFullDotColumn = 28.0;
 

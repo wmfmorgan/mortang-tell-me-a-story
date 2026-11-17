@@ -5,7 +5,7 @@ import '../../data/stories_api.dart';
 import 'center_on_dot.dart';
 import 'far_dot.dart';
 import 'origin_dot.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 import 'timeline_zoom.dart';
 
 class FarDecadeRow extends StatelessWidget {
