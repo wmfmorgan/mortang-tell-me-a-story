@@ -77,11 +77,6 @@ class StewardFamily {
 /// Owner or co-owner of a family. Other roles are false.
 bool originSteward(String? role) => role == 'owner' || role == 'co_owner';
 
-/// Hosted preview can serve this branch before the cover migration is applied.
-bool familiesCoverColumnMissing(PostgrestException error) {
-  return rpcErrorIs(error, RpcErrorMatch.missingCoverColumn);
-}
-
 /// One live family from `list_family_tree`.
 /// [branchYear] and [originStoryId] are whatever the server returns.
 class TreeFamily {
@@ -160,13 +155,22 @@ class OriginRpcException implements Exception {
 
 /// §12 catalog text for an origin RPC failure. Null when [error] is not one.
 OriginRpcException? originRpcException(Object error) {
-  final forbidden = rpcOriginDetail(error, RpcErrorMatch.originForbidden);
-  if (forbidden != null) return OriginRpcException('FORBIDDEN', forbidden);
-  final missing = rpcOriginDetail(error, RpcErrorMatch.originNotFound);
-  if (missing != null) return OriginRpcException('NOT_FOUND', missing);
-  final validation = rpcOriginDetail(error, RpcErrorMatch.originValidation);
-  if (validation != null) return OriginRpcException('VALIDATION', validation);
-  return null;
+  switch (rpcErrorPrefix(error)) {
+    case RpcErrorPrefix.forbidden:
+      return const OriginRpcException(
+        'FORBIDDEN',
+        'You do not have permission to do that.',
+      );
+    case RpcErrorPrefix.notFound:
+      return const OriginRpcException('NOT_FOUND', 'Not found.');
+    case RpcErrorPrefix.validation:
+      final detail = mapRpcError(error);
+      if (detail == null) return null;
+      return OriginRpcException('VALIDATION', detail);
+    case RpcErrorPrefix.inviteInvalid:
+    case null:
+      return null;
+  }
 }
 
 abstract class FamiliesGateway {
@@ -380,17 +384,10 @@ class FamiliesApi
 
   static const _mineSelectWithCover =
       'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)';
-  static const _mineSelectWithoutCover =
-      'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at)';
 
   @override
-  Future<List<MemberFamily>> listMine() async {
-    try {
-      return await _listMine(_mineSelectWithCover);
-    } on PostgrestException catch (error) {
-      if (!familiesCoverColumnMissing(error)) rethrow;
-      return _listMine(_mineSelectWithoutCover);
-    }
+  Future<List<MemberFamily>> listMine() {
+    return _listMine(_mineSelectWithCover);
   }
 
   Future<List<MemberFamily>> _listMine(String select) async {

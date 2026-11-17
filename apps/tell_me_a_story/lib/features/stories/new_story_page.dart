@@ -472,7 +472,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     try {
       await _stories.linkPerson(storyId: storyId, personId: personId);
     } on PostgrestException catch (error) {
-      if (!rpcErrorIs(error, RpcErrorMatch.storyPeopleDuplicate)) {
+      if (!rpcConstraintViolation(error, '23505', 'story_people_pkey')) {
         rethrow;
       }
     }
