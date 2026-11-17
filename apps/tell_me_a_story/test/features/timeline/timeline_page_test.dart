@@ -1442,6 +1442,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('an invite query on the timeline route is accepted', (
+    tester,
+  ) async {
+    addTearDown(FamilySelection.clear);
+    final invites = _RecordingInvite();
+    final router = GoRouter(
+      initialLocation: '${AppRoutes.timeline}?invite=family-token',
+      routes: [
+        GoRoute(
+          path: AppRoutes.timeline,
+          builder: (context, state) => TimelinePage(
+            api: invites,
+            storiesApi: _FakeStoriesApi(published: const []),
+            familiesApi: _FakeFamilies(const []),
+            live: _FakeLive(),
+            photosApi: _FakePhotos(),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.familyLanding,
+          builder: (context, state) => const Text('Family home'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    expect(invites.acceptedToken, 'family-token');
+    expect(find.text('Family home'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('returning to timeline after publish reloads published list', (
     tester,
   ) async {
@@ -5063,6 +5096,16 @@ Finder _branchMarks() {
     return key is ValueKey<String> &&
         key.value.startsWith('timeline-branch-mark-');
   });
+}
+
+class _RecordingInvite extends FakeInviteApi {
+  String? acceptedToken;
+
+  @override
+  Future<AcceptInviteResult> acceptInvite({required String token}) async {
+    acceptedToken = token;
+    return super.acceptInvite(token: token);
+  }
 }
 
 class _FamilyInvite implements InviteGateway {

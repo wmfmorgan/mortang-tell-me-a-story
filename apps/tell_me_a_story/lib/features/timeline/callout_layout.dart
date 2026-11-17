@@ -8,6 +8,7 @@ import '../../data/families_api.dart';
 import '../../data/stories_api.dart';
 import 'timeline_zoom.dart';
 
+/// Callout widgets for this layout live in `callout_widgets.dart`.
 part 'callout_widgets.dart';
 
 const calloutStroke = 2.0;
