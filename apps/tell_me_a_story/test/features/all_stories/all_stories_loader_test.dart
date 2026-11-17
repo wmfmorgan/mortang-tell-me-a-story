@@ -3,6 +3,8 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_loader.dart';
 
+import '../../support/quiet_gateways.dart';
+
 void main() {
   test('L-01 a root origin already in the list skips A3', () async {
     final origin = _story('origin');
@@ -218,7 +220,7 @@ class _Stories implements StoriesGateway {
   }) => Future<void>.error(UnimplementedError());
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   _Families(this.tree, {this.error});
 
   final List<TreeFamily> tree;

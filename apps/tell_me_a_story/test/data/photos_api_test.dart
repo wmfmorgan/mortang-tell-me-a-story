@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' show ClientException;
 import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
@@ -449,6 +450,112 @@ void main() {
       expect(removed, isEmpty);
     },
   );
+
+  test('downloadStoryPhotoBytes returns the file bytes', () async {
+    final bytes = Uint8List.fromList([1, 2, 3]);
+    final loaded = await downloadStoryPhotoBytes(
+      _ThrowingPhotos(bytes),
+      'fam/story/a.jpg',
+      failure: StoryPhotoFailure.storage,
+    );
+    expect(loaded, bytes);
+  });
+
+  test('a missing object is null and a transport error still throws', () async {
+    final missing = await downloadStoryPhotoBytes(
+      _ThrowingPhotos(const StorageException('missing', statusCode: '404')),
+      'fam/story/gone.jpg',
+      failure: StoryPhotoFailure.storage,
+    );
+    expect(missing, isNull);
+    await expectLater(
+      downloadStoryPhotoBytes(
+        _ThrowingPhotos(ClientException('offline')),
+        'fam/story/down.jpg',
+        failure: StoryPhotoFailure.storage,
+      ),
+      throwsA(isA<ClientException>()),
+    );
+  });
+
+  test('storage or transport failure is null and other errors throw', () async {
+    final offline = await downloadStoryPhotoBytes(
+      _ThrowingPhotos(ClientException('offline')),
+      'fam/story/down.jpg',
+      failure: StoryPhotoFailure.storageOrTransport,
+    );
+    expect(offline, isNull);
+    await expectLater(
+      downloadStoryPhotoBytes(
+        _ThrowingPhotos(const PostgrestException(message: 'no bytes')),
+        'fam/story/a.jpg',
+        failure: StoryPhotoFailure.storageOrTransport,
+      ),
+      throwsA(isA<PostgrestException>()),
+    );
+  });
+
+  test('any exception is null and an Error still throws', () async {
+    final failed = await downloadStoryPhotoBytes(
+      _ThrowingPhotos(const PostgrestException(message: 'no bytes')),
+      'fam/story/a.jpg',
+      failure: StoryPhotoFailure.any,
+    );
+    expect(failed, isNull);
+    await expectLater(
+      downloadStoryPhotoBytes(
+        _ThrowingPhotos(StateError('bug')),
+        'fam/story/a.jpg',
+        failure: StoryPhotoFailure.any,
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+}
+
+class _ThrowingPhotos implements PhotosGateway {
+  _ThrowingPhotos(this.result);
+
+  final Object result;
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    final result = this.result;
+    if (result is Exception || result is Error) throw result;
+    return result as Uint8List;
+  }
+
+  @override
+  Future<void> deleteAllForStory({
+    required String familyId,
+    required String storyId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deletePhoto(Photo photo) => throw UnimplementedError();
+
+  @override
+  Future<List<Photo>> listPhotos(String storyId) => throw UnimplementedError();
+
+  @override
+  Future<void> setHeroPhoto({
+    required String storyId,
+    required String photoId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Photo> uploadPhoto({
+    required String familyId,
+    required String storyId,
+    required Uint8List bytes,
+    required int sortOrder,
+  }) {
+    throw UnimplementedError();
+  }
 }
 
 Uint8List _solidPng(int width, int height) {

@@ -25,6 +25,8 @@ import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 import 'package:tell_me_a_story/features/timeline/callout_layout.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 class _LookupFailure implements Exception {
   const _LookupFailure();
 }
@@ -55,7 +57,7 @@ Story _story({
   );
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   _People(this.rows);
 
   final List<Person> rows;
@@ -78,7 +80,7 @@ class _People extends PeopleGateway {
   }
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   _Families({
     required this.mine,
     this.tree = const [],

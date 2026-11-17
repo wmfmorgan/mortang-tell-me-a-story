@@ -12,6 +12,8 @@ import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _ada = 'ada';
 const _bea = 'bea';
 
@@ -164,7 +166,7 @@ Future<GoRouter> _mount(
   return router;
 }
 
-class _Profile implements ProfileGateway {
+class _Profile extends ProfileGateway with QuietProfileDefaults {
   final emails = <String>[];
 
   @override
@@ -198,7 +200,7 @@ class _Profile implements ProfileGateway {
   }
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),

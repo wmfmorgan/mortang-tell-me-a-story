@@ -21,6 +21,8 @@ import 'package:tell_me_a_story/features/all_stories/all_stories_card.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_logic.dart';
 import 'package:tell_me_a_story/features/all_stories/all_stories_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _family = 'fam-1';
 const _name = 'The Morgans';
 
@@ -889,7 +891,7 @@ class _Stories implements StoriesGateway {
   }) => Future<void>.error(UnimplementedError());
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => [_member()];
 

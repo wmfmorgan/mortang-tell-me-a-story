@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 
+import '../support/quiet_gateways.dart';
+
 void main() {
   group('Person.fromJson', () {
     test('parses required columns and optional email', () {
@@ -157,6 +159,31 @@ void main() {
       },
     );
 
+    test('listTreePeople skips a row whose id is not a string', () async {
+      final httpClient = _StubHttpClient(
+        tree: [
+          {'id': 'parent'},
+          {'id': 4},
+          {'name': 'no id'},
+        ],
+        people: [
+          {'id': 'ada', 'family_id': 'parent', 'name': 'Ada'},
+        ],
+      );
+      final api = PeopleApi(
+        client: SupabaseClient(
+          'http://localhost',
+          'test-anon-key',
+          httpClient: httpClient,
+        ),
+      );
+
+      final people = await api.listTreePeople('parent');
+
+      expect(people.single.name, 'Ada');
+      expect(people.single.familyId, 'parent');
+    });
+
     test('listTreePeople throws when list_family_tree is not a list', () async {
       final httpClient = _StubHttpClient(tree: {'id': 'parent'});
       final api = PeopleApi(
@@ -169,7 +196,13 @@ void main() {
 
       await expectLater(
         api.listTreePeople('parent'),
-        throwsA(isA<StateError>()),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'list_family_tree did not return a list',
+          ),
+        ),
       );
     });
 
@@ -339,7 +372,7 @@ void main() {
 }
 
 /// In-memory [PeopleGateway] that mirrors PeopleApi create validation rules.
-class FakePeopleGateway extends PeopleGateway {
+class FakePeopleGateway extends PeopleGateway with QuietPeopleDefaults {
   FakePeopleGateway({required this.createdBy});
 
   final String createdBy;

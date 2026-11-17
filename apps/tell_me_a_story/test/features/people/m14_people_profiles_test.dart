@@ -13,6 +13,8 @@ import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
 import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _helper =
     'Year is required. Add the month or day only if you remember. Day unlocks after Month.';
@@ -657,7 +659,7 @@ Future<void> _openAdd(
   await tester.pumpAndSettle();
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   int createCalls = 0;
   bool lastPassedAway = false;
   String? lastAbout;
@@ -789,7 +791,7 @@ class _Invites implements InviteGateway {
   }
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => const [];
 

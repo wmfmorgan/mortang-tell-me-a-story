@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
 
 void main() {
@@ -80,4 +83,49 @@ void main() {
     expect(emails, ['next@example.com']);
     expect(patches, 0);
   });
+
+  test('displayName returns the trimmed profile name', () async {
+    final api = _profileApi(' Ada ');
+    expect(await api.displayName('user-1'), 'Ada');
+  });
+
+  test(
+    'displayName is null when the name is blank or the row is missing',
+    () async {
+      expect(await _profileApi('  ').displayName('user-1'), isNull);
+      expect(await _profileApi(null).displayName('user-1'), isNull);
+    },
+  );
+}
+
+ProfileApi _profileApi(String? displayName) {
+  return ProfileApi(
+    client: SupabaseClient(
+      'http://localhost',
+      'test-anon-key',
+      httpClient: _ProfileClient(displayName),
+    ),
+  );
+}
+
+class _ProfileClient extends http.BaseClient {
+  _ProfileClient(this.displayName);
+
+  final String? displayName;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final row = displayName == null
+        ? const <Map<String, dynamic>>[]
+        : [
+            {'display_name': displayName},
+          ];
+    final bytes = utf8.encode(jsonEncode(row));
+    return http.StreamedResponse(
+      Stream.value(bytes),
+      200,
+      headers: const {'content-type': 'application/json'},
+      request: request,
+    );
+  }
 }

@@ -118,6 +118,21 @@ class TreeFamily {
   }
 }
 
+/// Maps from `list_family_tree`, or null when [raw] is not a list.
+/// Rows that are not maps are left out.
+List<Map<String, dynamic>>? familyTreeRows(Object? raw) {
+  if (raw is! List) return null;
+  final rows = <Map<String, dynamic>>[];
+  for (final row in raw) {
+    if (row is Map<String, dynamic>) {
+      rows.add(row);
+    } else if (row is Map) {
+      rows.add(Map<String, dynamic>.from(row));
+    }
+  }
+  return rows;
+}
+
 /// A live family whose effective origin is [storyId].
 class OriginDependent {
   const OriginDependent({required this.familyId, required this.name});
@@ -164,11 +179,9 @@ abstract class FamiliesGateway {
   Future<void> setFamilyOrigin({
     required String familyId,
     required String storyId,
-  }) async {}
+  });
 
-  Future<List<OriginDependent>> listOriginDependents(String storyId) async {
-    return const [];
-  }
+  Future<List<OriginDependent>> listOriginDependents(String storyId);
 
   /// Upload the hero, then store its object key. Tests that never save
   /// inherit the unimplemented default.
@@ -188,28 +201,11 @@ abstract class FamiliesGateway {
     throw UnimplementedError();
   }
 
-  /// Live members of [familyId], with accounts. The default is empty so
-  /// callers that do not open the create form stay quiet.
-  Future<List<FamilyPerson>> listMembers(String familyId) async => const [];
+  /// Live members of [familyId], with accounts.
+  Future<List<FamilyPerson>> listMembers(String familyId);
 
-  /// Live families in the session family's tree. The default is the current
-  /// family only, so marks and the related menu stay empty until a caller
-  /// returns the rest of the tree.
-  Future<List<TreeFamily>> listFamilyTree(String familyId) async {
-    final mine = await listMine();
-    for (final row in mine) {
-      if (row.id == familyId) {
-        return [
-          TreeFamily(
-            id: row.id,
-            name: row.name,
-            parentFamilyId: row.parentFamilyId,
-          ),
-        ];
-      }
-    }
-    return const [];
-  }
+  /// Live families in the session family's tree.
+  Future<List<TreeFamily>> listFamilyTree(String familyId);
 }
 
 /// Hub card. Active rows have a null [deletedAt].
@@ -424,20 +420,11 @@ class FamiliesApi
 
   @override
   Future<List<TreeFamily>> listFamilyTree(String familyId) async {
-    final rows = await _client.rpc(
-      'list_family_tree',
-      params: {'fid': familyId},
+    final rows = familyTreeRows(
+      await _client.rpc('list_family_tree', params: {'fid': familyId}),
     );
-    if (rows is! List) return const [];
-    final families = <TreeFamily>[];
-    for (final row in rows) {
-      if (row is Map<String, dynamic>) {
-        families.add(TreeFamily.fromJson(row));
-      } else if (row is Map) {
-        families.add(TreeFamily.fromJson(Map<String, dynamic>.from(row)));
-      }
-    }
-    return families;
+    if (rows == null) return const [];
+    return [for (final row in rows) TreeFamily.fromJson(row)];
   }
 
   @override

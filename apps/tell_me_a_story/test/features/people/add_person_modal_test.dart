@@ -8,9 +8,11 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
-class _FakePeopleGateway extends PeopleGateway {
+class _FakePeopleGateway extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleGateway({List<Person>? seed, this._tree = const {}})
     : rows = [...?seed];
 

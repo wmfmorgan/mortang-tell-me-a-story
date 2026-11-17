@@ -22,6 +22,8 @@ import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart'
 import 'package:tell_me_a_story/features/stories/photo_strip.dart';
 import 'package:tell_me_a_story/features/stories/story_reader_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _familyId = '00000000-0000-0000-0000-000000000001';
 const _storyId = 's1';
 
@@ -209,7 +211,7 @@ class _FakeStoriesApi implements StoriesGateway {
   }) async {}
 }
 
-class _FakePeopleApi extends PeopleGateway {
+class _FakePeopleApi extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;
@@ -2714,7 +2716,7 @@ void main() {
   );
 }
 
-class _OriginFamilies extends FamiliesGateway {
+class _OriginFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   _OriginFamilies({
     this.mine = const [],
     this.tree = const [],
@@ -2754,7 +2756,7 @@ class _OriginFamilies extends FamiliesGateway {
   }
 }
 
-class _NoMembership extends FamiliesGateway {
+class _NoMembership extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => const [];
 
@@ -2779,7 +2781,7 @@ class _TreePeople extends _FakePeopleApi {
   }
 }
 
-class _FailingAvatarProfile implements ProfileGateway {
+class _FailingAvatarProfile extends ProfileGateway with QuietProfileDefaults {
   @override
   Future<Uint8List?> downloadAvatar(String path) async {
     throw Exception('avatar download failed');

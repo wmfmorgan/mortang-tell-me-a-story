@@ -14,6 +14,8 @@ import 'package:tell_me_a_story/data/places_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _ada = 'ada';
 
 void main() {
@@ -191,7 +193,7 @@ class _Stories implements StoriesGateway {
   }) async {}
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 

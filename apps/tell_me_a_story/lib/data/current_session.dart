@@ -1,4 +1,4 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient;
 
 import '../core/supabase/auth_user_id.dart';
 import 'families_api.dart';
@@ -16,9 +16,6 @@ class CurrentSession {
 
   /// Auth client for magic-link send. Null before Supabase starts.
   static GoTrueClient? get auth => readGoTrueClient();
-
-  /// Anon client for a feature that already queried with it. Null before init.
-  static SupabaseClient? get client => readSupabaseClient();
 
   static String requireUserId() {
     final id = userId;

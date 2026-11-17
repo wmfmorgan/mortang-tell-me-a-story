@@ -20,6 +20,8 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/search/search_page.dart';
 import 'package:tell_me_a_story/features/search/search_recents.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _family = 'family-1';
 
 final _png = base64Decode(
@@ -51,7 +53,7 @@ class _Invite implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _People extends PeopleGateway {
+class _People extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<Person> createPerson({
     required String familyId,

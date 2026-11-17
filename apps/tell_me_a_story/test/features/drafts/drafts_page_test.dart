@@ -19,6 +19,7 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../fakes/fake_invite_api.dart';
 import '../../fakes/fake_mapbox_search.dart';
+import '../../support/quiet_gateways.dart';
 
 Story _draft({
   String id = 's1',
@@ -165,7 +166,7 @@ class _SlowStoriesApi extends _FakeStoriesApi {
   Future<List<Story>> listMyDrafts(String familyId) => _pending.future;
 }
 
-class _StubPeopleApi extends PeopleGateway {
+class _StubPeopleApi extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -586,7 +587,7 @@ void main() {
   });
 }
 
-class _FakeFamilies extends FamiliesGateway {
+class _FakeFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   _FakeFamilies(this.rows);
 
   final List<MemberFamily> rows;

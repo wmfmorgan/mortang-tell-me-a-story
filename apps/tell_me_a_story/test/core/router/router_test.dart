@@ -23,6 +23,8 @@ import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 class _StubInviteLinkApi implements InviteLinkGateway {
   @override
   Future<InvitePreview> validateInviteToken(String token) async {
@@ -60,7 +62,7 @@ class _StubInviteApi implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _StubPeopleApi extends PeopleGateway {
+class _StubPeopleApi extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 
@@ -722,7 +724,7 @@ void main() {
   });
 }
 
-class _MemberOf extends FamiliesGateway {
+class _MemberOf extends FamiliesGateway with QuietFamiliesDefaults {
   _MemberOf(this.ids);
 
   final List<String> ids;

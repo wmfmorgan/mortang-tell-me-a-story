@@ -10,8 +10,9 @@ import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 
 import '../../fakes/quiet_stories.dart';
+import '../../support/quiet_gateways.dart';
 
-class _MemberOf extends FamiliesGateway {
+class _MemberOf extends FamiliesGateway with QuietFamiliesDefaults {
   _MemberOf(this.id);
 
   final String id;
@@ -427,7 +428,7 @@ void main() {
   });
 }
 
-class _EmailPeople extends PeopleGateway {
+class _EmailPeople extends PeopleGateway with QuietPeopleDefaults {
   int updates = 0;
   String? savedEmail;
   Object? updateError;
@@ -478,7 +479,7 @@ class _EmailPeople extends PeopleGateway {
   }
 }
 
-class _UnlinkedPeople extends PeopleGateway {
+class _UnlinkedPeople extends PeopleGateway with QuietPeopleDefaults {
   @override
   Future<List<Person>> listPeople(String familyId) async => const [];
 

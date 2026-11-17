@@ -16,8 +16,9 @@ import 'package:tell_me_a_story/features/stories/timeframe_chips.dart';
 
 import '../../fakes/fake_invite_api.dart';
 import '../../fakes/fake_mapbox_search.dart';
+import '../../support/quiet_gateways.dart';
 
-class _FakePeopleApi extends PeopleGateway {
+class _FakePeopleApi extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleApi({List<Person>? seed, List<Person>? tree})
     : rows = [...?seed],
       treeRows = [...?tree];

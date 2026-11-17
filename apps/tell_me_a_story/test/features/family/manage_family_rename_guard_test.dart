@@ -9,6 +9,8 @@ import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 const _ada = 'ada';
 const _bea = 'bea';
 
@@ -137,7 +139,7 @@ class _Directory implements FamilyDirectoryGateway {
   }
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   @override
   Future<List<MemberFamily>> listMine() async => [
     MemberFamily(id: _ada, name: 'Ada', createdAt: DateTime.utc(2020)),

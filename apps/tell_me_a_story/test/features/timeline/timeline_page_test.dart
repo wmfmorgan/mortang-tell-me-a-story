@@ -141,7 +141,7 @@ class _FakeStoriesApi implements StoriesGateway {
   }) async {}
 }
 
-class _ReadableTree extends FamiliesGateway {
+class _ReadableTree extends FamiliesGateway with QuietFamiliesDefaults {
   _ReadableTree({required this.mine, required this.tree});
 
   final List<MemberFamily> mine;
@@ -157,7 +157,7 @@ class _ReadableTree extends FamiliesGateway {
   Future<List<TreeFamily>> listFamilyTree(String familyId) async => tree;
 }
 
-class _FakeFamilies extends FamiliesGateway {
+class _FakeFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   _FakeFamilies(this.rows);
 
   final List<MemberFamily> rows;
@@ -5233,7 +5233,7 @@ Future<void> _pumpThreeDecades(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-class _TreeFamilies extends FamiliesGateway {
+class _TreeFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   _TreeFamilies({
     required this.mine,
     required this.tree,

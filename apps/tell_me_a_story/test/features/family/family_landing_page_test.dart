@@ -9,6 +9,8 @@ import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family/family_landing_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -188,7 +190,7 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   _Families(this.role, this.familyName);
 
   final String role;

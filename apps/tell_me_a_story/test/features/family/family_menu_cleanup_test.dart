@@ -13,6 +13,8 @@ import 'package:tell_me_a_story/features/family/family_role.dart';
 import 'package:tell_me_a_story/features/family/family_tree_order.dart';
 import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 
+import '../../support/quiet_gateways.dart';
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -736,7 +738,7 @@ bool _hubMonogramKey(Widget widget) {
   return key is ValueKey<String> && key.value.startsWith('hub-monogram-');
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway with QuietFamiliesDefaults {
   _Families({this.mine = const [], this.stewarded = const []});
 
   final List<MemberFamily> mine;

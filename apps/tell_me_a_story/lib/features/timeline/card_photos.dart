@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' show ClientException;
-import 'package:supabase_flutter/supabase_flutter.dart' show StorageException;
 
 import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
@@ -36,18 +34,17 @@ class _CardPhotosState extends State<CardPhotos> {
 
   Future<void> _load() async {
     for (final path in widget.paths) {
-      try {
-        final bytes = await widget.photos.downloadBytes(path);
-        if (!mounted) return;
-        setState(() {
-          _bytes[path] = bytes;
-          _aspect[path] = encodedPhotoAspect(bytes) ?? (16 / 9);
-        });
-      } on StorageException {
-        // The object cannot be read. Leave it out of the well.
-      } on ClientException {
-        // The download never arrived. Leave it out of the well.
-      }
+      final bytes = await downloadStoryPhotoBytes(
+        widget.photos,
+        path,
+        failure: StoryPhotoFailure.storageOrTransport,
+      );
+      if (bytes == null) continue;
+      if (!mounted) return;
+      setState(() {
+        _bytes[path] = bytes;
+        _aspect[path] = encodedPhotoAspect(bytes) ?? (16 / 9);
+      });
     }
   }
 

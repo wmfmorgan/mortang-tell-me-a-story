@@ -52,7 +52,7 @@ class _FakeInviteApi implements InviteGateway {
   Future<void> sendInviteEmail({required String inviteId}) async {}
 }
 
-class _FakePeopleApi extends PeopleGateway {
+class _FakePeopleApi extends PeopleGateway with QuietPeopleDefaults {
   _FakePeopleApi({List<Person>? seed}) : rows = [...?seed];
 
   final List<Person> rows;
