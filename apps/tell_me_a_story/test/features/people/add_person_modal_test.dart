@@ -465,7 +465,7 @@ void main() {
       storyId: 'story-1',
       session: session,
       linkPerson: ({required String storyId, required String personId}) async {
-        throw StateError('connection reset');
+        throw PostgrestException(message: 'connection reset');
       },
     );
     await tester.tap(find.text('Ada'));

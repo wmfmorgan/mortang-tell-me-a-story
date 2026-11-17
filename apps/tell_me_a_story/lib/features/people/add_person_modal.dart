@@ -117,7 +117,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
       final people = await widget.api.listTreePeople(widget.familyId);
       if (!mounted) return;
       setState(() => _people = people);
-    } catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() => _people = const []);
       _showSaveError(error);
@@ -208,7 +208,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
       Navigator.of(context).pop(
         AddPersonResult(people: [..._saved, person], sendInvite: _sendInvite),
       );
-    } catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       _showSaveError(error);
     } finally {
@@ -242,7 +242,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           _saved.add(person);
           _selectedIds.remove(person.id);
         }
-      } catch (error) {
+      } on Exception catch (error) {
         firstError ??= error;
       }
     }

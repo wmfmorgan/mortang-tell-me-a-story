@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/router/auth_refresh.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
@@ -59,8 +60,12 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
 
   bool get _isSignedIn => widget.signedIn?.call() ?? false;
 
-  MagicLinkSender get _sender =>
-      widget.sender ?? GoTrueMagicLinkSender(Supabase.instance.client.auth);
+  MagicLinkSender? get _sender {
+    if (widget.sender != null) return widget.sender;
+    final auth = readGoTrueClient();
+    if (auth == null) return null;
+    return GoTrueMagicLinkSender(auth);
+  }
 
   @override
   void initState() {
@@ -96,7 +101,13 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         _loading = false;
       });
       if (preview.valid && _isSignedIn) await _accept();
-    } catch (_) {
+    } on InviteApiException {
+      if (!mounted) return;
+      setState(() {
+        _preview = const InvitePreview(valid: false);
+        _loading = false;
+      });
+    } on Exception {
       if (!mounted) return;
       setState(() {
         _preview = const InvitePreview(valid: false);
@@ -119,7 +130,11 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       if (!mounted) return;
       FamilySelection.remember(result.familyId);
       context.go(AppRoutes.familyLanding);
-    } catch (_) {
+    } on InviteApiException {
+      _accepting = false;
+      if (!mounted) return;
+      setState(() => _preview = const InvitePreview(valid: false));
+    } on Exception {
       _accepting = false;
       if (!mounted) return;
       setState(() => _preview = const InvitePreview(valid: false));
@@ -136,9 +151,18 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       _sending = true;
       _error = null;
     });
+    final sender = _sender;
+    if (sender == null) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Request failed';
+        _sending = false;
+      });
+      return;
+    }
     try {
       final origin = magicLinkEmailRedirectTo();
-      await _sender.send(
+      await sender.send(
         email,
         redirectTo: '$origin/invite/${Uri.encodeComponent(widget.token)}',
       );
@@ -152,7 +176,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       setState(() {
         _error = e.message.isEmpty ? 'Request failed' : e.message;
       });
-    } catch (_) {
+    } on Exception {
       if (!mounted) return;
       setState(() => _error = 'Request failed');
     } finally {

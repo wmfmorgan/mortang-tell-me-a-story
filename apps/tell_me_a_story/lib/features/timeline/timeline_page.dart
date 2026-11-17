@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/families_api.dart';
@@ -180,7 +180,7 @@ class _TimelinePageState extends State<TimelinePage> {
       for (final row in tree) {
         if (row.id == remembered) return remembered;
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // A tree read that throws cannot confirm the saved family. D9 falls back.
       return fallback;
     }
@@ -291,11 +291,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   String? _sessionUserId() {
     if (widget.currentUserId != null) return widget.currentUserId;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   Future<void> _startTimeline({Story? origin, bool allowChange = true}) async {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
@@ -101,7 +101,7 @@ class _DraftsPageState extends State<DraftsPage> {
         _loading = false;
       });
       await _loadFamilies();
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -134,7 +134,7 @@ class _DraftsPageState extends State<DraftsPage> {
         memberIds = rows.map((row) => row.id).toSet();
         FamilyMembership.remember(memberIds);
       }
-    } catch (_) {
+    } on Exception catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -162,11 +162,7 @@ class _DraftsPageState extends State<DraftsPage> {
   }
 
   String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   Future<void> _startTimeline() async {
@@ -255,7 +251,7 @@ class _DraftsPageState extends State<DraftsPage> {
       await _stories.discard(story.id);
       if (!mounted) return;
       await _reload();
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t discard draft. Try again.')),

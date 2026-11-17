@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/features/comments/comment_composer.dart';
 
@@ -65,7 +66,10 @@ void main() {
   });
 
   testWidgets('failed Post keeps the field', (tester) async {
-    await _pump(tester, onPost: (_) async => throw StateError('create failed'));
+    await _pump(
+      tester,
+      onPost: (_) async => throw PostgrestException(message: 'create failed'),
+    );
 
     await tester.enterText(_field(), 'Keep me');
     await tester.tap(_post());

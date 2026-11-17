@@ -128,7 +128,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         _ownerId ??= _defaultOwner(members);
         _loaded = true;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _loaded = true);
     }
@@ -203,7 +203,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         _busy = false;
         _error = _inlineError(error);
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _busy = false;

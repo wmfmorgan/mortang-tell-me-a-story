@@ -31,6 +31,7 @@ class PhotoStrip extends StatelessWidget {
     this.addEnabled = true,
     this.canRemove,
     this.onToggleHero,
+    this.retryLabel = photoUploadRetryLabel,
   });
 
   final List<Photo> photos;
@@ -68,6 +69,8 @@ class PhotoStrip extends StatelessWidget {
   /// is the hero until another is chosen.
   final ValueChanged<Photo>? onToggleHero;
 
+  final String retryLabel;
+
   @override
   Widget build(BuildContext context) {
     final heroId = _heroPhotoId(photos);
@@ -76,10 +79,7 @@ class PhotoStrip extends StatelessWidget {
       children: [
         if (uploadFailed) ...[
           const Text(photoUploadFailureCopy),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text(photoUploadRetryLabel),
-          ),
+          TextButton(onPressed: onRetry, child: Text(retryLabel)),
           const SizedBox(height: 8),
         ],
         if (columns == null)

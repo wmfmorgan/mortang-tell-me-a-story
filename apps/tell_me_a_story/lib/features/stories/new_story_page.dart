@@ -276,7 +276,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         );
         setState(() => _autosaveLabel = 'Saved');
       }
-    } catch (_) {
+    } on Exception catch (_) {
       _autosaveDirty = true;
       if (mounted) setState(() => _autosaveLabel = 'Not saved');
     } finally {
@@ -303,7 +303,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       } else if (draftId != null) {
         await _hydrateDraft(draftId);
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // Family lookup failed; keep an unbound empty form.
     } finally {
       if (mounted) setState(() => _loadingFamily = false);
@@ -314,7 +314,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
     final Story story;
     try {
       story = await _stories.getStory(draftId);
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t load draft. Try again.')),
@@ -362,7 +362,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ..clear()
           ..addAll(story.personIds.toSet().difference(shownIds));
       });
-    } catch (_) {
+    } on Exception catch (_) {
       // Story fields already applied; people chips stay empty.
       if (!mounted) return;
       setState(() {
@@ -388,7 +388,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         if (place != null) {
           setState(() => _selectedPlace = place);
         }
-      } catch (_) {
+      } on Exception catch (_) {
         // Keep placeId even if favorites/recents lookup fails.
       }
     }
@@ -402,7 +402,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           previews[photo.id] = await _photos.downloadBytes(
             photo.effectiveStoragePath,
           );
-        } catch (_) {
+        } on Exception catch (_) {
           // Keep the tile; placeholder icon if bytes are missing.
         }
       }
@@ -415,7 +415,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ..clear()
           ..addAll(previews);
       });
-    } catch (_) {
+    } on Exception catch (_) {
       // Story fields already applied; photo strip stays empty.
     }
     if (!mounted) return;
@@ -572,7 +572,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         return;
       }
       await _uploadPending();
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -591,7 +591,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         }
       }
       await _uploadPending();
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -617,7 +617,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         _photoError = false;
         _pendingPhotoBytes = null;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     }
@@ -641,7 +641,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ..clear()
           ..addAll(updated);
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     } finally {
@@ -783,7 +783,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           .showSnackBar(const SnackBar(content: Text('Draft saved')));
       _clearNewTimelineFrom();
       return true;
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save draft. Try again.')),
@@ -845,7 +845,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
       _autosaveCoalesce = false;
       _snapshot = _captureSnapshot();
       return true;
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save draft. Try again.')),
@@ -889,7 +889,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           context.pushReplacement(AppRoutes.storyPath(story.id));
         }
       }
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t publish story. Try again.')),

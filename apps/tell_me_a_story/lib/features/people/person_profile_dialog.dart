@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
@@ -77,11 +77,7 @@ Future<void> showPersonProfile(
 }
 
 String? _sessionUserId() {
-  try {
-    return Supabase.instance.client.auth.currentUser?.id;
-  } catch (_) {
-    return null;
-  }
+  return readAuthUserId();
 }
 
 class PersonProfileDialog extends StatefulWidget {
@@ -129,7 +125,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
       if (profile == null) missing = true;
     } on PersonProfileNotFound {
       missing = true;
-    } catch (_) {
+    } on Exception catch (_) {
       missing = true;
     }
     Person? editor;
@@ -138,7 +134,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (profile != null && !missing) {
       try {
         editor = await widget.people.personForEdit(widget.personId);
-      } catch (_) {
+      } on Exception catch (_) {
         editor = null;
       }
       try {
@@ -146,13 +142,13 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
           personId: widget.personId,
           path: profile.avatarPath,
         );
-      } catch (_) {
+      } on Exception catch (_) {
         pictureUrl = null;
       }
       try {
         final load = widget.loadStories ?? _defaultPersonStories;
         stories = await load(widget.personId);
-      } catch (_) {
+      } on Exception catch (_) {
         stories = const [];
       }
     }
@@ -224,7 +220,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (yes != true || !mounted) return;
     try {
       await widget.people.markPassedAway(personId: profile.id, value: mark);
-    } catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
@@ -605,7 +601,7 @@ String _lifeLine(PersonProfile profile) {
 Future<List<PersonStoryCard>> _defaultPersonStories(String personId) async {
   try {
     return await StoriesApi().storiesForPerson(personId);
-  } catch (_) {
+  } on Exception catch (_) {
     return const [];
   }
 }

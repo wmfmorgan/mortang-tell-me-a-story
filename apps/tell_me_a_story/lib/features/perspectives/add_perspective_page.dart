@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/perspectives_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
 
 /// Words in [text], split on whitespace. Empty text is 0.
@@ -146,7 +147,8 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
 
   Future<void> _loadPostingAs() async {
     try {
-      final client = Supabase.instance.client;
+      final client = readSupabaseClient();
+      if (client == null) return;
       final id = client.auth.currentUser?.id;
       if (id == null) return;
       final row = await client
@@ -157,7 +159,7 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
       final name = (row?['display_name'] as String?)?.trim() ?? '';
       if (!mounted || name.isEmpty) return;
       setState(() => _postingAs = name);
-    } catch (_) {
+    } on Exception catch (_) {
       // Tests and signed-out sessions have no profile row to show.
     }
   }
@@ -202,10 +204,11 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
       } else {
         context.pop(saved);
       }
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

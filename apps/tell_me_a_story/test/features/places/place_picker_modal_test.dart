@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/data/mapbox_search.dart';
@@ -82,7 +83,7 @@ class _FakePlacesGateway implements PlacesGateway {
   }) async {
     createCalls++;
     if (throwOnCreate) {
-      throw StateError('create failed');
+      throw PostgrestException(message: 'create failed');
     }
     ensureValidPlaceCreate(label: label, address: address);
     final place = Place(
@@ -105,7 +106,7 @@ class _FakePlacesGateway implements PlacesGateway {
     markUsedCalls++;
     lastMarkedId = placeId;
     final i = rows.indexWhere((p) => p.id == placeId);
-    if (i < 0) throw StateError('missing $placeId');
+    if (i < 0) throw PostgrestException(message: 'missing $placeId');
     final existing = rows[i];
     final updated = Place(
       id: existing.id,
@@ -131,7 +132,7 @@ class _FakePlacesGateway implements PlacesGateway {
     lastFavoritePlaceId = placeId;
     lastFavoriteValue = isFavorite;
     final i = rows.indexWhere((p) => p.id == placeId);
-    if (i < 0) throw StateError('missing $placeId');
+    if (i < 0) throw PostgrestException(message: 'missing $placeId');
     final existing = rows[i];
     final updated = Place(
       id: existing.id,

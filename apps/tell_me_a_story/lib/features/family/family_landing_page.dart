@@ -102,7 +102,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       }
       memberIds = rows.map((row) => row.id).toSet();
       FamilyMembership.remember(memberIds);
-    } catch (_) {
+    } on Exception catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -123,7 +123,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         } else {
           tree = await FamiliesApi().listFamilyTree(familyId);
         }
-      } catch (_) {
+      } on Exception catch (_) {
         tree = const [];
       }
     }
@@ -132,7 +132,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     if (familyId != null) {
       try {
         latest = latestShelf(await _fetchLatest(familyId), now: _now);
-      } catch (_) {
+      } on Exception catch (_) {
         latest = const [];
       }
     }
@@ -179,7 +179,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         return await (families as FamilyCoverClient).download(path);
       }
       if (families == null) return await FamilyCoversApi().download(path);
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
     return null;
@@ -214,7 +214,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     try {
       final api = widget.storiesApi ?? StoriesApi();
       stories = await api.listPublished(family.id);
-    } catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       _snack(mapRpcError(error) ?? 'Try again');
       return;
@@ -271,13 +271,13 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       if (!mounted) return;
       setState(() => _loading = true);
       await _load();
-    } catch (error) {
+    } on CoverPhotoException catch (error) {
+      if (!mounted) return;
+      _snack(error.message);
+    } on Exception catch (error) {
       if (!mounted) return;
       _snack(
-        error is CoverPhotoException
-            ? error.message
-            : mapRpcError(error) ??
-                  'Couldn’t save the family photo. Try again.',
+        mapRpcError(error) ?? 'Couldn’t save the family photo. Try again.',
       );
     }
   }

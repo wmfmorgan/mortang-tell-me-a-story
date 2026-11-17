@@ -122,7 +122,7 @@ class _InviteModalState extends State<InviteModal> {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
       setState(() => _unlinked = _notPassed(rows));
-    } catch (_) {
+    } on Exception {
       if (!mounted) return;
       setState(() => _unlinked = const []);
     }
@@ -135,7 +135,7 @@ class _InviteModalState extends State<InviteModal> {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
       setState(() => _notInvited = _notPassed(rows));
-    } catch (_) {
+    } on Exception {
       if (!mounted) return;
       setState(() => _notInvited = const []);
     }
@@ -171,7 +171,7 @@ class _InviteModalState extends State<InviteModal> {
     } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
     } finally {
@@ -214,7 +214,7 @@ class _InviteModalState extends State<InviteModal> {
         email: draft,
         writeEmail: true,
       );
-    } catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() {
         _rowBusyId = null;
@@ -240,7 +240,7 @@ class _InviteModalState extends State<InviteModal> {
     } on InviteApiException catch (error) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = error.message);
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _rowError[person.id] = 'Couldn’t send invite. Try again.');
     } finally {
@@ -265,7 +265,7 @@ class _InviteModalState extends State<InviteModal> {
       if (!mounted) return;
       _toast('Invite sent');
       Navigator.of(context).pop();
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       _toast('Couldn’t send invite. Try again.');
     } finally {
@@ -288,7 +288,7 @@ class _InviteModalState extends State<InviteModal> {
         _linkUrl = created.inviteUrl;
         _linkController.text = created.inviteUrl;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       _toast('Couldn’t send invite. Try again.');
     } finally {

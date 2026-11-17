@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -467,7 +468,7 @@ class _Stories implements StoriesGateway {
     bool allowUndated = false,
     List<String> personIds = const [],
   }) async {
-    if (throwOnCreate) throw StateError('save failed');
+    if (throwOnCreate) throw PostgrestException(message: 'save failed');
     createDraftCalls++;
     createdFamilyId = familyId;
     story = _stored(

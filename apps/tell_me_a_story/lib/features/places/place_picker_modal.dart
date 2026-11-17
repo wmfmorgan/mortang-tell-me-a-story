@@ -110,7 +110,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _favorites = favorites;
         _recents = recents;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _favorites = const [];
@@ -151,7 +151,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _searching = false;
         if (hits.isNotEmpty) _tab = _PlaceTab.search;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _hits = const [];
@@ -184,7 +184,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _busy = false;
       });
       return;
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t update place. Try again.')),
@@ -220,7 +220,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _busy = false;
         _hits = const [];
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save place. Try again.')),
@@ -250,7 +250,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _busy = false;
       });
       await _loadLists();
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t update favorite. Try again.')),

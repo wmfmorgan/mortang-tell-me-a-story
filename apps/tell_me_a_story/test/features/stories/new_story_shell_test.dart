@@ -14,6 +14,8 @@ import 'package:tell_me_a_story/features/places/place_picker_modal.dart';
 import 'package:tell_me_a_story/features/stories/new_story_page.dart';
 
 import '../../fakes/fake_mapbox_search.dart';
+import '../../fakes/quiet_stories.dart';
+import '../../support/quiet_gateways.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
 
@@ -179,7 +181,8 @@ Widget _shell({
       peopleApi: people ?? _FakePeopleApi(),
       placesApi: places ?? _FakePlacesApi(),
       mapboxSearch: search ?? FakeMapboxSearch(),
-      storiesApi: stories,
+      storiesApi: stories ?? QuietStories(),
+      photosApi: QuietPhotos(),
       hasMapboxToken: hasMapboxToken,
       mapBuilder: mapBuilder,
     ),
@@ -608,7 +611,8 @@ void main() {
   testWidgets('a failed autosave shows Not saved and retries next pause', (
     tester,
   ) async {
-    final stories = _AutosaveStories()..createError = StateError('down');
+    final stories = _AutosaveStories()
+      ..createError = PostgrestException(message: 'down');
     await tester.pumpWidget(_shell(stories: stories));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('story-title')), 'Jam');
@@ -778,6 +782,7 @@ void main() {
             inviteApi: _FakeInviteApi(),
             peopleApi: _FakePeopleApi(),
             placesApi: _FakePlacesApi(),
+            photosApi: QuietPhotos(),
             mapboxSearch: FakeMapboxSearch(),
             storiesApi: stories,
             hasMapboxToken: true,

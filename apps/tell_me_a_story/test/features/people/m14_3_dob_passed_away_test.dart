@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/people/add_person_modal.dart';
 import 'package:tell_me_a_story/features/people/edit_person_dialog.dart';
@@ -14,6 +15,9 @@ import 'package:tell_me_a_story/features/people/person_profile_dialog.dart';
 import 'package:tell_me_a_story/features/settings/settings_page.dart';
 
 const _familyId = '00000000-0000-0000-0000-000000000001';
+
+Future<List<PersonStoryCard>> _noPersonStories(String personId) async =>
+    const [];
 
 void main() {
   setUp(() {
@@ -214,7 +218,7 @@ void main() {
         userId: 'member',
       )
       ..steward = true
-      ..markError = StateError('offline');
+      ..markError = Exception('offline');
     await _openProfile(tester, people, signedInUserId: 'owner');
     await tester.tap(find.text('Mark as passed away'));
     await tester.pumpAndSettle();
@@ -462,6 +466,7 @@ Future<void> _openProfile(
               name: 'Ada',
               people: people,
               signedInUserId: signedInUserId,
+              loadStories: _noPersonStories,
             ),
             child: const Text('open'),
           ),

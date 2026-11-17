@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
@@ -159,7 +159,7 @@ class _SettingsPageState extends State<SettingsPage> {
         email: profile?.email,
         avatarBytes: bytes,
       );
-    } on Object catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -193,7 +193,7 @@ class _SettingsPageState extends State<SettingsPage> {
         stewarded = await live.listStewarded();
         memberIds = rows.map((row) => row.id).toSet();
       }
-    } catch (_) {
+    } on Exception catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -212,11 +212,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String? _sessionUserId() {
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   Future<void> _startTimeline() async {
@@ -378,7 +374,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return true;
       setState(() {});
       return true;
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return false;
       if (!nameSaved) {
         ProfileSession.instance.apply(

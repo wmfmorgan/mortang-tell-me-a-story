@@ -85,7 +85,10 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       );
       if (!mounted || _removed || _picture != null) return;
       setState(() => _existingUrl = url);
-    } catch (_) {}
+    } on Exception catch (error) {
+      // Optional portrait URL; the avatar stays empty when load fails.
+      debugPrint('edit_person_dialog portrait: $error');
+    }
   }
 
   @override
@@ -175,7 +178,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(person);
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save person. Try again.')),

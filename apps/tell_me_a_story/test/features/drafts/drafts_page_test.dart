@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
@@ -149,7 +150,7 @@ class _FakeStoriesApi implements StoriesGateway {
 class _ThrowingListStoriesApi extends _FakeStoriesApi {
   @override
   Future<List<Story>> listMyDrafts(String familyId) async {
-    throw StateError('network');
+    throw PostgrestException(message: 'network');
   }
 }
 
@@ -417,6 +418,13 @@ void main() {
         drafts: [_draft(id: 's1', body: 'Jam')],
       ),
       photosApi: _FakePhotosApi(),
+      familiesApi: _FakeFamilies([
+        MemberFamily(
+          id: kTestFamilyId,
+          name: 'Family',
+          createdAt: DateTime.utc(2020),
+        ),
+      ]),
     );
 
     await tester.binding.setSurfaceSize(const Size(1200, 800));

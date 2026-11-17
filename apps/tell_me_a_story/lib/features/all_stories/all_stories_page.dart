@@ -123,7 +123,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         _canWrite = chrome.canWrite;
         _phase = _Phase.ready;
       });
-    } catch (_) {
+    } on Exception {
       if (!mounted || generation != _loadGeneration) return;
       setState(() => _phase = _Phase.error);
     }
@@ -148,7 +148,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         stewarded: stewarded,
         canWrite: mine.any((row) => row.id == widget.familyId),
       );
-    } catch (_) {
+    } on Exception catch (_) {
       return (
         families: const <MemberFamily>[],
         stewarded: const <StewardFamily>[],

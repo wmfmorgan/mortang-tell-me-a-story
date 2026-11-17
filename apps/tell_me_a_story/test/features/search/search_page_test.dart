@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -144,7 +147,7 @@ class _Search implements SearchGateway {
     if (hang && request.text.trim().isNotEmpty) {
       await Completer<void>().future;
     }
-    if (throwOnSearch) throw StateError('search failed');
+    if (throwOnSearch) throw PostgrestException(message: 'search failed');
     return filterSearchRecords(rows, request);
   }
 }
@@ -186,7 +189,7 @@ class _Photos implements PhotosGateway {
   @override
   Future<Uint8List> downloadBytes(String storagePath) async {
     final data = bytes;
-    if (data == null) throw StateError('no bytes');
+    if (data == null) throw PostgrestException(message: 'no bytes');
     return data;
   }
 }

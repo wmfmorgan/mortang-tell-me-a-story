@@ -144,8 +144,9 @@ CompressedPhoto compressStoryPhoto(
   Uint8List bytes, {
   int maxEdge = 1920,
   int quality = 80,
+  img.Image? decodedImage,
 }) {
-  final decoded = img.decodeImage(bytes);
+  final decoded = decodedImage ?? img.decodeImage(bytes);
   if (decoded == null) {
     throw ArgumentError.value(bytes, 'bytes', 'not a decodable image');
   }
@@ -254,7 +255,7 @@ class PhotosApi implements PhotosGateway {
     );
     try {
       await _upload(path, compressed);
-    } catch (e) {
+    } on Exception catch (e) {
       throw StorageFailedException(code: 'STORAGE_FAILED', cause: e);
     }
     final payload = <String, dynamic>{
@@ -268,7 +269,7 @@ class PhotosApi implements PhotosGateway {
     try {
       final row = await _insert(payload);
       return Photo.fromJson(row);
-    } catch (e) {
+    } on Exception {
       await _remove([path]);
       rethrow;
     }

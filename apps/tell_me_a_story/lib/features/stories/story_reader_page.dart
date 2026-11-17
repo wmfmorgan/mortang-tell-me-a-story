@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -199,11 +199,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   String? get _currentUserId {
     if (widget.currentUserId != null) return widget.currentUserId;
-    try {
-      return Supabase.instance.client.auth.currentUser?.id;
-    } catch (_) {
-      return null;
-    }
+    return readAuthUserId();
   }
 
   StoriesGateway get _stories =>
@@ -355,10 +351,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         ];
       });
       await _reloadPerspectives();
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       _confirming = false;
     }
@@ -369,10 +366,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       final rows = await _perspectivesApi.listForStory(widget.storyId);
       if (!mounted) return;
       setState(() => _perspectives = rows);
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     }
   }
 
@@ -404,12 +402,12 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           canWrite = memberOfStoryFamily;
           try {
             tree = await widget.familiesApi!.listFamilyTree(story.familyId);
-          } catch (_) {
+          } on Exception catch (_) {
             tree = const [];
           }
           try {
             stewarded = await widget.familiesApi!.listStewarded();
-          } catch (_) {
+          } on Exception catch (_) {
             stewarded = const [];
           }
           if (!canWrite) {
@@ -421,7 +419,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                   mineIds.contains(row.id),
             );
           }
-        } catch (_) {
+        } on Exception catch (_) {
           canWrite = false;
           memberOfStoryFamily = false;
         }
@@ -431,7 +429,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       try {
         final all = await _people.listTreePeople(story.familyId);
         people = all.where((p) => story.personIds.contains(p.id)).toList();
-      } catch (_) {
+      } on Exception catch (_) {
         loadError = true;
       }
 
@@ -440,7 +438,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (placeId != null && placeId.isNotEmpty) {
         try {
           place = await _places.getPlace(placeId);
-        } catch (_) {
+        } on Exception catch (_) {
           loadError = true;
         }
       }
@@ -454,25 +452,25 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             previews[photo.id] = await _photosApi.downloadBytes(
               photo.effectiveStoragePath,
             );
-          } catch (_) {
+          } on Exception catch (_) {
             // Missing bytes fall back to PhotoStrip placeholder icon.
           }
         }
-      } catch (_) {
+      } on Exception catch (_) {
         loadError = true;
       }
 
       List<Comment> comments = const [];
       try {
         comments = await _commentsApi.listForStory(story.id);
-      } catch (_) {
+      } on Exception catch (_) {
         loadError = true;
       }
 
       List<Perspective> perspectives = const [];
       try {
         perspectives = await _perspectivesApi.listForStory(story.id);
-      } catch (_) {
+      } on Exception catch (_) {
         loadError = true;
       }
 
@@ -481,7 +479,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (avatarPath != null) {
         try {
           authorBytes = await _profile.downloadAvatar(avatarPath);
-        } catch (_) {
+        } on Exception catch (_) {
           authorBytes = null;
         }
       }
@@ -506,18 +504,26 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _notFound = false;
       });
       if (loadError) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Try again')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Try again'),
+            action: SnackBarAction(label: 'Retry', onPressed: _load),
+          ),
+        );
       }
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _notFound = false;
         _story = null;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mapRpcError(error) ?? 'Try again'),
+          action: SnackBarAction(label: 'Retry', onPressed: _load),
+        ),
+      );
     }
   }
 
@@ -701,11 +707,15 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       } else {
         context.go(AppRoutes.timeline);
       }
-    } catch (error) {
+    } on OriginRpcException catch (error) {
       if (!mounted) return;
-      final message = error is OriginRpcException ? error.message : 'Try again';
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } on Exception catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     }
   }
 
@@ -739,10 +749,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       } else {
         context.go(AppRoutes.timeline);
       }
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       _confirming = false;
     }
@@ -781,10 +792,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _comments = [..._comments, created];
         _composingComment = false;
       });
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
       rethrow;
     }
   }
@@ -843,7 +855,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _photoError = false;
         _pendingPhotoBytes = null;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     }
@@ -859,10 +871,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _photos = _photos.where((p) => p.id != photo.id).toList();
         _previews = Map.of(_previews)..remove(photo.id);
       });
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -901,10 +914,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         ];
         _editingCommentId = null;
       });
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
       rethrow;
     }
   }
@@ -917,10 +931,11 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _comments = _comments.where((c) => c.id != row.id).toList();
         if (_editingCommentId == row.id) _editingCommentId = null;
       });
-    } catch (_) {
+    } on Exception catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     }
   }
 
@@ -1039,6 +1054,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
                       (_canEditStory ||
                           (_canWrite && photo.uploaderId == _currentUserId)),
                   onRetry: _onRetryPhoto,
+                  retryLabel: 'Retry',
                   uploadFailed: _photoError,
                   canAdd: canAddPhoto,
                   columns: columns,

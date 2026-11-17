@@ -126,6 +126,11 @@ class OriginDependent {
   final String name;
 }
 
+/// No `auth.currentUser` while a membership read needs a user id.
+class NotSignedInException implements Exception {
+  const NotSignedInException();
+}
+
 /// Mapped from `set_family_origin` and `list_origin_dependents`.
 class OriginRpcException implements Exception {
   const OriginRpcException(this.code, this.message);
@@ -323,6 +328,12 @@ class FamiliesApi
 
   final SupabaseClient _client;
 
+  String _requireUserId() {
+    final user = _client.auth.currentUser;
+    if (user == null) throw const NotSignedInException();
+    return user.id;
+  }
+
   FamilyCoversApi get _covers => FamilyCoversApi(client: _client);
 
   @override
@@ -387,7 +398,7 @@ class FamiliesApi
   }
 
   Future<List<MemberFamily>> _listMine(String select) async {
-    final uid = _client.auth.currentUser!.id;
+    final uid = _requireUserId();
     final rows = await _client
         .from('memberships')
         .select(select)
@@ -439,7 +450,7 @@ class FamiliesApi
         'set_family_origin',
         params: {'p_family_id': familyId, 'p_story_id': storyId},
       );
-    } catch (error) {
+    } on Exception catch (error) {
       final mapped = originRpcException(error);
       if (mapped != null) throw mapped;
       rethrow;
@@ -454,7 +465,7 @@ class FamiliesApi
         'list_origin_dependents',
         params: {'p_story_id': storyId},
       );
-    } catch (error) {
+    } on Exception catch (error) {
       final mapped = originRpcException(error);
       if (mapped != null) throw mapped;
       rethrow;
@@ -478,7 +489,7 @@ class FamiliesApi
 
   @override
   Future<List<StewardFamily>> listStewarded() async {
-    final uid = _client.auth.currentUser!.id;
+    final uid = _requireUserId();
     final rows = await _membershipRows(uid, deleted: null, stewardOnly: true);
     final stewarded = <StewardFamily>[];
     for (final roster in _rosters(rows)) {
@@ -495,7 +506,7 @@ class FamiliesApi
 
   @override
   Future<FamilyDirectory> listDirectory() async {
-    final uid = _client.auth.currentUser!.id;
+    final uid = _requireUserId();
     final activeRows = await _membershipRows(
       uid,
       deleted: false,
@@ -554,7 +565,7 @@ class FamiliesApi
       if (avatarPath != null && avatarPath.isNotEmpty) {
         try {
           bytes = await _client.storage.from('avatars').download(avatarPath);
-        } catch (_) {
+        } on Exception catch (_) {
           bytes = null;
         }
       }

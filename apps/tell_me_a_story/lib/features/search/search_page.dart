@@ -20,6 +20,8 @@ import '../stories/story_date.dart';
 import '../stories/timeframe_chips.dart';
 import 'search_recents.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 const _noMatches = 'No stories match. Try another person, place, or time.';
 const _searchingCopy = 'Searching the album…';
 
@@ -114,7 +116,7 @@ class _SearchPageState extends State<SearchPage> {
         places = await _placesApi.listPlaces(familyId);
         try {
           decades = await _decadesWithStories(familyId);
-        } catch (_) {
+        } on Exception catch (_) {
           decades = const [];
         }
       }
@@ -126,7 +128,7 @@ class _SearchPageState extends State<SearchPage> {
         _storyDecades = decades;
         _booting = false;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _booting = false);
       _showTryAgain();
@@ -204,7 +206,7 @@ class _SearchPageState extends State<SearchPage> {
         _results = rows;
         _searching = false;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted || gen != _searchGen) return;
       setState(() => _searching = false);
       _showTryAgain();
@@ -913,7 +915,7 @@ class _PhotoWellState extends State<_PhotoWell> {
   Future<Uint8List?> _load() async {
     try {
       return await widget.photos.downloadBytes(widget.path);
-    } catch (_) {
+    } on StorageException catch (_) {
       return null;
     }
   }

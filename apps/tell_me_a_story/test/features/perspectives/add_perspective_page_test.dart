@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -39,7 +40,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
     lastStoryId = storyId;
     lastFamilyId = familyId;
     lastBody = body;
-    if (throwOnCreate) throw StateError('create failed');
+    if (throwOnCreate) throw PostgrestException(message: 'create failed');
     ensureValidPerspectiveBody(body);
     return Perspective(
       id: 'v-new',
@@ -57,7 +58,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
     updateCalls++;
     lastUpdateId = id;
     lastUpdateBody = body;
-    if (throwOnUpdate) throw StateError('update failed');
+    if (throwOnUpdate) throw PostgrestException(message: 'update failed');
     ensureValidPerspectiveBody(body);
   }
 

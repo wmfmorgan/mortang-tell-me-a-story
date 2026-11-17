@@ -63,8 +63,8 @@ class _CommentComposerState extends State<CommentComposer> {
       await widget.onPost(body);
       if (!mounted) return;
       _controller.clear();
-    } catch (_) {
-      // Caller shows SnackBar; keep text.
+    } on Exception {
+      // Caller maps; keep draft text in the field.
     } finally {
       if (mounted) setState(() => _busy = false);
     }

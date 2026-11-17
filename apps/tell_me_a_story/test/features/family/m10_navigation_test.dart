@@ -15,6 +15,7 @@ import 'package:tell_me_a_story/features/family/manage_families_page.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 import '../../fakes/quiet_stories.dart';
+import '../../support/quiet_gateways.dart';
 
 void main() {
   setUp(() {
@@ -561,7 +562,11 @@ Future<String> _land(
     authRefresh: auth,
     inviteApi: _Invite(familyId),
     familiesApi: families,
-    storiesApi: storiesApi,
+    directoryApi: families,
+    manageApi: _Manage(),
+    storiesApi: storiesApi ?? QuietStories(),
+    photosApi: QuietPhotos(),
+    peopleApi: QuietPeople(),
   );
   addTearDown(auth.dispose);
   addTearDown(router.dispose);
@@ -570,7 +575,7 @@ Future<String> _land(
   return router.routerDelegate.currentConfiguration.uri.path;
 }
 
-class _Families extends FamiliesGateway {
+class _Families extends FamiliesGateway implements FamilyDirectoryGateway {
   _Families({this.live = const [], this.stewarded = const []});
 
   final List<MemberFamily> live;
@@ -581,6 +586,37 @@ class _Families extends FamiliesGateway {
 
   @override
   Future<List<StewardFamily>> listStewarded() async => stewarded;
+
+  @override
+  Future<FamilyDirectory> listDirectory() async {
+    return FamilyDirectory(
+      active: [
+        for (final family in live)
+          FamilyRoster(
+            id: family.id,
+            name: family.name,
+            role: 'member',
+            memberCount: 1,
+            publishedCount: 0,
+          ),
+      ],
+      recoverable: [
+        for (final family in stewarded)
+          if (family.deletedAt != null)
+            FamilyRoster(
+              id: family.id,
+              name: family.name,
+              role: family.role,
+              memberCount: 1,
+              publishedCount: 0,
+              deletedAt: family.deletedAt,
+            ),
+      ],
+    );
+  }
+
+  @override
+  Future<FamilyDetail?> loadDetail(String familyId) async => null;
 }
 
 class _Invite implements InviteGateway {

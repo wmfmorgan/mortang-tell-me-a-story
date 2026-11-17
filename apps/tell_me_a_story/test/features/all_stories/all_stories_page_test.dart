@@ -5,6 +5,7 @@ import 'dart:typed_data';
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -219,7 +220,9 @@ void main() {
     tester,
   ) async {
     await _size(tester, const Size(1440, 900));
-    final stories = _Stories(publishedError: StateError('down'));
+    final stories = _Stories(
+      publishedError: PostgrestException(message: 'down'),
+    );
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
@@ -260,7 +263,9 @@ void main() {
 
   testWidgets('W-09 Retry loads the groups', (tester) async {
     await _size(tester, const Size(1440, 900));
-    final stories = _Stories(publishedError: StateError('down'));
+    final stories = _Stories(
+      publishedError: PostgrestException(message: 'down'),
+    );
     final router = _router(stories: stories, families: _Families());
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));

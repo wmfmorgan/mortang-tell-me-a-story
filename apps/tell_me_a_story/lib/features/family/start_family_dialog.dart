@@ -67,7 +67,7 @@ class _StartFamilyDialogState extends State<_StartFamilyDialog> {
         _busy = false;
         _error = e.message;
       });
-    } catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _busy = false;

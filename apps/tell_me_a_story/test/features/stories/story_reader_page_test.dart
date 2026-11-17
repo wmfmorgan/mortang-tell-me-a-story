@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/data/comments_api.dart';
@@ -14,6 +15,7 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
@@ -169,10 +171,10 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<Story> getStory(String storyId) async {
     if (getDelay != null) await getDelay;
-    if (throwOnGet) throw StateError('missing $storyId');
+    if (throwOnGet) throw PostgrestException(message: 'missing $storyId');
     final existing = story;
     if (existing == null || existing.id != storyId) {
-      throw StateError('missing $storyId');
+      throw PostgrestException(message: 'missing $storyId');
     }
     return existing;
   }
@@ -180,7 +182,7 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<Story?> getPublished(String storyId) async {
     if (getDelay != null) await getDelay;
-    if (throwOnGet) throw StateError('network $storyId');
+    if (throwOnGet) throw PostgrestException(message: 'network $storyId');
     final existing = story;
     if (existing == null || existing.id != storyId) return null;
     if (existing.status != StoryStatus.published) return null;
@@ -429,7 +431,7 @@ class _FakeCommentsApi implements CommentsGateway {
 
   @override
   Future<List<Comment>> listForStory(String storyId) async {
-    if (throwOnList) throw StateError('comments failed');
+    if (throwOnList) throw PostgrestException(message: 'comments failed');
     return rows.where((c) => c.storyId == storyId).toList();
   }
 
@@ -440,7 +442,7 @@ class _FakeCommentsApi implements CommentsGateway {
     required String body,
   }) async {
     createCalls++;
-    if (throwOnCreate) throw StateError('create failed');
+    if (throwOnCreate) throw PostgrestException(message: 'create failed');
     ensureValidCommentBody(body);
     final comment = Comment(
       id: 'new${++_seq}',
@@ -460,7 +462,7 @@ class _FakeCommentsApi implements CommentsGateway {
     updateCalls++;
     lastUpdateId = id;
     lastUpdateBody = body;
-    if (throwOnUpdate) throw StateError('update failed');
+    if (throwOnUpdate) throw PostgrestException(message: 'update failed');
     ensureValidCommentBody(body);
     final index = rows.indexWhere((row) => row.id == id);
     if (index < 0) return;
@@ -479,7 +481,7 @@ class _FakeCommentsApi implements CommentsGateway {
   @override
   Future<void> delete(String id) async {
     deleteCalls++;
-    if (throwOnDelete) throw StateError('delete failed');
+    if (throwOnDelete) throw PostgrestException(message: 'delete failed');
     rows.removeWhere((c) => c.id == id);
   }
 }
@@ -512,7 +514,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
     required String body,
   }) async {
     createCalls++;
-    if (throwOnCreate) throw StateError('create failed');
+    if (throwOnCreate) throw PostgrestException(message: 'create failed');
     ensureValidPerspectiveBody(body);
     final row = Perspective(
       id: 'v-new${++_seq}',
@@ -550,7 +552,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
   @override
   Future<void> delete(String id) async {
     deleteCalls++;
-    if (throwOnDelete) throw StateError('delete failed');
+    if (throwOnDelete) throw PostgrestException(message: 'delete failed');
     rows.removeWhere((row) => row.id == id);
   }
 }
@@ -563,6 +565,7 @@ Widget _readerApp({
   CommentsGateway? comments,
   PerspectivesGateway? perspectives,
   FamiliesGateway? families,
+  ProfileGateway? profile,
   Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
@@ -599,6 +602,7 @@ Widget _readerApp({
           commentsApi: comments ?? _FakeCommentsApi(),
           perspectivesApi: perspectivesApi,
           familiesApi: families,
+          profileApi: profile,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
           live: live,
@@ -1744,11 +1748,11 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
     expect(find.byKey(const Key('photo-thumb')), findsNothing);
 
     photos.failUpload = false;
-    final retry = find.text('Try again');
+    final retry = find.text('Retry');
     await tester.ensureVisible(retry);
     await tester.tap(retry);
     await tester.pumpAndSettle();
@@ -2677,6 +2681,37 @@ void main() {
     expect(find.text('William F Morgan'), findsWidgets);
     expect(find.text('Ada'), findsWidgets);
   });
+
+  testWidgets(
+    'avatar download failure still loads the story without an avatar',
+    (tester) async {
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: Story(
+              id: _storyId,
+              familyId: _familyId,
+              authorId: 'u1',
+              title: 'Picnic',
+              body: 'We brought pie.',
+              timeframeStart: DateTime(1980, 1, 1),
+              status: StoryStatus.published,
+              authorDisplayName: 'Ada Lovelace',
+              authorAvatarPath: 'u1/avatar.jpg',
+            ),
+          ),
+          profile: _FailingAvatarProfile(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Picnic'), findsOneWidget);
+      expect(find.text('We brought pie.'), findsOneWidget);
+      expect(find.text('AL'), findsOneWidget);
+      expect(find.byKey(const Key('profile-avatar-image')), findsNothing);
+      expect(find.text('Try again'), findsNothing);
+    },
+  );
 }
 
 class _OriginFamilies extends FamiliesGateway {
@@ -2734,7 +2769,7 @@ class _TreePeople extends _FakePeopleApi {
 
   @override
   Future<List<Person>> listPeople(String familyId) {
-    throw StateError('members only');
+    throw PostgrestException(message: 'members only');
   }
 
   @override
@@ -2742,6 +2777,37 @@ class _TreePeople extends _FakePeopleApi {
     treeCalls++;
     return rows.where((person) => person.familyId == familyId).toList();
   }
+}
+
+class _FailingAvatarProfile implements ProfileGateway {
+  @override
+  Future<Uint8List?> downloadAvatar(String path) async {
+    throw Exception('avatar download failed');
+  }
+
+  @override
+  Future<void> clearAvatar() => throw UnimplementedError();
+
+  @override
+  Future<OwnProfile?> loadOwn() => throw UnimplementedError();
+
+  @override
+  Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    String? birthPrecision,
+    BirthVisibility? birthVisibility,
+    String? about,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> saveAvatar(Uint8List bytes) => throw UnimplementedError();
+
+  @override
+  Future<void> saveName(String displayName) => throw UnimplementedError();
+
+  @override
+  Future<void> updateEmail(String email) => throw UnimplementedError();
 }
 
 class _WholeTreePeople extends _FakePeopleApi {
