@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/current_session.dart';
 import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../../data/rpc_error.dart';
@@ -77,7 +77,7 @@ Future<void> showPersonProfile(
 }
 
 String? _sessionUserId() {
-  return readAuthUserId();
+  return CurrentSession.userId;
 }
 
 class PersonProfileDialog extends StatefulWidget {

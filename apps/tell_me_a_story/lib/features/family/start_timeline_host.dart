@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
-import '../../core/supabase/auth_user_id.dart';
+import '../../data/current_session.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
@@ -12,7 +12,7 @@ import 'start_timeline_dialog.dart';
 /// Signed-in user id, or [override] when a host already has one.
 String? signedInUserId({String? override}) {
   if (override != null) return override;
-  return readAuthUserId();
+  return CurrentSession.userId;
 }
 
 /// Branch dialog shared by signed-in hosts. The caller reloads and snacks.

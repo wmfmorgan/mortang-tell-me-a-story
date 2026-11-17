@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/current_session.dart';
 import 'magic_link_redirect.dart';
 
 const _landingInkMuted = albumInk;
@@ -58,7 +58,7 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
 
   MagicLinkSender? get _sender {
     if (widget.sender != null) return widget.sender;
-    final auth = widget.auth ?? readGoTrueClient();
+    final auth = widget.auth ?? CurrentSession.auth;
     if (auth == null) return null;
     return GoTrueMagicLinkSender(auth);
   }
