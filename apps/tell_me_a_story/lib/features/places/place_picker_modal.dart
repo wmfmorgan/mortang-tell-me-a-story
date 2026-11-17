@@ -171,28 +171,7 @@ class _PlacePickerModalState extends State<PlacePickerModal> {
         _searching = false;
         if (hits.isNotEmpty) _tab = _PlaceTab.search;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _hits = const [];
-        _searching = false;
-        _mapFailed = true;
-      });
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _hits = const [];
-        _searching = false;
-        _mapFailed = true;
-      });
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _hits = const [];
-        _searching = false;
-        _mapFailed = true;
-      });
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _hits = const [];

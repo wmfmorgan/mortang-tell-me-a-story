@@ -256,7 +256,8 @@ void main() {
   testWidgets('signed-in invite that another account used stays dead', (
     tester,
   ) async {
-    final invites = _Invites()..acceptError = Exception('used');
+    final invites = _Invites()
+      ..acceptError = InviteApiException(code: 'used', message: 'used');
     await tester.pumpWidget(
       MaterialApp(
         home: InviteSignInPage(

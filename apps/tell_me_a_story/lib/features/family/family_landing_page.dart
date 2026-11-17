@@ -104,19 +104,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
       }
       memberIds = rows.map((row) => row.id).toSet();
       FamilyMembership.remember(memberIds);
-    } on PostgrestException catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    } on FunctionException catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    } on AuthException catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -137,13 +125,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         } else {
           tree = await FamiliesApi().listFamilyTree(familyId);
         }
-      } on PostgrestException catch (_) {
-        tree = const [];
-      } on FunctionException catch (_) {
-        tree = const [];
-      } on AuthException catch (_) {
-        tree = const [];
-      } on StorageException catch (_) {
+      } on Exception catch (_) {
         tree = const [];
       }
     }
@@ -152,13 +134,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     if (familyId != null) {
       try {
         latest = latestShelf(await _fetchLatest(familyId), now: _now);
-      } on PostgrestException catch (_) {
-        latest = const [];
-      } on FunctionException catch (_) {
-        latest = const [];
-      } on AuthException catch (_) {
-        latest = const [];
-      } on StorageException catch (_) {
+      } on Exception catch (_) {
         latest = const [];
       }
     }

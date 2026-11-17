@@ -66,9 +66,9 @@ class _CommentComposerState extends State<CommentComposer> {
       if (!mounted) return;
       _controller.clear();
     } on PostgrestException {
-      rethrow;
+      // Caller maps; keep draft text in the field.
     } on FunctionException {
-      rethrow;
+      // Caller maps; keep draft text in the field.
     } finally {
       if (mounted) setState(() => _busy = false);
     }

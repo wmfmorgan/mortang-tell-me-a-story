@@ -276,16 +276,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         );
         setState(() => _autosaveLabel = 'Saved');
       }
-    } on PostgrestException catch (_) {
-      _autosaveDirty = true;
-      if (mounted) setState(() => _autosaveLabel = 'Not saved');
-    } on FunctionException catch (_) {
-      _autosaveDirty = true;
-      if (mounted) setState(() => _autosaveLabel = 'Not saved');
-    } on AuthException catch (_) {
-      _autosaveDirty = true;
-      if (mounted) setState(() => _autosaveLabel = 'Not saved');
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       _autosaveDirty = true;
       if (mounted) setState(() => _autosaveLabel = 'Not saved');
     } finally {
@@ -635,13 +626,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         return;
       }
       await _uploadPending();
-    } on PostgrestException catch (_) {
-      if (mounted) setState(() => _photoError = true);
-    } on FunctionException catch (_) {
-      if (mounted) setState(() => _photoError = true);
-    } on AuthException catch (_) {
-      if (mounted) setState(() => _photoError = true);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -660,13 +645,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         }
       }
       await _uploadPending();
-    } on PostgrestException catch (_) {
-      if (mounted) setState(() => _photoError = true);
-    } on FunctionException catch (_) {
-      if (mounted) setState(() => _photoError = true);
-    } on AuthException catch (_) {
-      if (mounted) setState(() => _photoError = true);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() => _photoError = true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -692,16 +671,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         _photoError = false;
         _pendingPhotoBytes = null;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() => _photoError = true);
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() => _photoError = true);
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() => _photoError = true);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     }

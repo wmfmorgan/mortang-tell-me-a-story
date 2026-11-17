@@ -130,16 +130,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         _ownerId ??= _defaultOwner(members);
         _loaded = true;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() => _loaded = true);
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() => _loaded = true);
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() => _loaded = true);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _loaded = true);
     }
@@ -214,25 +205,7 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
         _busy = false;
         _error = _inlineError(error);
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = "Try again";
-      });
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = "Try again";
-      });
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = "Try again";
-      });
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _busy = false;

@@ -472,7 +472,7 @@ class _Profile implements ProfileGateway {
 
   @override
   Future<String> saveAvatar(Uint8List bytes) async {
-    if (failUpload) throw StateError('upload');
+    if (failUpload) throw PostgrestException(message: 'upload');
     uploads += 1;
     avatarBytes = bytes;
     return 'user-1/avatar.jpg';

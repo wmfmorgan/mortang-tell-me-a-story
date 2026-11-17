@@ -102,25 +102,7 @@ class _DraftsPageState extends State<DraftsPage> {
         _loading = false;
       });
       await _loadFamilies();
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadError = true;
-      });
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadError = true;
-      });
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadError = true;
-      });
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -153,19 +135,7 @@ class _DraftsPageState extends State<DraftsPage> {
         memberIds = rows.map((row) => row.id).toSet();
         FamilyMembership.remember(memberIds);
       }
-    } on PostgrestException catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    } on FunctionException catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    } on AuthException catch (_) {
-      rows = const [];
-      stewarded = const [];
-      memberIds = {};
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       rows = const [];
       stewarded = const [];
       memberIds = {};
@@ -282,22 +252,7 @@ class _DraftsPageState extends State<DraftsPage> {
       await _stories.discard(story.id);
       if (!mounted) return;
       await _reload();
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t discard draft. Try again.')),
-      );
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t discard draft. Try again.')),
-      );
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t discard draft. Try again.')),
-      );
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t discard draft. Try again.')),

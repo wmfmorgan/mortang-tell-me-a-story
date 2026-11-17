@@ -273,6 +273,9 @@ class PhotosApi implements PhotosGateway {
     } on PostgrestException {
       await _remove([path]);
       rethrow;
+    } on Exception {
+      await _remove([path]);
+      rethrow;
     }
   }
 

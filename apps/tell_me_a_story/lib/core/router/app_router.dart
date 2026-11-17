@@ -210,14 +210,6 @@ Future<String> appStartPath(FamiliesGateway? families) async {
     if (stewarded.any((family) => family.countsForManage())) {
       return AppRoutes.manageFamilies;
     }
-  } on PostgrestException catch (_) {
-    return AppRoutes.familyLanding;
-  } on FunctionException catch (_) {
-    return AppRoutes.familyLanding;
-  } on AuthException catch (_) {
-    return AppRoutes.familyLanding;
-  } on StorageException catch (_) {
-    return AppRoutes.familyLanding;
   } on Exception catch (_) {
     return AppRoutes.familyLanding;
   }
@@ -280,13 +272,7 @@ GoRouter createAppRouter({
               if (mine.isNotEmpty) return AppRoutes.familyLanding;
               return AppRoutes.timeline;
             }
-          } on PostgrestException catch (_) {
-            return AppRoutes.familyLanding;
-          } on FunctionException catch (_) {
-            return AppRoutes.familyLanding;
-          } on AuthException catch (_) {
-            return AppRoutes.familyLanding;
-          } on StorageException catch (_) {
+          } on Exception catch (_) {
             return AppRoutes.familyLanding;
           }
         }
@@ -310,13 +296,7 @@ GoRouter createAppRouter({
               if (next != AppRoutes.familyLanding) return next;
             }
           }
-        } on PostgrestException catch (_) {
-          return null;
-        } on FunctionException catch (_) {
-          return null;
-        } on AuthException catch (_) {
-          return null;
-        } on StorageException catch (_) {
+        } on Exception catch (_) {
           return null;
         }
       }

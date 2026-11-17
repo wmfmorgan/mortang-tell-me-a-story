@@ -75,9 +75,7 @@ void main() {
       expect(find.text('home'), findsOneWidget);
       expect(find.text('Leave this story?'), findsNothing);
 
-      final failed = _guard(
-        onSave: () async => throw StateError('save failed'),
-      );
+      final failed = _guard(onSave: () async => throw Exception('save failed'));
       addTearDown(failed.dispose);
       FlutterErrorDetails? reported;
       final previous = FlutterError.onError;
@@ -87,7 +85,7 @@ void main() {
         await _leave(tester, failed, act: () => tester.tap(find.text('Save'))),
         isFalse,
       );
-      expect(reported?.exception, isA<StateError>());
+      expect(reported?.exception, isA<Exception>());
       expect(find.text('home'), findsOneWidget);
       expect(find.text('Leave this story?'), findsNothing);
     },

@@ -209,7 +209,22 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
       } else {
         context.pop(saved);
       }
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+    } on StorageException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),

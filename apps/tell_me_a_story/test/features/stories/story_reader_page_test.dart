@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -169,10 +172,10 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<Story> getStory(String storyId) async {
     if (getDelay != null) await getDelay;
-    if (throwOnGet) throw StateError('missing $storyId');
+    if (throwOnGet) throw PostgrestException(message: 'missing $storyId');
     final existing = story;
     if (existing == null || existing.id != storyId) {
-      throw StateError('missing $storyId');
+      throw PostgrestException(message: 'missing $storyId');
     }
     return existing;
   }
@@ -180,7 +183,7 @@ class _FakeStoriesApi implements StoriesGateway {
   @override
   Future<Story?> getPublished(String storyId) async {
     if (getDelay != null) await getDelay;
-    if (throwOnGet) throw StateError('network $storyId');
+    if (throwOnGet) throw PostgrestException(message: 'network $storyId');
     final existing = story;
     if (existing == null || existing.id != storyId) return null;
     if (existing.status != StoryStatus.published) return null;
@@ -429,7 +432,7 @@ class _FakeCommentsApi implements CommentsGateway {
 
   @override
   Future<List<Comment>> listForStory(String storyId) async {
-    if (throwOnList) throw StateError('comments failed');
+    if (throwOnList) throw PostgrestException(message: 'comments failed');
     return rows.where((c) => c.storyId == storyId).toList();
   }
 
@@ -440,7 +443,7 @@ class _FakeCommentsApi implements CommentsGateway {
     required String body,
   }) async {
     createCalls++;
-    if (throwOnCreate) throw StateError('create failed');
+    if (throwOnCreate) throw PostgrestException(message: 'create failed');
     ensureValidCommentBody(body);
     final comment = Comment(
       id: 'new${++_seq}',
@@ -460,7 +463,7 @@ class _FakeCommentsApi implements CommentsGateway {
     updateCalls++;
     lastUpdateId = id;
     lastUpdateBody = body;
-    if (throwOnUpdate) throw StateError('update failed');
+    if (throwOnUpdate) throw PostgrestException(message: 'update failed');
     ensureValidCommentBody(body);
     final index = rows.indexWhere((row) => row.id == id);
     if (index < 0) return;
@@ -479,7 +482,7 @@ class _FakeCommentsApi implements CommentsGateway {
   @override
   Future<void> delete(String id) async {
     deleteCalls++;
-    if (throwOnDelete) throw StateError('delete failed');
+    if (throwOnDelete) throw PostgrestException(message: 'delete failed');
     rows.removeWhere((c) => c.id == id);
   }
 }
@@ -512,7 +515,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
     required String body,
   }) async {
     createCalls++;
-    if (throwOnCreate) throw StateError('create failed');
+    if (throwOnCreate) throw PostgrestException(message: 'create failed');
     ensureValidPerspectiveBody(body);
     final row = Perspective(
       id: 'v-new${++_seq}',
@@ -550,7 +553,7 @@ class _FakePerspectivesApi implements PerspectivesGateway {
   @override
   Future<void> delete(String id) async {
     deleteCalls++;
-    if (throwOnDelete) throw StateError('delete failed');
+    if (throwOnDelete) throw PostgrestException(message: 'delete failed');
     rows.removeWhere((row) => row.id == id);
   }
 }
@@ -2734,7 +2737,7 @@ class _TreePeople extends _FakePeopleApi {
 
   @override
   Future<List<Person>> listPeople(String familyId) {
-    throw StateError('members only');
+    throw PostgrestException(message: 'members only');
   }
 
   @override

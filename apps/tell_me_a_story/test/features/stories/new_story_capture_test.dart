@@ -29,7 +29,7 @@ class _FakePeopleApi extends PeopleGateway {
 
   @override
   Future<List<Person>> listPeople(String familyId) async {
-    if (throwOnList) throw StateError('people load failed');
+    if (throwOnList) throw PostgrestException(message: 'people load failed');
     return rows.where((p) => p.familyId == familyId).toList();
   }
 
@@ -37,7 +37,7 @@ class _FakePeopleApi extends PeopleGateway {
   Future<List<Person>> listTreePeople(String familyId) async {
     final hold = holdTree;
     if (hold != null) await hold.future;
-    if (throwOnList) throw StateError('people load failed');
+    if (throwOnList) throw PostgrestException(message: 'people load failed');
     return [...rows.where((p) => p.familyId == familyId), ...treeRows];
   }
 
@@ -188,7 +188,7 @@ class _FakeStoriesApi implements StoriesGateway {
     List<String> personIds = const [],
   }) async {
     if (throwOnCreate) {
-      throw StateError('save failed');
+      throw PostgrestException(message: 'save failed');
     }
     createDraftCalls++;
     lastTimeframeStart = timeframeStart;
@@ -288,7 +288,7 @@ class _FakeStoriesApi implements StoriesGateway {
   Future<Story> getStory(String storyId) async {
     final existing = story;
     if (existing == null || existing.id != storyId) {
-      throw StateError('missing $storyId');
+      throw PostgrestException(message: 'missing $storyId');
     }
     return existing;
   }
@@ -371,7 +371,7 @@ class _FakePhotosApi implements PhotosGateway {
   }) async {
     uploadCalls++;
     if (failDecode) {
-      throw ArgumentError.value(bytes, 'bytes', 'not a decodable image');
+      throw const FormatException('not a decodable image');
     }
     if (failUpload) {
       throw const StorageFailedException();

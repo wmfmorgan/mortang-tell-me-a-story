@@ -2,6 +2,26 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 
 /// Empty stories gateway so a timeline test does not open Supabase.
 class QuietStories implements StoriesGateway {
+  var lastDraftId = 'quiet-draft';
+
+  Story _draft({
+    required String id,
+    required String familyId,
+    String? title,
+    String? body,
+    List<String> personIds = const [],
+  }) {
+    return Story(
+      id: id,
+      familyId: familyId,
+      authorId: 'quiet-user',
+      title: title,
+      body: body,
+      status: StoryStatus.draft,
+      personIds: personIds,
+    );
+  }
+
   @override
   Future<List<Story>> listPublished(String familyId) async => const [];
 
@@ -43,8 +63,15 @@ class QuietStories implements StoriesGateway {
     String? placeId,
     bool allowUndated = false,
     List<String> personIds = const [],
-  }) {
-    throw UnimplementedError();
+  }) async {
+    lastDraftId = id ?? 'quiet-draft';
+    return _draft(
+      id: lastDraftId,
+      familyId: familyId,
+      title: title,
+      body: body,
+      personIds: personIds,
+    );
   }
 
   @override
@@ -57,8 +84,14 @@ class QuietStories implements StoriesGateway {
     String? body,
     String? placeId,
     List<String>? personIds,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    return _draft(
+      id: storyId,
+      familyId: 'family',
+      title: title,
+      body: body,
+      personIds: personIds ?? const [],
+    );
   }
 
   @override
@@ -71,8 +104,8 @@ class QuietStories implements StoriesGateway {
     String? body,
     String? placeId,
     List<String>? personIds,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    return true;
   }
 
   @override

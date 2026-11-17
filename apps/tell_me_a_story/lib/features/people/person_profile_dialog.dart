@@ -257,17 +257,10 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
         SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
       );
       return;
-    } on AuthException catch (error) {
+    } on Exception catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
-      );
-      return;
-    } on StorageException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Try again')));
       return;
     }
     if (!mounted) return;

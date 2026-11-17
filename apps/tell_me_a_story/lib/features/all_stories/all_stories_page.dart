@@ -125,16 +125,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         _canWrite = chrome.canWrite;
         _phase = _Phase.ready;
       });
-    } on PostgrestException {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _phase = _Phase.error);
-    } on FunctionException {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _phase = _Phase.error);
-    } on AuthException {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _phase = _Phase.error);
-    } on StorageException {
+    } on Exception {
       if (!mounted || generation != _loadGeneration) return;
       setState(() => _phase = _Phase.error);
     }

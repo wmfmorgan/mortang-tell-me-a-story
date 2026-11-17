@@ -27,6 +27,7 @@ import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 
 import '../../fakes/fake_invite_api.dart';
+import '../../support/quiet_gateways.dart';
 
 Uint8List _pngOf(int width, int height) {
   final bytes = Uint8List.fromList(const [
@@ -397,15 +398,27 @@ Widget _timeline({
   PhotosGateway? photos,
   Key? pageKey,
 }) {
+  final memberFamilies =
+      families ??
+      _FakeFamilies([
+        MemberFamily(
+          id: kTestFamilyId,
+          name: 'Jenkins',
+          createdAt: DateTime.utc(2020),
+        ),
+      ]);
   return MaterialApp(
     theme: theme,
     home: TimelinePage(
       key: pageKey,
       api: FakeInviteApi(),
       storiesApi: stories,
-      familiesApi: families,
+      familiesApi: memberFamilies,
+      manageApi: _FakeManage(_FakeFamilies(const [])),
+      peopleApi: QuietPeople(),
       live: live,
-      photosApi: photos,
+      photosApi: photos ?? _FakePhotos(),
+      currentUserId: 'u1',
     ),
   );
 }
@@ -1134,7 +1147,7 @@ void main() {
     expect(find.byKey(const Key('header-invite')), findsNothing);
     expect(find.text('New story'), findsOneWidget);
     expect(find.text('Search archive...'), findsNothing);
-    expect(find.text('Family'), findsOneWidget);
+    expect(find.text('Jenkins'), findsOneWidget);
     expect(find.byKey(const Key('timeline-search')), findsOneWidget);
     expect(find.byKey(const Key('header-avatar')), findsOneWidget);
     expect(find.byKey(const Key('header-underline-decades')), findsOneWidget);
@@ -1415,6 +1428,11 @@ void main() {
       inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: const []),
       familiesApi: _FakeFamilies(const []),
+      peopleApi: QuietPeople(),
+      placesApi: QuietPlaces(),
+      photosApi: _FakePhotos(),
+      commentsApi: QuietComments(),
+      perspectivesApi: QuietPerspectives(),
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -1433,6 +1451,18 @@ void main() {
       authRefresh: auth,
       inviteApi: FakeInviteApi(),
       storiesApi: stories,
+      familiesApi: _FakeFamilies([
+        MemberFamily(
+          id: kTestFamilyId,
+          name: 'Jenkins',
+          createdAt: DateTime.utc(2020),
+        ),
+      ]),
+      photosApi: _FakePhotos(),
+      peopleApi: QuietPeople(),
+      placesApi: QuietPlaces(),
+      commentsApi: QuietComments(),
+      perspectivesApi: QuietPerspectives(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -1476,6 +1506,18 @@ void main() {
       authRefresh: auth,
       inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
+      familiesApi: _FakeFamilies([
+        MemberFamily(
+          id: kTestFamilyId,
+          name: 'Jenkins',
+          createdAt: DateTime.utc(2020),
+        ),
+      ]),
+      photosApi: _FakePhotos(),
+      peopleApi: QuietPeople(),
+      placesApi: QuietPlaces(),
+      commentsApi: QuietComments(),
+      perspectivesApi: QuietPerspectives(),
     );
 
     await tester.pumpWidget(TellMeAStoryApp(router: router));
@@ -1574,6 +1616,18 @@ void main() {
       authRefresh: auth,
       inviteApi: FakeInviteApi(),
       storiesApi: _FakeStoriesApi(published: [story]),
+      familiesApi: _FakeFamilies([
+        MemberFamily(
+          id: kTestFamilyId,
+          name: 'Jenkins',
+          createdAt: DateTime.utc(2020),
+        ),
+      ]),
+      photosApi: _FakePhotos(),
+      peopleApi: QuietPeople(),
+      placesApi: QuietPlaces(),
+      commentsApi: QuietComments(),
+      perspectivesApi: QuietPerspectives(),
     );
     addTearDown(auth.dispose);
 
@@ -3371,6 +3425,11 @@ void main() {
           ),
         ],
       ),
+      peopleApi: QuietPeople(),
+      placesApi: QuietPlaces(),
+      photosApi: _FakePhotos(),
+      commentsApi: QuietComments(),
+      perspectivesApi: QuietPerspectives(),
     );
     await tester.pumpWidget(TellMeAStoryApp(router: router));
     await tester.pumpAndSettle();

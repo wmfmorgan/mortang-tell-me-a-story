@@ -17,6 +17,9 @@ const _familyId = '00000000-0000-0000-0000-000000000001';
 const _helper =
     'Year is required. Add the month or day only if you remember. Day unlocks after Month.';
 
+Future<List<PersonStoryCard>> _noPersonStories(String personId) async =>
+    const [];
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -187,6 +190,7 @@ void main() {
               name: 'Ada',
               people: people,
               signedInUserId: 'me',
+              loadStories: _noPersonStories,
               child: const Text('Ada'),
             ),
           ),
@@ -303,6 +307,7 @@ void main() {
                 personId: 'p1',
                 name: 'Pill Name',
                 people: people,
+                loadStories: _noPersonStories,
               ),
               child: const Text('open'),
             ),

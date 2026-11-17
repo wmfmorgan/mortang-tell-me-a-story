@@ -731,10 +731,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   ) async {
     try {
       return await read();
-    } on PostgrestException catch (error) {
-      remember(error);
-      return null;
-    } on FunctionException catch (error) {
+    } on Exception catch (error) {
       remember(error);
       return null;
     }
@@ -790,6 +787,10 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           : (mapRpcError(error) ?? 'Try again');
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
+    } on OriginRpcException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -962,16 +963,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         _photoError = false;
         _pendingPhotoBytes = null;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() => _photoError = true);
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() => _photoError = true);
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() => _photoError = true);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _photoError = true);
     }
@@ -1045,7 +1037,25 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         ];
         _editingCommentId = null;
       });
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      rethrow;
+    } on FunctionException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      rethrow;
     } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
+      rethrow;
+    } on StorageException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),

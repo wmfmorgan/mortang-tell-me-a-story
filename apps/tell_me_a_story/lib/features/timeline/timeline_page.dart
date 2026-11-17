@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
@@ -181,16 +180,7 @@ class _TimelinePageState extends State<TimelinePage> {
       for (final row in tree) {
         if (row.id == remembered) return remembered;
       }
-    } on PostgrestException catch (_) {
-      // A tree read that throws cannot confirm the saved family. D9 falls back.
-      return fallback;
-    } on FunctionException catch (_) {
-      // A tree read that throws cannot confirm the saved family. D9 falls back.
-      return fallback;
-    } on AuthException catch (_) {
-      // A tree read that throws cannot confirm the saved family. D9 falls back.
-      return fallback;
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       // A tree read that throws cannot confirm the saved family. D9 falls back.
       return fallback;
     }
@@ -200,16 +190,7 @@ class _TimelinePageState extends State<TimelinePage> {
   Future<void> _bootstrap() async {
     try {
       await _openFamily();
-    } on PostgrestException catch (error) {
-      _failBootstrap(error);
-      return;
-    } on FunctionException catch (error) {
-      _failBootstrap(error);
-      return;
-    } on AuthException catch (error) {
-      _failBootstrap(error);
-      return;
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       _failBootstrap(error);
       return;
     }
@@ -219,16 +200,7 @@ class _TimelinePageState extends State<TimelinePage> {
     try {
       await _maybeAcceptInvite();
       await _maybeOpenNewTimelineOrigin();
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      _showFailure(error);
-    } on FunctionException catch (error) {
-      if (!mounted) return;
-      _showFailure(error);
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      _showFailure(error);
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       _showFailure(error);
     }
@@ -294,16 +266,7 @@ class _TimelinePageState extends State<TimelinePage> {
     });
     try {
       await _openFamily();
-    } on PostgrestException catch (error) {
-      _failBootstrap(error);
-      return;
-    } on FunctionException catch (error) {
-      _failBootstrap(error);
-      return;
-    } on AuthException catch (error) {
-      _failBootstrap(error);
-      return;
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       _failBootstrap(error);
       return;
     }
@@ -399,11 +362,7 @@ class _TimelinePageState extends State<TimelinePage> {
       memberIds = read.memberIds;
       tree = read.tree;
       if (gateway != null) FamilyMembership.remember(memberIds);
-    } on PostgrestException catch (error) {
-      if (!mounted) return false;
-      _showFailure(error);
-      return false;
-    } on FunctionException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return false;
       _showFailure(error);
       return false;
@@ -547,13 +506,7 @@ class _TimelinePageState extends State<TimelinePage> {
         _loadingPublished = false;
         _loadError = null;
       });
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loadingPublished = false;
-        _loadError = mapRpcError(error) ?? _storiesLoadError;
-      });
-    } on FunctionException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() {
         _loadingPublished = false;
