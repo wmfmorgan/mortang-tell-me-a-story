@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Grandfathered raw-error reads. Key is `path: pattern`. The count is exact.
+/// Known gaps: casts like `(e as PostgrestException).message`, aliasing like `final err = e`, and prefixed types like `on supa.AuthException`.
 const temporaryErrorTextReads = <String, int>{
   'data/invite_api.dart: e.details': 1,
   'data/manage_families_api.dart: e.details': 1,
@@ -58,10 +59,12 @@ void f() {
     print(e.toString());
     print('$e');
     print('${e}');
+    print('${e.message}');
   }
   print(thing.toString().contains('x'));
   if (message.contains('x')) {}
   if (code == 'x') {}
+  if (code != 'y') {}
 }
 ''';
     expect(_errorTextReadPatterns(banned), {
@@ -84,6 +87,8 @@ void f() {
   } catch (e) {
     print(e.messageId);
     print(items.contains(e));
+    print(response.code);
+    print(state.message);
   }
   final items = <String>['a'];
   if (items.contains('a')) {}
@@ -125,6 +130,31 @@ void f() {
 ''';
     expect(_errorTextReadPatterns(untyped), {'e.message'});
 
+    const afterComment = r'''
+void f() {
+  try {
+    work();
+  } catch (e) {
+    foo(); // don't retry
+    print(e.message);
+    bar(); /* ' */ print(e.code);
+  }
+}
+''';
+    expect(_errorTextReadPatterns(afterComment), {'e.message', 'e.code'});
+
+    const countedOnce = r'''
+void f() {
+  try {
+    work();
+  } catch (e) {
+    if (e.code == 'x') {}
+    if (code == 'y') {}
+  }
+}
+''';
+    expect(_errorTextReadCounts(countedOnce), {'e.code': 1, 'code ==': 1});
+
     const inside = '''
 bool rpcConstraintViolation(Object error, String sqlstate, String constraint) {
   return error.message.contains(constraint);
@@ -138,6 +168,15 @@ String? mapRpcError(Object error) {
 }
 ''';
     expect(_rpcContainsOutside(outside), {'.contains(': 1});
+
+    const arrow = '''
+bool rpcConstraintViolation(Object error, String sqlstate, String constraint) =>
+    error.message.contains(constraint);
+String? mapRpcError(Object error) {
+  return error.message.contains('x') ? 'no' : null;
+}
+''';
+    expect(_rpcContainsOutside(arrow), {'.contains(': 1});
   });
 }
 
@@ -166,16 +205,8 @@ Map<String, int> _errorTextReadCounts(String source) {
   for (final line in source.split('\n')) {
     if (line.trimLeft().startsWith('//')) continue;
     _scanLine(line, scan);
-    _fileWide(line, scan.hits);
   }
   return scan.hits;
-}
-
-void _fileWide(String line, Map<String, int> hits) {
-  _add(hits, '.toString().contains(', _occurs(line, '.toString().contains('));
-  _add(hits, 'message.contains(', _occurs(line, 'message.contains('));
-  final codes = RegExp(r'(?<![\w])code ==').allMatches(line).length;
-  _add(hits, 'code ==', codes);
 }
 
 void _add(Map<String, int> hits, String pattern, int count) {
@@ -183,43 +214,24 @@ void _add(Map<String, int> hits, String pattern, int count) {
   hits[pattern] = (hits[pattern] ?? 0) + count;
 }
 
-int _occurs(String line, String needle) {
-  var count = 0;
-  var start = 0;
-  while (true) {
-    final at = line.indexOf(needle, start);
-    if (at < 0) return count;
-    count++;
-    start = at + needle.length;
-  }
-}
-
 void _scanLine(String line, _Scan scan) {
   var i = 0;
   while (i < line.length) {
-    if (scan.quote != null) {
-      i = _inString(line, i, scan);
+    final skipped = _skipNoise(line, i, scan);
+    if (skipped != null) {
+      i = skipped;
       continue;
     }
-    final quoteAt = _quoteAt(line, i);
-    if (quoteAt != null) {
-      scan.quote = quoteAt.quote;
-      scan.triple = quoteAt.triple;
-      scan.raw = quoteAt.raw;
-      i = quoteAt.end;
-      continue;
-    }
-    final structure = _structureAt(line, i, scan);
-    if (structure != null) {
-      i = structure;
+    final wide = _fileWideAt(line, i, scan);
+    if (wide != null) {
+      i = wide;
       continue;
     }
     final catchName = _catchAt(line, i);
     if (catchName != null) {
       scan.pending = catchName.name;
       scan.pendingChecks = _checksText(scan);
-      scan.onType = null;
-      scan.wantOnType = false;
+      _clearOn(scan);
       i = catchName.end;
       continue;
     }
@@ -230,6 +242,30 @@ void _scanLine(String line, _Scan scan) {
     }
     i = _propertyAt(line, i, scan);
   }
+  if (scan.quote != null && !scan.triple) scan.quote = null;
+}
+
+int? _skipNoise(String line, int i, _Scan scan) {
+  if (scan.block) return _blockEnd(line, i, scan);
+  if (scan.quote != null) return _inString(line, i, scan);
+  if (line.startsWith('//', i)) return line.length;
+  if (line.startsWith('/*', i)) {
+    scan.block = true;
+    return _blockEnd(line, i + 2, scan);
+  }
+  final quoteAt = _quoteAt(line, i);
+  if (quoteAt == null) return _structureAt(line, i, scan);
+  scan.quote = quoteAt.quote;
+  scan.triple = quoteAt.triple;
+  scan.raw = quoteAt.raw;
+  return quoteAt.end;
+}
+
+int _blockEnd(String line, int i, _Scan scan) {
+  final end = line.indexOf('*/', i);
+  if (end < 0) return line.length;
+  scan.block = false;
+  return end + 2;
 }
 
 int? _structureAt(String line, int i, _Scan scan) {
@@ -287,7 +323,36 @@ bool _takeOnType(_Scan scan, String ident) {
   return false;
 }
 
+int? _fileWideAt(String line, int i, _Scan scan) {
+  const toStringCall = '.toString().contains(';
+  if (line.startsWith(toStringCall, i)) {
+    _add(scan.hits, '.toString().contains(', 1);
+    return i + toStringCall.length;
+  }
+  const messageCall = 'message.contains(';
+  if (_identStart(line, i) && line.startsWith(messageCall, i)) {
+    _add(scan.hits, 'message.contains(', 1);
+    return i + messageCall.length;
+  }
+  final code = RegExp(r'\bcode\s*[!=]=').matchAsPrefix(line, i);
+  if (code == null || !_identStart(line, i)) return null;
+  if (!_codeOfRawBinding(line, i, scan)) _add(scan.hits, 'code ==', 1);
+  return code.end;
+}
+
+bool _codeOfRawBinding(String line, int i, _Scan scan) {
+  for (final bound in scan.active) {
+    if (!bound.checksText) continue;
+    final prefix = '${bound.name}.';
+    final start = i - prefix.length;
+    if (start < 0 || !line.startsWith(prefix, start)) continue;
+    if (_identStart(line, start)) return true;
+  }
+  return false;
+}
+
 int _propertyAt(String line, int i, _Scan scan) {
+  if (!_identStart(line, i)) return i + 1;
   for (final bound in scan.active) {
     if (!bound.checksText) continue;
     final name = bound.name;
@@ -309,6 +374,9 @@ int _propertyAt(String line, int i, _Scan scan) {
 
 int _inString(String line, int i, _Scan scan) {
   final quote = scan.quote!;
+  if (!scan.raw && line.startsWith(r'${', i)) {
+    return _interpolationExpr(line, i + 2, scan);
+  }
   if (!scan.raw && line.startsWith(r'$', i)) {
     _interpolation(line, i, scan);
   }
@@ -324,6 +392,36 @@ int _inString(String line, int i, _Scan scan) {
     return i + 1;
   }
   return i + 1;
+}
+
+int _interpolationExpr(String line, int i, _Scan scan) {
+  final start = i;
+  var depth = 0;
+  while (i < line.length) {
+    if (line.startsWith('{', i)) {
+      depth++;
+      i++;
+      continue;
+    }
+    if (line.startsWith('}', i) && depth == 0) {
+      _bareInterpolation(line.substring(start, i).trim(), scan);
+      return i + 1;
+    }
+    if (line.startsWith('}', i)) {
+      depth--;
+      i++;
+      continue;
+    }
+    i = _propertyAt(line, i, scan);
+  }
+  return i;
+}
+
+void _bareInterpolation(String expr, _Scan scan) {
+  for (final bound in scan.active) {
+    if (!bound.checksText || expr != bound.name) continue;
+    _add(scan.hits, '\${${bound.name}}', 1);
+  }
 }
 
 void _interpolation(String line, int i, _Scan scan) {
@@ -382,25 +480,30 @@ Map<String, int> _rpcContainsOutside(String source) {
   var fnDepth = 0;
   var inConstraint = false;
   var pending = false;
+  const declaration = 'bool rpcConstraintViolation(';
   for (final line in source.split('\n')) {
     if (line.trimLeft().startsWith('//')) continue;
-    if (!inConstraint && line.contains('rpcConstraintViolation')) {
-      pending = true;
-    }
     for (var i = 0; i < line.length; i++) {
-      if (line[i] == '{') {
+      if (!inConstraint && line.startsWith(declaration, i)) pending = true;
+      if (line.startsWith('{', i)) {
         depth++;
         if (pending) {
           inConstraint = true;
           fnDepth = depth;
           pending = false;
         }
-      } else if (line[i] == '}') {
+        continue;
+      }
+      if (line.startsWith('}', i)) {
         if (inConstraint && depth == fnDepth) inConstraint = false;
         depth--;
+        continue;
       }
+      if (line.startsWith(';', i)) pending = false;
+      if (inConstraint || pending) continue;
+      if (!line.startsWith('.contains(', i)) continue;
+      _add(hits, '.contains(', 1);
     }
-    _add(hits, '.contains(', inConstraint ? 0 : _occurs(line, '.contains('));
   }
   return hits;
 }
@@ -414,6 +517,7 @@ class _Scan {
   String? quote;
   bool triple = false;
   bool raw = false;
+  bool block = false;
   final active = <_Bound>[];
   final hits = <String, int>{};
 }
