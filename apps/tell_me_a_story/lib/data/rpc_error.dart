@@ -16,7 +16,7 @@ String? mapRpcError(Object error) {
   for (final prefix in prefixes) {
     if (!trimmed.startsWith(prefix)) continue;
     final detail = trimmed.substring(prefix.length).trim();
-    return detail.isEmpty ? trimmed : detail;
+    return detail.isEmpty ? null : detail;
   }
   return null;
 }
@@ -39,5 +39,5 @@ bool rpcConstraintViolation(Object error, String sqlstate, String constraint) {
   if (error is! PostgrestException) return false;
   if (error.code != sqlstate) return false;
   final quoted = '"$constraint"';
-  return error.message.split(quoted).length > 1;
+  return error.message.contains(quoted);
 }

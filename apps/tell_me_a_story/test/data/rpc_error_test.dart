@@ -26,7 +26,11 @@ void main() {
     );
     expect(
       mapRpcError(const PostgrestException(message: 'NOT_FOUND:')),
-      'NOT_FOUND:',
+      isNull,
+    );
+    expect(
+      mapRpcError(const PostgrestException(message: 'VALIDATION:')),
+      isNull,
     );
     expect(
       mapRpcError(const PostgrestException(message: '  FORBIDDEN: locked  ')),
@@ -181,8 +185,6 @@ void main() {
       );
       expect(originRpcException(raw), isNull);
       expect(mapRpcError(raw), isNull);
-      const onScreen = 'Try again';
-      expect(mapRpcError(raw) ?? onScreen, onScreen);
     },
   );
 }

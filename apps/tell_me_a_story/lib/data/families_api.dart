@@ -382,19 +382,18 @@ class FamiliesApi
         .eq('id', familyId);
   }
 
-  static const _mineSelectWithCover =
-      'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)';
-
   @override
   Future<List<MemberFamily>> listMine() {
-    return _listMine(_mineSelectWithCover);
+    return _listMine();
   }
 
-  Future<List<MemberFamily>> _listMine(String select) async {
+  Future<List<MemberFamily>> _listMine() async {
     final uid = _requireUserId();
     final rows = await _client
         .from('memberships')
-        .select(select)
+        .select(
+          'role, families!inner(id, name, parent_family_id, branch_year, created_at, deleted_at, cover_photo_path)',
+        )
         .eq('user_id', uid)
         .isFilter('families.deleted_at', null);
     final families = <MemberFamily>[];
