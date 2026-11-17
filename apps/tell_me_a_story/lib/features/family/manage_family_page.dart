@@ -4,11 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/navigation/unsaved_guard.dart';
 import '../../core/router/app_router.dart';
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
+import '../../data/current_session.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
@@ -168,7 +168,7 @@ class _ManageFamilyPageState extends State<ManageFamilyPage> {
 
     if (injected != null) return injected;
 
-    return readAuthUserId();
+    return CurrentSession.userId;
   }
 
   Future<void> _startTimeline() async {

@@ -6,11 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/router/app_router.dart';
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
 import '../../data/comments_api.dart';
+import '../../data/current_session.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
 import '../../data/people_api.dart';
@@ -199,7 +199,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   String? get _currentUserId {
     if (widget.currentUserId != null) return widget.currentUserId;
-    return readAuthUserId();
+    return CurrentSession.userId;
   }
 
   StoriesGateway get _stories =>

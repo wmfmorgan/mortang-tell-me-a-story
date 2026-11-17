@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/current_session.dart';
 import '../../data/perspectives_api.dart';
 import '../../data/rpc_error.dart';
 import '../../data/stories_api.dart';
@@ -147,10 +147,10 @@ class _AddPerspectivePageState extends State<AddPerspectivePage> {
 
   Future<void> _loadPostingAs() async {
     try {
-      final client = readSupabaseClient();
-      if (client == null) return;
-      final id = client.auth.currentUser?.id;
+      final id = CurrentSession.userId;
       if (id == null) return;
+      final client = CurrentSession.client;
+      if (client == null) return;
       final row = await client
           .from('profiles')
           .select('display_name')

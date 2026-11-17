@@ -5,8 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/router/auth_refresh.dart';
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
+import '../../data/current_session.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
 import '../family/family_role.dart';
@@ -62,7 +62,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
 
   MagicLinkSender? get _sender {
     if (widget.sender != null) return widget.sender;
-    final auth = readGoTrueClient();
+    final auth = CurrentSession.auth;
     if (auth == null) return null;
     return GoTrueMagicLinkSender(auth);
   }
