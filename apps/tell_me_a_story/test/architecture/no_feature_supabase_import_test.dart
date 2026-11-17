@@ -2,19 +2,17 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// `lib/features/` and non-router `lib/core/` must not import
-/// `package:supabase_flutter`. The allowlist only shrinks.
+/// `lib/features/` and `lib/core/` outside the router and `lib/core/supabase/`
+/// must not import `package:supabase_flutter`. The allowlist only shrinks.
 const supabaseImportAllowlist = <String>{
-  'lib/core/supabase/auth_user_id.dart', // The only §7.2 catch.
-  'lib/core/supabase/supabase_init.dart', // Builds the anon client.
   'lib/core/theme/album_header.dart', // signOut; theme cannot import data/.
-  'lib/features/auth/invite_sign_in_page.dart', // AuthException. Uses .auth.
+  'lib/features/auth/invite_sign_in_page.dart', // AuthException only.
   'lib/features/auth/magic_link_page.dart', // GoTrueClient and AuthException.
   'lib/features/stories/new_story_page.dart', // PostgrestException only.
 };
 
 void main() {
-  test('features and non-router core do not import supabase_flutter', () {
+  test('features and core outside router and supabase do not import supabase_flutter', () {
     final libDir = Directory('lib');
     expect(
       libDir.existsSync(),
@@ -59,7 +57,9 @@ String? _libPath(String path) {
 bool _isBannedZone(String path) {
   if (path.startsWith('lib/features/')) return true;
   if (!path.startsWith('lib/core/')) return false;
-  return !path.startsWith('lib/core/router/');
+  if (path.startsWith('lib/core/router/')) return false;
+  if (path.startsWith('lib/core/supabase/')) return false;
+  return true;
 }
 
 bool _importsSupabase(File file) {

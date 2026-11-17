@@ -2,14 +2,15 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Fails when lib/ catches `Object` or an `Error` type.
+/// Fails when lib/ catches `Object` or an `Error` type (`on Object`, `on Error`,
+/// `on AssertionError`, and the other `on …Error` clauses).
 ///
 /// Allowlisted files:
 /// `lib/core/supabase/auth_user_id.dart` returns null when Supabase asserts
 /// before initialize. `lib/features/all_stories/all_stories_loader.dart`
 /// unwraps ParallelWaitError and rethrows the original gateway error.
 void main() {
-  test('lib/ has no on Error or on AssertionError catch clauses', () {
+  test('lib/ does not catch Object or an Error type', () {
     final libDir = Directory('lib');
     expect(
       libDir.existsSync(),

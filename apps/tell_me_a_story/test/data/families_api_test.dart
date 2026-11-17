@@ -13,6 +13,20 @@ void main() {
     expect(api.listStewarded(), throwsA(isA<NotSignedInException>()));
   });
 
+  test('listMine with no signed-in user throws NotSignedInException', () {
+    final api = FamiliesApi(
+      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+    );
+    expect(api.listMine(), throwsA(isA<NotSignedInException>()));
+  });
+
+  test('listDirectory with no signed-in user throws NotSignedInException', () {
+    final api = FamiliesApi(
+      client: SupabaseClient('http://127.0.0.1', 'anon-key'),
+    );
+    expect(api.listDirectory(), throwsA(isA<NotSignedInException>()));
+  });
+
   test('familyTreeRows keeps maps and drops other rows', () {
     final rows = familyTreeRows([
       {'id': 'parent', 'name': ' Morgan '},
