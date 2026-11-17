@@ -439,11 +439,7 @@ class FamiliesApi
         'set_family_origin',
         params: {'p_family_id': familyId, 'p_story_id': storyId},
       );
-    } on PostgrestException catch (error) {
-      final mapped = originRpcException(error);
-      if (mapped != null) throw mapped;
-      rethrow;
-    } on FunctionException catch (error) {
+    } on Exception catch (error) {
       final mapped = originRpcException(error);
       if (mapped != null) throw mapped;
       rethrow;
@@ -458,11 +454,7 @@ class FamiliesApi
         'list_origin_dependents',
         params: {'p_story_id': storyId},
       );
-    } on PostgrestException catch (error) {
-      final mapped = originRpcException(error);
-      if (mapped != null) throw mapped;
-      rethrow;
-    } on FunctionException catch (error) {
+    } on Exception catch (error) {
       final mapped = originRpcException(error);
       if (mapped != null) throw mapped;
       rethrow;
@@ -562,11 +554,7 @@ class FamiliesApi
       if (avatarPath != null && avatarPath.isNotEmpty) {
         try {
           bytes = await _client.storage.from('avatars').download(avatarPath);
-        } on StorageException catch (_) {
-          bytes = null;
-        } on PostgrestException catch (_) {
-          bytes = null;
-        } on FunctionException catch (_) {
+        } on Exception catch (_) {
           bytes = null;
         }
       }

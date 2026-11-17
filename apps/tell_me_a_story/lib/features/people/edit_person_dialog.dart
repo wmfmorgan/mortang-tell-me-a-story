@@ -9,8 +9,6 @@ import '../../data/invite_api.dart';
 import '../../data/people_api.dart';
 import '../family/family_blur_dialog.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 /// Edit person. The gate is [Person.userId] from the people row.
 Future<Person?> showEditPersonDialog(
   BuildContext context, {
@@ -87,10 +85,19 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       );
       if (!mounted || _removed || _picture != null) return;
       setState(() => _existingUrl = url);
-    } on PostgrestException catch (_) {
-    } on FunctionException catch (_) {
-    } on AuthException catch (_) {
-    } on StorageException catch (_) {}
+    } on Exception catch (error, stackTrace) {
+      // Optional portrait URL; the avatar stays empty when load fails.
+      assert(() {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'edit_person_dialog',
+          ),
+        );
+        return true;
+      }());
+    }
   }
 
   @override
@@ -180,22 +187,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(person);
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t save person. Try again.')),
-      );
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t save person. Try again.')),
-      );
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t save person. Try again.')),
-      );
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Couldn’t save person. Try again.')),

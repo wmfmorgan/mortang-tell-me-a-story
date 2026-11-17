@@ -630,11 +630,7 @@ class StoriesApi implements StoriesGateway {
           thumb = await _client.storage
               .from(storyPhotosBucket)
               .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
-        } on StorageException catch (_) {
-          thumb = null;
-        } on PostgrestException catch (_) {
-          thumb = null;
-        } on FunctionException catch (_) {
+        } on Exception catch (_) {
           thumb = null;
         }
       }

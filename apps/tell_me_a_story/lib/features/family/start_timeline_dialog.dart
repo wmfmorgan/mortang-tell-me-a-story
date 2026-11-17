@@ -11,8 +11,6 @@ import '../../data/stories_api.dart';
 import '../timeline/timeline_zoom.dart';
 import 'family_blur_dialog.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 class StartTimelineResult {
   const StartTimelineResult({required this.familyId, required this.name});
 

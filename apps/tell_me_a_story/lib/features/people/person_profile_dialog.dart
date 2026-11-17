@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
@@ -126,13 +125,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
       if (profile == null) missing = true;
     } on PersonProfileNotFound {
       missing = true;
-    } on PostgrestException catch (_) {
-      missing = true;
-    } on FunctionException catch (_) {
-      missing = true;
-    } on AuthException catch (_) {
-      missing = true;
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       missing = true;
     }
     Person? editor;
@@ -141,13 +134,7 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (profile != null && !missing) {
       try {
         editor = await widget.people.personForEdit(widget.personId);
-      } on PostgrestException catch (_) {
-        editor = null;
-      } on FunctionException catch (_) {
-        editor = null;
-      } on AuthException catch (_) {
-        editor = null;
-      } on StorageException catch (_) {
+      } on Exception catch (_) {
         editor = null;
       }
       try {
@@ -155,25 +142,13 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
           personId: widget.personId,
           path: profile.avatarPath,
         );
-      } on PostgrestException catch (_) {
-        pictureUrl = null;
-      } on FunctionException catch (_) {
-        pictureUrl = null;
-      } on AuthException catch (_) {
-        pictureUrl = null;
-      } on StorageException catch (_) {
+      } on Exception catch (_) {
         pictureUrl = null;
       }
       try {
         final load = widget.loadStories ?? _defaultPersonStories;
         stories = await load(widget.personId);
-      } on PostgrestException catch (_) {
-        stories = const [];
-      } on FunctionException catch (_) {
-        stories = const [];
-      } on AuthException catch (_) {
-        stories = const [];
-      } on StorageException catch (_) {
+      } on Exception catch (_) {
         stories = const [];
       }
     }
@@ -245,22 +220,11 @@ class _PersonProfileDialogState extends State<PersonProfileDialog> {
     if (yes != true || !mounted) return;
     try {
       await widget.people.markPassedAway(personId: profile.id, value: mark);
-    } on PostgrestException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
       );
-      return;
-    } on FunctionException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
-      );
-      return;
-    } on Exception catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Try again')));
       return;
     }
     if (!mounted) return;
@@ -637,13 +601,7 @@ String _lifeLine(PersonProfile profile) {
 Future<List<PersonStoryCard>> _defaultPersonStories(String personId) async {
   try {
     return await StoriesApi().storiesForPerson(personId);
-  } on PostgrestException catch (_) {
-    return const [];
-  } on FunctionException catch (_) {
-    return const [];
-  } on AuthException catch (_) {
-    return const [];
-  } on StorageException catch (_) {
+  } on Exception catch (_) {
     return const [];
   }
 }

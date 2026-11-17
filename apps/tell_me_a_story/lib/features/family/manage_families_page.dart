@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
@@ -80,16 +79,7 @@ class _ManageFamiliesPageState extends State<ManageFamiliesPage> {
         _sessionFamilyId = session ?? FamilySelection.id;
         _loading = false;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }

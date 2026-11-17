@@ -10,8 +10,6 @@ import '../../data/people_api.dart';
 import '../../data/rpc_error.dart';
 import '../family/family_blur_dialog.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 /// People added from this modal, and whether the caller chose "Send invite".
 class AddPersonResult {
   const AddPersonResult({required this.people, required this.sendInvite});
@@ -119,19 +117,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
       final people = await widget.api.listTreePeople(widget.familyId);
       if (!mounted) return;
       setState(() => _people = people);
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      setState(() => _people = const []);
-      _showSaveError(error);
-    } on FunctionException catch (error) {
-      if (!mounted) return;
-      setState(() => _people = const []);
-      _showSaveError(error);
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      setState(() => _people = const []);
-      _showSaveError(error);
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       setState(() => _people = const []);
       _showSaveError(error);
@@ -222,16 +208,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
       Navigator.of(context).pop(
         AddPersonResult(people: [..._saved, person], sendInvite: _sendInvite),
       );
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      _showSaveError(error);
-    } on FunctionException catch (error) {
-      if (!mounted) return;
-      _showSaveError(error);
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      _showSaveError(error);
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       _showSaveError(error);
     } finally {
@@ -265,13 +242,7 @@ class _AddPersonModalState extends State<AddPersonModal> {
           _saved.add(person);
           _selectedIds.remove(person.id);
         }
-      } on PostgrestException catch (error) {
-        firstError ??= error;
-      } on FunctionException catch (error) {
-        firstError ??= error;
-      } on AuthException catch (error) {
-        firstError ??= error;
-      } on StorageException catch (error) {
+      } on Exception catch (error) {
         firstError ??= error;
       }
     }

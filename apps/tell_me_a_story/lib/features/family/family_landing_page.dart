@@ -216,19 +216,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     try {
       final api = widget.storiesApi ?? StoriesApi();
       stories = await api.listPublished(family.id);
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      _snack(mapRpcError(error) ?? 'Try again');
-      return;
-    } on FunctionException catch (error) {
-      if (!mounted) return;
-      _snack(mapRpcError(error) ?? 'Try again');
-      return;
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      _snack(mapRpcError(error) ?? 'Try again');
-      return;
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       _snack(mapRpcError(error) ?? 'Try again');
       return;
@@ -288,12 +276,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
     } on CoverPhotoException catch (error) {
       if (!mounted) return;
       _snack(error.message);
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      _snack(
-        mapRpcError(error) ?? 'Couldn’t save the family photo. Try again.',
-      );
-    } on StorageException catch (error) {
+    } on Exception catch (error) {
       if (!mounted) return;
       _snack(
         mapRpcError(error) ?? 'Couldn’t save the family photo. Try again.',

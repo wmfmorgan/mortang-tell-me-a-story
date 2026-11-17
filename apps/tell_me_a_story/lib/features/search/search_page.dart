@@ -116,13 +116,7 @@ class _SearchPageState extends State<SearchPage> {
         places = await _placesApi.listPlaces(familyId);
         try {
           decades = await _decadesWithStories(familyId);
-        } on PostgrestException catch (_) {
-          decades = const [];
-        } on FunctionException catch (_) {
-          decades = const [];
-        } on AuthException catch (_) {
-          decades = const [];
-        } on StorageException catch (_) {
+        } on Exception catch (_) {
           decades = const [];
         }
       }
@@ -134,19 +128,7 @@ class _SearchPageState extends State<SearchPage> {
         _storyDecades = decades;
         _booting = false;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted) return;
-      setState(() => _booting = false);
-      _showTryAgain();
-    } on FunctionException catch (_) {
-      if (!mounted) return;
-      setState(() => _booting = false);
-      _showTryAgain();
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(() => _booting = false);
-      _showTryAgain();
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _booting = false);
       _showTryAgain();
@@ -224,19 +206,7 @@ class _SearchPageState extends State<SearchPage> {
         _results = rows;
         _searching = false;
       });
-    } on PostgrestException catch (_) {
-      if (!mounted || gen != _searchGen) return;
-      setState(() => _searching = false);
-      _showTryAgain();
-    } on FunctionException catch (_) {
-      if (!mounted || gen != _searchGen) return;
-      setState(() => _searching = false);
-      _showTryAgain();
-    } on AuthException catch (_) {
-      if (!mounted || gen != _searchGen) return;
-      setState(() => _searching = false);
-      _showTryAgain();
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       if (!mounted || gen != _searchGen) return;
       setState(() => _searching = false);
       _showTryAgain();
