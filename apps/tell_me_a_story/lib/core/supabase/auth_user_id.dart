@@ -1,13 +1,14 @@
+// ignore_for_file: avoid_catches_without_on_clauses
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Signed-in auth uid, or null when Supabase is not initialized (widget tests).
 ///
-/// Boundary: [Supabase.instance] asserts before [Supabase.initialize]; tests
-/// omit init and expect null here.
+/// §7.2 exception: Supabase throws AssertionError before initialize; return null.
 String? readAuthUserId() {
   try {
     return Supabase.instance.client.auth.currentUser?.id;
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }
@@ -16,7 +17,7 @@ String? readAuthUserId() {
 GoTrueClient? readGoTrueClient() {
   try {
     return Supabase.instance.client.auth;
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }
@@ -25,7 +26,7 @@ GoTrueClient? readGoTrueClient() {
 SupabaseClient? readSupabaseClient() {
   try {
     return Supabase.instance.client;
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }

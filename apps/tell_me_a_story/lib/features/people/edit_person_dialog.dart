@@ -85,18 +85,9 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       );
       if (!mounted || _removed || _picture != null) return;
       setState(() => _existingUrl = url);
-    } on Exception catch (error, stackTrace) {
+    } on Exception catch (error) {
       // Optional portrait URL; the avatar stays empty when load fails.
-      assert(() {
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stackTrace,
-            library: 'edit_person_dialog',
-          ),
-        );
-        return true;
-      }());
+      debugPrint('edit_person_dialog portrait: $error');
     }
   }
 

@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
 import '../../core/router/auth_refresh.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
@@ -107,6 +107,12 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         _preview = const InvitePreview(valid: false);
         _loading = false;
       });
+    } on Exception {
+      if (!mounted) return;
+      setState(() {
+        _preview = const InvitePreview(valid: false);
+        _loading = false;
+      });
     }
   }
 
@@ -128,6 +134,10 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       _accepting = false;
       if (!mounted) return;
       setState(() => _preview = const InvitePreview(valid: false));
+    } on Exception {
+      _accepting = false;
+      if (!mounted) return;
+      setState(() => _preview = const InvitePreview(valid: false));
     }
   }
 
@@ -144,8 +154,10 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
     final sender = _sender;
     if (sender == null) {
       if (!mounted) return;
-      setState(() => _error = 'Request failed');
-      if (mounted) setState(() => _sending = false);
+      setState(() {
+        _error = 'Request failed';
+        _sending = false;
+      });
       return;
     }
     try {
@@ -164,7 +176,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       setState(() {
         _error = e.message.isEmpty ? 'Request failed' : e.message;
       });
-    } on InviteApiException {
+    } on Exception {
       if (!mounted) return;
       setState(() => _error = 'Request failed');
     } finally {

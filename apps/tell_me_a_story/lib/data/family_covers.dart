@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'photos_api.dart';
@@ -64,12 +65,10 @@ class FamilyCoversApi implements FamilyCoverClient {
     if (bytes.isEmpty) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }
-    final CompressedPhoto compressed;
-    try {
-      compressed = compressStoryPhoto(bytes, maxEdge: 1920, quality: 80);
-    } on ArgumentError {
+    if (img.decodeImage(bytes) == null) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }
+    final compressed = compressStoryPhoto(bytes, maxEdge: 1920, quality: 80);
     if (compressed.bytes.length > familyCoverMaxBytes) {
       throw CoverPhotoException('Couldn’t save the family photo. Try again.');
     }

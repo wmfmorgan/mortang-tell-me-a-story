@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/supabase/auth_user_id.dart';
 import '../../core/router/app_router.dart';
+import '../../core/supabase/auth_user_id.dart';
 import '../../core/theme/album_chrome.dart';
 import '../../core/theme/album_theme.dart';
 import '../../core/theme/profile_avatar.dart';
@@ -453,7 +452,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             previews[photo.id] = await _photosApi.downloadBytes(
               photo.effectiveStoragePath,
             );
-          } on StorageException catch (_) {
+          } on Exception catch (_) {
             // Missing bytes fall back to PhotoStrip placeholder icon.
           }
         }
@@ -480,7 +479,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       if (avatarPath != null) {
         try {
           authorBytes = await _profile.downloadAvatar(avatarPath);
-        } on AuthException catch (_) {
+        } on Exception catch (_) {
           authorBytes = null;
         }
       }
@@ -708,17 +707,15 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       } else {
         context.go(AppRoutes.timeline);
       }
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      final message = error is OriginRpcException
-          ? error.message
-          : (mapRpcError(error) ?? 'Try again');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
     } on OriginRpcException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.message)));
+    } on Exception catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mapRpcError(error) ?? 'Try again')),
+      );
     }
   }
 

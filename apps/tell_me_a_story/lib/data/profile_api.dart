@@ -109,6 +109,11 @@ abstract class ProfileGateway {
 
 const avatarsBucket = 'avatars';
 
+/// Signed avatar URL returned a non-200 response.
+class AvatarDownloadException implements Exception {
+  const AvatarDownloadException();
+}
+
 String avatarObjectPath(String userId) => '$userId/avatar.jpg';
 
 typedef ProfilePatch = Future<void> Function(Map<String, dynamic> patch);
@@ -225,7 +230,7 @@ class ProfileApi implements ProfileGateway {
         .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
     final response = await http.get(Uri.parse(signedUrl));
     if (response.statusCode != 200) {
-      throw StateError('avatar download failed');
+      throw const AvatarDownloadException();
     }
     return response.bodyBytes;
   }

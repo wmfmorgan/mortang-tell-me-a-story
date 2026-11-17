@@ -122,7 +122,7 @@ class _InviteModalState extends State<InviteModal> {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
       setState(() => _unlinked = _notPassed(rows));
-    } on InviteApiException {
+    } on Exception {
       if (!mounted) return;
       setState(() => _unlinked = const []);
     }
@@ -135,7 +135,7 @@ class _InviteModalState extends State<InviteModal> {
       final rows = await people.listUnlinkedPeople(widget.familyId);
       if (!mounted) return;
       setState(() => _notInvited = _notPassed(rows));
-    } on InviteApiException {
+    } on Exception {
       if (!mounted) return;
       setState(() => _notInvited = const []);
     }

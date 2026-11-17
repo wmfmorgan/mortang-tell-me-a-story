@@ -402,7 +402,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           previews[photo.id] = await _photos.downloadBytes(
             photo.effectiveStoragePath,
           );
-        } on StorageException catch (_) {
+        } on Exception catch (_) {
           // Keep the tile; placeholder icon if bytes are missing.
         }
       }
@@ -415,7 +415,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
           ..clear()
           ..addAll(previews);
       });
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       // Story fields already applied; photo strip stays empty.
     }
     if (!mounted) return;

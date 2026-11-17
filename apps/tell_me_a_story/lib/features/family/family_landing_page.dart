@@ -23,8 +23,6 @@ import '../stories/story_date.dart';
 import 'family_role.dart';
 import 'start_timeline_host.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 /// Default home for a live family. Hero, then the Latest shelf.
 class FamilyLandingPage extends StatefulWidget {
   const FamilyLandingPage({
@@ -181,7 +179,7 @@ class _FamilyLandingPageState extends State<FamilyLandingPage> {
         return await (families as FamilyCoverClient).download(path);
       }
       if (families == null) return await FamilyCoversApi().download(path);
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       return null;
     }
     return null;

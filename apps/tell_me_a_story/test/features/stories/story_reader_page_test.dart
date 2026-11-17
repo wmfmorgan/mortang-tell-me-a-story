@@ -17,6 +17,7 @@ import 'package:tell_me_a_story/data/perspectives_api.dart'
     hide displayNameOrMember;
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/places_api.dart';
+import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/perspectives/add_perspective_page.dart';
@@ -566,6 +567,7 @@ Widget _readerApp({
   CommentsGateway? comments,
   PerspectivesGateway? perspectives,
   FamiliesGateway? families,
+  ProfileGateway? profile,
   Future<Uint8List?> Function()? pickImageBytes,
   String storyId = _storyId,
   String? currentUserId,
@@ -602,6 +604,7 @@ Widget _readerApp({
           commentsApi: comments ?? _FakeCommentsApi(),
           perspectivesApi: perspectivesApi,
           familiesApi: families,
+          profileApi: profile,
           pickImageBytes: pickImageBytes,
           currentUserId: currentUserId,
           live: live,
@@ -2680,6 +2683,37 @@ void main() {
     expect(find.text('William F Morgan'), findsWidgets);
     expect(find.text('Ada'), findsWidgets);
   });
+
+  testWidgets(
+    'avatar download failure still loads the story without an avatar',
+    (tester) async {
+      await tester.pumpWidget(
+        _readerApp(
+          stories: _FakeStoriesApi(
+            story: Story(
+              id: _storyId,
+              familyId: _familyId,
+              authorId: 'u1',
+              title: 'Picnic',
+              body: 'We brought pie.',
+              timeframeStart: DateTime(1980, 1, 1),
+              status: StoryStatus.published,
+              authorDisplayName: 'Ada Lovelace',
+              authorAvatarPath: 'u1/avatar.jpg',
+            ),
+          ),
+          profile: _FailingAvatarProfile(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Picnic'), findsOneWidget);
+      expect(find.text('We brought pie.'), findsOneWidget);
+      expect(find.text('AL'), findsOneWidget);
+      expect(find.byKey(const Key('profile-avatar-image')), findsNothing);
+      expect(find.text('Try again'), findsNothing);
+    },
+  );
 }
 
 class _OriginFamilies extends FamiliesGateway {
@@ -2745,6 +2779,37 @@ class _TreePeople extends _FakePeopleApi {
     treeCalls++;
     return rows.where((person) => person.familyId == familyId).toList();
   }
+}
+
+class _FailingAvatarProfile implements ProfileGateway {
+  @override
+  Future<Uint8List?> downloadAvatar(String path) async {
+    throw Exception('avatar download failed');
+  }
+
+  @override
+  Future<void> clearAvatar() => throw UnimplementedError();
+
+  @override
+  Future<OwnProfile?> loadOwn() => throw UnimplementedError();
+
+  @override
+  Future<void> saveAccount({
+    required String displayName,
+    DateTime? birthDate,
+    String? birthPrecision,
+    BirthVisibility? birthVisibility,
+    String? about,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> saveAvatar(Uint8List bytes) => throw UnimplementedError();
+
+  @override
+  Future<void> saveName(String displayName) => throw UnimplementedError();
+
+  @override
+  Future<void> updateEmail(String email) => throw UnimplementedError();
 }
 
 class _WholeTreePeople extends _FakePeopleApi {

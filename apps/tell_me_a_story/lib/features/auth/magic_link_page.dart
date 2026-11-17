@@ -99,6 +99,9 @@ class _MagicLinkPageState extends State<MagicLinkPage> {
       setState(() {
         _error = e.message.isEmpty ? 'Request failed' : e.message;
       });
+    } on Exception {
+      if (!mounted) return;
+      setState(() => _error = 'Request failed');
     } finally {
       if (mounted) setState(() => _sending = false);
     }

@@ -856,7 +856,7 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
       final bytes = cached ?? await gateway.downloadBytes(path);
       if (cached == null) seen[path] = bytes;
       if (bytes.isNotEmpty) out[story.id] = bytes;
-    } on StorageException catch (_) {
+    } on Exception catch (_) {
       // A missing thumb stays a parchment blank.
     }
   }
