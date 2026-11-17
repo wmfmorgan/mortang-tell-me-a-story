@@ -1,6 +1,7 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import { sendInviteEmail } from "../_shared/invite_email.ts";
 import { readJsonObject } from "../_shared/json_object.ts";
+import { textField } from "../_shared/manage.ts";
 import { bearerToken, serviceClient, userClient } from "../_shared/supabase.ts";
 
 export async function handleSendInviteEmail(req: Request): Promise<Response> {
@@ -18,8 +19,7 @@ export async function handleSendInviteEmail(req: Request): Promise<Response> {
 
   const parsed = await readJsonObject(req);
   if (parsed instanceof Response) return parsed;
-  const body = parsed as { invite_id?: string };
-  const inviteId = body.invite_id?.trim();
+  const inviteId = textField(parsed, "invite_id");
   if (!inviteId) {
     return errorResponse("VALIDATION", "invite_id is required", 400);
   }

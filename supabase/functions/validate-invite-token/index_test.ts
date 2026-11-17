@@ -1,6 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
 import { decideInvite } from "./invite_decision.ts";
+import { validateInviteToken } from "./index.ts";
 
 const keys = [
   "valid",
@@ -21,6 +22,18 @@ const live = {
   family_deleted: false,
   inviter_name: "Ada",
 };
+
+Deno.test("a failed invite lookup returns the fixed validation message", async () => {
+  const res = await validateInviteToken(
+    new Request("http://local/validate-invite-token?token=abc"),
+    { lookup: () => Promise.resolve({ row: null, failed: true }) },
+  );
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), {
+    code: "VALIDATION",
+    message: "Could not look up invite",
+  });
+});
 
 Deno.test("a live invite returns the inviter name", () => {
   const body = decideInvite(live);
