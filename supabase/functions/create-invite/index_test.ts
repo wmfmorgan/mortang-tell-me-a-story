@@ -1,30 +1,22 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
+import { jsonPost } from "../_shared/json_post.ts";
 import { mapRpcError } from "../_shared/manage.ts";
 import { createInvite, type CreateInviteDb } from "./index.ts";
+
+const inviteUrl = "http://local/create-invite";
 
 const familyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const personId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 function post(body: unknown): Request {
-  return rawPost(JSON.stringify(body));
-}
-
-function rawPost(body: string): Request {
-  return new Request("http://local/create-invite", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer test-token",
-    },
-    body,
-  });
+  return jsonPost(inviteUrl, JSON.stringify(body));
 }
 
 const invalidJson = { code: "VALIDATION", message: "Invalid JSON body" };
 
 async function expectInvalidJson(body: string): Promise<void> {
-  const res = await createInvite(rawPost(body));
+  const res = await createInvite(jsonPost(inviteUrl, body));
   assertEquals(res.status, 400);
   assertEquals(await res.json(), invalidJson);
 }

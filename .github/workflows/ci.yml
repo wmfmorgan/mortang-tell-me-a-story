@@ -97,7 +97,7 @@ jobs:
         run: deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts
 
       - name: deno test
-        run: deno test --allow-env supabase/functions
+        run: deno test --allow-env --allow-read supabase/functions
 
   pgtap:
     runs-on: ubuntu-latest

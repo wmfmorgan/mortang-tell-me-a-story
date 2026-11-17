@@ -18,7 +18,7 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
   - `test/`: Flutter tests. The color guard is `test/core/theme/no_hardcoded_colors_test.dart`.
   - `integration_test/`: end-to-end flows (`integration_test/flows.md` and `integration_test/e2e_test.dart`). The manifest check is `e2e/check_flows.sh` at the repo root.
 - `supabase/migrations/`: schema, row level security, storage policies, and SQL functions. A schema change is a new file here. Never edit a migration that has been applied.
-- `supabase/functions/`: Deno edge functions. Shared code is in `supabase/functions/_shared/`. Tests are `supabase/functions/*_test.ts`. The Supabase GitHub integration deploys every function declared in `supabase/config.toml` from `main` on each merge. A new function must be added to `supabase/config.toml`.
+- `supabase/functions/`: Deno edge functions. Shared code is in `supabase/functions/_shared/`. Tests are `supabase/functions/*_test.ts`. Add each new function to `supabase/config.toml`; the Supabase GitHub integration deploys only the functions declared there, from `main`, on each merge. `supabase/functions/_shared/config_functions_test.ts` fails when a function folder has no `[functions.<folder>]` block.
 - `supabase/tests/`: pgTAP.
 - `Makefile` and the README Tests block are the local commands. Tool versions are pinned in `.github/workflows/ci.yml`.
 
@@ -45,7 +45,7 @@ Run from the repo root unless the command names another directory. Paste the out
 | Format | `dart format --output=none --set-exit-if-changed .` in `apps/tell_me_a_story` | 0 files changed |
 | Analyze | the `flutter` job's analyze step | at most `ANALYZE_CEILING` issues (27), and no `error •` line |
 | Flutter tests | `make test` | all passing, and never fewer tests |
-| Deno | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts`, then `deno test --allow-env supabase/functions` | check clean, tests passing |
+| Deno | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts`, then `deno test --allow-env --allow-read supabase/functions` | check clean, tests passing |
 | pgTAP | `make db-test` | all passing |
 | Flow manifest | `bash e2e/check_flows.sh` | exits 0 |
 | End-to-end drive | the CI `e2e` job | `flutter drive` of `integration_test/e2e_test.dart` on local Supabase |
@@ -87,7 +87,7 @@ Extends Layout, Work rules, and Gates. Item 1 is the only statement of the `lib/
 8. The Flutter app does not open Postgres on its own. It uses the Supabase client. The service role key, `RESEND_API_KEY`, and `RESEND_FROM` stay out of the client and out of git.
 9. CI (`.github/workflows/ci.yml`) runs `flutter`, `deno`, `pgtap`, and `e2e` on every pull request to `main` and every push to `main`. There is no path filter.
    - `flutter` runs in `apps/tell_me_a_story`: `flutter pub get --enforce-lockfile`, `dart format --output=none --set-exit-if-changed .`, the analyze ceiling, and `flutter test`.
-   - `deno` runs `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env supabase/functions`.
+   - `deno` runs `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env --allow-read supabase/functions`.
    - `pgtap` runs `supabase db start`, `supabase test db`, and the splinter advisors check against `supabase/advisors-baseline.json`.
    - `e2e` runs `bash e2e/check_flows.sh`, then `flutter drive` against local Supabase. The drive target is `apps/tell_me_a_story/integration_test/e2e_test.dart`.
    Tool pins in that workflow are Flutter `3.47.7`, Deno `2.9.4`, and Supabase CLI `2.121.0`. A bump of any pin is its own PR and needs Bill's approval.
@@ -137,7 +137,7 @@ Run these commands. They are the commands in the four jobs of `.github/workflows
 2. In `apps/tell_me_a_story`, run `dart format --output=none --set-exit-if-changed .`.
 3. In `apps/tell_me_a_story`, run the analyze step from the `flutter` job. The issue count is at most 27. An `error •` line fails.
 4. Run `make test` from the repo root. It must pass. The test count does not drop.
-5. From the repo root, run `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env supabase/functions`.
+5. From the repo root, run `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env --allow-read supabase/functions`.
 6. With local Supabase up, run `make db-test`. The README Tests block runs `supabase db reset`, then `supabase test db`, then Flutter tests.
 7. Run `bash e2e/check_flows.sh`. It must exit 0. The CI `e2e` job also runs `flutter drive`. In **Gates**, write exactly `e2e: check_flows passed locally. flutter drive runs in the CI e2e job.`
 8. Paste `git diff --stat main...HEAD` and a clean `git status`.
