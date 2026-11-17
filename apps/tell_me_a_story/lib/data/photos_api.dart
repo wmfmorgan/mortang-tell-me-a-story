@@ -256,6 +256,8 @@ class PhotosApi implements PhotosGateway {
       await _upload(path, compressed);
     } on StorageException catch (e) {
       throw StorageFailedException(code: 'STORAGE_FAILED', cause: e);
+    } on Exception catch (e) {
+      throw StorageFailedException(code: 'STORAGE_FAILED', cause: e);
     }
     final payload = <String, dynamic>{
       'id': photoId,
