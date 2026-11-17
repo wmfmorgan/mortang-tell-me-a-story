@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 
 /// Moss ring for an origin story that has no callout of its own.
 class OriginDot extends StatelessWidget {

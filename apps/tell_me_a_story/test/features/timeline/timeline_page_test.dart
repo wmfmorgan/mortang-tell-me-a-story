@@ -22,7 +22,7 @@ import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/stories/photo_frame.dart';
 import 'package:tell_me_a_story/features/timeline/dial_fade.dart';
-import 'package:tell_me_a_story/features/timeline/timeline_branching.dart';
+import 'package:tell_me_a_story/features/timeline/callout_layout.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_zoom.dart';
 

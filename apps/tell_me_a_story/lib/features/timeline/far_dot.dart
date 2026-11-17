@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/stories_api.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 import 'timeline_zoom.dart';
 
 class FarDot extends StatelessWidget {

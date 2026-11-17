@@ -5,7 +5,7 @@ import '../../data/stories_api.dart';
 import '../stories/story_date.dart';
 import 'hang_parent_callout.dart';
 import 'rail_gutter.dart';
-import 'timeline_branching.dart';
+import 'callout_layout.dart';
 import 'timeline_zoom.dart';
 
 class DialRow extends StatelessWidget {
