@@ -96,12 +96,7 @@ void main() {
 
   test('ensurePhotoCap throws PHOTO_CAP at 20', () {
     expect(() => ensurePhotoCap(19), returnsNormally);
-    expect(
-      () => ensurePhotoCap(20),
-      throwsA(
-        isA<PhotoCapException>().having((e) => e.code, 'code', 'PHOTO_CAP'),
-      ),
-    );
+    expect(() => ensurePhotoCap(20), throwsA(isA<PhotoCapException>()));
   });
 
   test(

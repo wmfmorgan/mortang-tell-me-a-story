@@ -21,10 +21,8 @@ class MissingPublishedStartException implements Exception {
 class StoryValidationException implements Exception {
   const StoryValidationException();
 
-  final String code = 'VALIDATION';
-
   @override
-  String toString() => 'StoryValidationException($code)';
+  String toString() => 'StoryValidationException';
 }
 
 /// Declaration order matches Postgres `story_date_precision`.
@@ -646,9 +644,11 @@ class StoriesApi implements StoriesGateway {
       String? thumb;
       final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
       if (path != null && path.isNotEmpty) {
-        thumb = await _client.storage
-            .from(storyPhotosBucket)
-            .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
+        thumb = await readStorageOrNull(
+          _client.storage
+              .from(storyPhotosBucket)
+              .createSignedUrl(path, storageSignedUrlLifetimeSeconds),
+        );
       }
       cards.add(
         PersonStoryCard(

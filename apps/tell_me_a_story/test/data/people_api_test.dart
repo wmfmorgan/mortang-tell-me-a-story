@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
+import 'package:tell_me_a_story/data/unexpected_payload_exception.dart';
 
 import '../support/quiet_gateways.dart';
 
@@ -197,10 +198,10 @@ void main() {
       await expectLater(
         api.listTreePeople('parent'),
         throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            'list_family_tree did not return a list',
+          isA<UnexpectedPayloadException>().having(
+            (error) => error.rpc,
+            'rpc',
+            'list_family_tree',
           ),
         ),
       );

@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+
+import '../support/json_http_client.dart';
 
 void main() {
   test('storedStoryTitle trims and clears blank titles', () {
@@ -295,7 +295,7 @@ void main() {
       client: SupabaseClient(
         'http://localhost',
         'test-anon-key',
-        httpClient: _JsonClient({
+        httpClient: JsonHttpClient({
           'id': 's1',
           'family_id': 'f1',
           'author_id': 'u1',
@@ -305,15 +305,25 @@ void main() {
     );
     await expectLater(
       api.publish('s1'),
-      throwsA(
-        isA<StoryValidationException>().having(
-          (error) => error.code,
-          'code',
-          'VALIDATION',
-        ),
-      ),
+      throwsA(isA<StoryValidationException>()),
     );
   });
+
+  test(
+    'a missing story thumbnail is null and a database error throws',
+    () async {
+      final missing = await readStorageOrNull<String>(
+        Future.error(const StorageException('missing', statusCode: '404')),
+      );
+      expect(missing, isNull);
+      await expectLater(
+        readStorageOrNull<String>(
+          Future.error(const PostgrestException(message: 'no url')),
+        ),
+        throwsA(isA<PostgrestException>()),
+      );
+    },
+  );
 
   test('downloadFirstThumbs requests each effective path once', () async {
     final requested = <String>[];
@@ -347,23 +357,6 @@ Story _storyWithPaths(List<String> paths, {String id = 's1'}) {
     status: StoryStatus.published,
     photoPaths: paths,
   );
-}
-
-class _JsonClient extends http.BaseClient {
-  _JsonClient(this.body);
-
-  final Object body;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final bytes = utf8.encode(jsonEncode(body));
-    return http.StreamedResponse(
-      Stream.value(bytes),
-      200,
-      headers: const {'content-type': 'application/json'},
-      request: request,
-    );
-  }
 }
 
 class _RecordingPhotos implements PhotosGateway {

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'families_api.dart';
 import 'photos_api.dart';
 import 'rpc_error.dart';
+import 'unexpected_payload_exception.dart';
 
 /// Family-scoped person row. Relationship is optional; new people send null.
 class Person {
@@ -274,7 +275,7 @@ class PeopleApi implements PeopleGateway {
       await _client.rpc('list_family_tree', params: {'fid': familyId}),
     );
     if (rows == null) {
-      throw StateError('list_family_tree did not return a list');
+      throw const UnexpectedPayloadException('list_family_tree');
     }
     final ids = <String>[
       for (final row in rows)

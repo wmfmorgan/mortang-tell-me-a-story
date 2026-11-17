@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'family_covers.dart';
+import 'photos_api.dart';
 import 'recovery_window.dart';
 import 'rpc_error.dart';
+import 'unexpected_payload_exception.dart';
 
 /// A family the signed-in member can already read.
 class MemberFamily {
@@ -139,16 +141,6 @@ class OriginDependent {
 /// No `auth.currentUser` while a membership read needs a user id.
 class NotSignedInException implements Exception {
   const NotSignedInException();
-}
-
-/// An RPC payload was not the list the gateway asked for.
-class UnexpectedFamilyPayloadException implements Exception {
-  const UnexpectedFamilyPayloadException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
 }
 
 /// Mapped from `set_family_origin` and `list_origin_dependents`.
@@ -426,9 +418,7 @@ class FamiliesApi
       await _client.rpc('list_family_tree', params: {'fid': familyId}),
     );
     if (rows == null) {
-      throw const UnexpectedFamilyPayloadException(
-        'list_family_tree did not return a list',
-      );
+      throw const UnexpectedPayloadException('list_family_tree');
     }
     return [for (final row in rows) TreeFamily.fromJson(row)];
   }
@@ -464,9 +454,7 @@ class FamiliesApi
       rethrow;
     }
     if (rows is! List) {
-      throw const UnexpectedFamilyPayloadException(
-        'list_origin_dependents did not return a list',
-      );
+      throw const UnexpectedPayloadException('list_origin_dependents');
     }
     final dependents = <OriginDependent>[];
     for (final row in rows) {
@@ -560,7 +548,9 @@ class FamiliesApi
       }
       final bytes = avatarPath == null || avatarPath.isEmpty
           ? null
-          : await _client.storage.from('avatars').download(avatarPath);
+          : await readStorageOrNull(
+              _client.storage.from('avatars').download(avatarPath),
+            );
       people.add(
         FamilyPerson(
           userId: userId,

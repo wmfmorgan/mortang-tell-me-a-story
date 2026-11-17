@@ -1,9 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/unexpected_payload_exception.dart';
+
+import '../support/json_http_client.dart';
 
 void main() {
   test('createFamily throws when the payload has no id', () async {
@@ -11,29 +11,18 @@ void main() {
       client: SupabaseClient(
         'http://localhost',
         'test-anon-key',
-        httpClient: _JsonClient('nope'),
+        httpClient: JsonHttpClient('nope'),
       ),
     );
     await expectLater(
       api.createFamily('Ada'),
-      throwsA(isA<UnexpectedInvitePayloadException>()),
+      throwsA(
+        isA<UnexpectedPayloadException>().having(
+          (error) => error.rpc,
+          'rpc',
+          'create_family',
+        ),
+      ),
     );
   });
-}
-
-class _JsonClient extends http.BaseClient {
-  _JsonClient(this.body);
-
-  final Object body;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final bytes = utf8.encode(jsonEncode(body));
-    return http.StreamedResponse(
-      Stream.value(bytes),
-      200,
-      headers: const {'content-type': 'application/json'},
-      request: request,
-    );
-  }
 }

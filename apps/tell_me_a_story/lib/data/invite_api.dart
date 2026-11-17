@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/env.dart';
 import 'family_selection.dart';
 import 'profile_session.dart';
+import 'unexpected_payload_exception.dart';
 
 /// Shareable invite path. Old `?invite=` links still rewrite in the router.
 String buildInviteUrl(String token, {String? origin}) {
@@ -73,7 +74,7 @@ class InviteApi implements InviteGateway {
   Future<String> createFamily(String name) async {
     final res = await _client.rpc('create_family', params: {'p_name': name});
     if (res is Map && res['id'] != null) return res['id'] as String;
-    throw const UnexpectedInvitePayloadException();
+    throw const UnexpectedPayloadException('create_family');
   }
 
   @override
@@ -218,14 +219,6 @@ class InviteLinkApi implements InviteLinkGateway {
       inviterName: map['inviter_name'] as String?,
     );
   }
-}
-
-/// `create_family` returned a payload with no family id.
-class UnexpectedInvitePayloadException implements Exception {
-  const UnexpectedInvitePayloadException();
-
-  @override
-  String toString() => 'create_family returned unexpected payload';
 }
 
 class InviteApiException implements Exception {

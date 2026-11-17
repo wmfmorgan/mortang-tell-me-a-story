@@ -38,20 +38,21 @@ void main() {
     expect(ProfileSession.instance.displayName, 'Ada');
   });
 
-  test('a failed profile load throws and can load again', () async {
+  test('a failed profile load is recorded and can load again', () async {
     ProfileSession.loadOwn = () async {
       throw Exception('profile down');
     };
 
-    await expectLater(
-      ProfileSession.instance.ensureLoaded(),
-      throwsA(isA<Exception>()),
-    );
+    await ProfileSession.instance.ensureLoaded();
+
+    expect(ProfileSession.instance.loadFailed, isTrue);
     expect(ProfileSession.instance.displayName, isNull);
+    expect(ProfileSession.instance.avatarBytes, isNull);
 
     ProfileSession.loadOwn = () async =>
         OwnProfile(id: 'user-a', displayName: 'Ada', email: 'ada@example.com');
     await ProfileSession.instance.ensureLoaded();
+    expect(ProfileSession.instance.loadFailed, isFalse);
     expect(ProfileSession.instance.displayName, 'Ada');
   });
 

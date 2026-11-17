@@ -20,6 +20,9 @@ class ProfileSession extends ChangeNotifier {
   String? displayName;
   String? email;
   Uint8List? avatarBytes;
+
+  /// The last [ensureLoaded] failed. The header keeps its empty avatar.
+  var loadFailed = false;
   var _started = false;
 
   /// A different signed-in user drops the previous profile.
@@ -35,6 +38,7 @@ class ProfileSession extends ChangeNotifier {
     displayName = null;
     email = null;
     avatarBytes = null;
+    loadFailed = false;
     _started = false;
     notifyListeners();
   }
@@ -71,10 +75,15 @@ class ProfileSession extends ChangeNotifier {
       displayName = profile.displayName;
       email = profile.email;
       avatarBytes = bytes;
+      loadFailed = false;
       notifyListeners();
     } on Exception {
       _started = false;
-      rethrow;
+      loadFailed = true;
+      displayName = null;
+      email = null;
+      avatarBytes = null;
+      notifyListeners();
     }
   }
 }

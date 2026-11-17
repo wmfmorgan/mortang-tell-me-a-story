@@ -1,6 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/lib_line_counts.dart';
 
 /// Exact `on Exception` counts under lib/. The map only shrinks: a higher
 /// count fails, and a lower count fails until this entry is updated.
@@ -45,7 +45,7 @@ const dataOnExceptionCeiling = <String, int>{
 
 void main() {
   test('on Exception counts match the shrink-only allowlist', () {
-    final counts = _counts(RegExp(r'\bon\s+Exception\b'));
+    final counts = libLineCounts(RegExp(r'\bon\s+Exception\b'));
     expect(counts, onExceptionAllowlist);
     for (final entry in onExceptionAllowlist.entries) {
       if (!entry.key.startsWith('lib/data/')) continue;
@@ -58,23 +58,4 @@ void main() {
       expect(dataOnExceptionCeiling.containsKey(path), isTrue);
     }
   });
-}
-
-Map<String, int> _counts(RegExp pattern) {
-  final libDir = Directory('lib');
-  expect(libDir.existsSync(), isTrue, reason: 'run from apps/tell_me_a_story');
-  final counts = <String, int>{};
-  for (final entity in libDir.listSync(recursive: true)) {
-    if (entity is! File || !entity.path.endsWith('.dart')) continue;
-    final relative = entity.path.split('lib/').last;
-    final path = 'lib/$relative';
-    var count = 0;
-    for (final line in entity.readAsLinesSync()) {
-      if (pattern.hasMatch(line)) count++;
-    }
-    if (count > 0) counts[path] = count;
-  }
-  return Map.fromEntries(
-    counts.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-  );
 }

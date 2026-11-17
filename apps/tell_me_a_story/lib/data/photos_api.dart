@@ -99,10 +99,8 @@ class StorageFailedException implements Exception {
 class PhotoCapException implements Exception {
   const PhotoCapException();
 
-  final String code = 'PHOTO_CAP';
-
   @override
-  String toString() => 'PhotoCapException($code)';
+  String toString() => 'PhotoCapException';
 }
 
 String storyPhotoStoragePath({
@@ -182,6 +180,15 @@ enum StoryPhotoFailure {
   /// A missing object or a failed transfer is null.
   /// Any other [Exception] still throws.
   storageOrTransport,
+}
+
+/// A missing storage object is null. Any other error still throws.
+Future<T?> readStorageOrNull<T>(Future<T> read) async {
+  try {
+    return await read;
+  } on StorageException {
+    return null;
+  }
 }
 
 /// Bytes for [path], or null for the failures [failure] names.
