@@ -26,11 +26,21 @@ void main() {
     );
     expect(
       mapRpcError(const PostgrestException(message: 'NOT_FOUND:')),
-      'NOT_FOUND:',
+      isNull,
+    );
+    expect(
+      mapRpcError(const PostgrestException(message: 'VALIDATION:')),
+      isNull,
     );
     expect(
       mapRpcError(const PostgrestException(message: '  FORBIDDEN: locked  ')),
       'locked',
+    );
+    expect(
+      mapRpcError(
+        const PostgrestException(message: 'db said NOT_FOUND: person'),
+      ),
+      isNull,
     );
     expect(
       mapRpcError(const PostgrestException(message: 'permission')),
@@ -39,100 +49,45 @@ void main() {
     expect(mapRpcError(StateError('NOT_FOUND: person')), isNull);
   });
 
-  test('notFoundPrefix matches only a leading NOT_FOUND prefix', () {
+  test('rpcErrorPrefix matches only a leading prefix', () {
     expect(
-      rpcErrorIs(
-        const PostgrestException(message: 'NOT_FOUND: person'),
-        RpcErrorMatch.notFoundPrefix,
-      ),
-      isTrue,
+      rpcErrorPrefix(const PostgrestException(message: 'NOT_FOUND: person')),
+      RpcErrorPrefix.notFound,
     );
     expect(
-      rpcErrorIs(
+      rpcErrorPrefix(const PostgrestException(message: 'FORBIDDEN: member')),
+      RpcErrorPrefix.forbidden,
+    );
+    expect(
+      rpcErrorPrefix(const PostgrestException(message: 'VALIDATION: name')),
+      RpcErrorPrefix.validation,
+    );
+    expect(
+      rpcErrorPrefix(
+        const PostgrestException(message: 'INVITE_INVALID: token'),
+      ),
+      RpcErrorPrefix.inviteInvalid,
+    );
+    expect(
+      rpcErrorPrefix(
         const PostgrestException(message: 'FORBIDDEN: NOT_FOUND: person'),
-        RpcErrorMatch.notFoundPrefix,
       ),
-      isFalse,
+      RpcErrorPrefix.forbidden,
     );
     expect(
-      rpcErrorIs(
-        const PostgrestException(message: 'not found'),
-        RpcErrorMatch.notFoundPrefix,
+      rpcErrorPrefix(
+        const PostgrestException(message: 'db said NOT_FOUND: person'),
       ),
-      isFalse,
+      isNull,
     );
+    expect(
+      rpcErrorPrefix(const PostgrestException(message: 'not found')),
+      isNull,
+    );
+    expect(rpcErrorPrefix(StateError('NOT_FOUND: person')), isNull);
   });
 
-  test(
-    'duplicateStoryKey matches sqlstate 23505 or the duplicate key text',
-    () {
-      expect(
-        rpcErrorIs(
-          const PostgrestException(message: 'unique violation', code: '23505'),
-          RpcErrorMatch.duplicateStoryKey,
-        ),
-        isTrue,
-      );
-      expect(
-        rpcErrorIs(
-          const PostgrestException(
-            message: 'duplicate key value violates unique constraint',
-            code: '23503',
-          ),
-          RpcErrorMatch.duplicateStoryKey,
-        ),
-        isTrue,
-      );
-      expect(
-        rpcErrorIs(
-          const PostgrestException(message: 'permission denied', code: '42501'),
-          RpcErrorMatch.duplicateStoryKey,
-        ),
-        isFalse,
-      );
-      expect(
-        rpcErrorIs(
-          StateError('duplicate key'),
-          RpcErrorMatch.duplicateStoryKey,
-        ),
-        isFalse,
-      );
-      expect(
-        isDuplicateStoryKey(
-          const PostgrestException(message: 'unique violation', code: '23505'),
-        ),
-        isTrue,
-      );
-    },
-  );
-
-  test('missingCoverColumn matches only a missing cover_photo_path column', () {
-    const missing = PostgrestException(
-      message: 'column families.cover_photo_path does not exist',
-      code: '42703',
-    );
-    const cache = PostgrestException(
-      message: "Could not find the 'cover_photo_path' column of 'families' in the schema cache",
-      code: 'PGRST204',
-    );
-    const denied = PostgrestException(
-      message: 'permission denied',
-      code: '42501',
-    );
-    const otherColumn = PostgrestException(
-      message: 'column families.name does not exist',
-      code: '42703',
-    );
-
-    expect(rpcErrorIs(missing, RpcErrorMatch.missingCoverColumn), isTrue);
-    expect(rpcErrorIs(cache, RpcErrorMatch.missingCoverColumn), isTrue);
-    expect(rpcErrorIs(denied, RpcErrorMatch.missingCoverColumn), isFalse);
-    expect(rpcErrorIs(otherColumn, RpcErrorMatch.missingCoverColumn), isFalse);
-    expect(familiesCoverColumnMissing(missing), isTrue);
-    expect(familiesCoverColumnMissing(denied), isFalse);
-  });
-
-  test('storyPeopleDuplicate requires the story_people primary key', () {
+  test('rpcConstraintViolation needs the sqlstate and the quoted constraint', () {
     const people = PostgrestException(
       message:
           'duplicate key value violates unique constraint "story_people_pkey"',
@@ -142,13 +97,46 @@ void main() {
       message: 'duplicate key value violates unique constraint "stories_pkey"',
       code: '23505',
     );
+    const wrongState = PostgrestException(
+      message:
+          'duplicate key value violates unique constraint "story_people_pkey"',
+      code: '23503',
+    );
+    const unquoted = PostgrestException(
+      message: 'story_people_pkey',
+      code: '23505',
+    );
 
-    expect(rpcErrorIs(people, RpcErrorMatch.storyPeopleDuplicate), isTrue);
-    expect(rpcErrorIs(stories, RpcErrorMatch.storyPeopleDuplicate), isFalse);
     expect(
-      rpcErrorIs(
-        const PostgrestException(message: 'story_people_pkey', code: '23503'),
-        RpcErrorMatch.storyPeopleDuplicate,
+      rpcConstraintViolation(people, '23505', 'story_people_pkey'),
+      isTrue,
+    );
+    expect(
+      rpcConstraintViolation(stories, '23505', 'story_people_pkey'),
+      isFalse,
+    );
+    expect(
+      rpcConstraintViolation(wrongState, '23505', 'story_people_pkey'),
+      isFalse,
+    );
+    expect(
+      rpcConstraintViolation(unquoted, '23505', 'story_people_pkey'),
+      isFalse,
+    );
+    expect(rpcConstraintViolation(people, '23505', 'stories_pkey'), isFalse);
+    expect(
+      rpcConstraintViolation(
+        StateError('story_people_pkey'),
+        '23505',
+        'story_people_pkey',
+      ),
+      isFalse,
+    );
+    expect(isDuplicateStoryKey(stories), isTrue);
+    expect(isDuplicateStoryKey(people), isFalse);
+    expect(
+      isDuplicateStoryKey(
+        const PostgrestException(message: 'duplicate key', code: '23505'),
       ),
       isFalse,
     );
@@ -173,16 +161,11 @@ void main() {
     expect(validation?.code, 'VALIDATION');
     expect(validation?.message, 'name is required');
 
-    final bare = originRpcException(
-      const PostgrestException(message: 'VALIDATION:name'),
-    );
-    expect(bare?.message, 'VALIDATION:name');
-
     expect(
       originRpcException(
         const PostgrestException(message: 'FORBIDDEN then NOT_FOUND'),
-      )?.code,
-      'FORBIDDEN',
+      ),
+      isNull,
     );
     expect(originRpcException(StateError('FORBIDDEN')), isNull);
     expect(
@@ -192,4 +175,16 @@ void main() {
       isNull,
     );
   });
+
+  test(
+    'an origin failure without a leading VALIDATION prefix keeps screen copy',
+    () {
+      const raw = PostgrestException(
+        message: 'duplicate key value violates unique constraint "stories_pkey" VALIDATION: leaked',
+        code: '23505',
+      );
+      expect(originRpcException(raw), isNull);
+      expect(mapRpcError(raw), isNull);
+    },
+  );
 }

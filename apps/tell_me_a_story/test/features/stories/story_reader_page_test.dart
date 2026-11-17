@@ -2233,6 +2233,39 @@ void main() {
     },
   );
 
+  testWidgets('an origin failure without a VALIDATION prefix shows Try again', (
+    tester,
+  ) async {
+    const ada = 'ada';
+    const raw =
+        'duplicate key value violates unique constraint "stories_pkey" VALIDATION: leaked';
+    final families = _OriginFamilies(
+      tree: const [TreeFamily(id: ada, name: 'Ada')],
+      stewarded: const [StewardFamily(id: ada, name: 'Ada', role: 'owner')],
+    )..originError = const PostgrestException(message: raw, code: '23505');
+    await tester.pumpWidget(
+      _readerApp(
+        stories: _FakeStoriesApi(
+          story: _published(familyId: ada, title: 'Jam'),
+        ),
+        currentUserId: 'u-member',
+        families: families,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reader-overflow')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-origin-ada')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-origin-go')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.textContaining('stories_pkey'), findsNothing);
+    expect(find.textContaining('leaked'), findsNothing);
+    expect(find.text('Jam'), findsOneWidget);
+  });
+
   testWidgets(
     'delete with dependents shows the warning, without shows the normal dialog',
     (tester) async {
@@ -2728,7 +2761,7 @@ class _OriginFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   final List<TreeFamily> tree;
   final List<StewardFamily> stewarded;
   List<OriginDependent> dependents;
-  OriginRpcException? originError;
+  Object? originError;
   final List<({String familyId, String storyId})> originCalls = [];
 
   @override
@@ -2747,7 +2780,10 @@ class _OriginFamilies extends FamiliesGateway with QuietFamiliesDefaults {
   }) async {
     originCalls.add((familyId: familyId, storyId: storyId));
     final error = originError;
-    if (error != null) throw error;
+    if (error == null) return;
+    final mapped = originRpcException(error);
+    if (mapped != null) throw mapped;
+    throw error;
   }
 
   @override
