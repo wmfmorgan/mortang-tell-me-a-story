@@ -57,9 +57,29 @@ void main() {
     expect(families.single.originStoryId, 'story-1');
   });
 
-  test('listFamilyTree returns none when the rpc is not a list', () async {
-    final families = await _api({'id': 'parent'}).listFamilyTree('parent');
+  test('listFamilyTree keeps an empty list empty', () async {
+    final families = await _api(<Object?>[]).listFamilyTree('parent');
     expect(families, isEmpty);
+  });
+
+  test('listFamilyTree throws when the rpc is not a list', () async {
+    await expectLater(
+      _api({'id': 'parent'}).listFamilyTree('parent'),
+      throwsA(
+        isA<UnexpectedFamilyPayloadException>().having(
+          (error) => error.message,
+          'message',
+          'list_family_tree did not return a list',
+        ),
+      ),
+    );
+  });
+
+  test('listOriginDependents throws when the rpc is not a list', () async {
+    await expectLater(
+      _api({'id': 'story'}).listOriginDependents('story'),
+      throwsA(isA<UnexpectedFamilyPayloadException>()),
+    );
   });
 }
 

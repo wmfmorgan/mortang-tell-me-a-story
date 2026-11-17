@@ -95,6 +95,16 @@ class StorageFailedException implements Exception {
   String toString() => 'StorageFailedException($code)';
 }
 
+/// A story already has [maxPhotosPerStory] photos.
+class PhotoCapException implements Exception {
+  const PhotoCapException();
+
+  final String code = 'PHOTO_CAP';
+
+  @override
+  String toString() => 'PhotoCapException($code)';
+}
+
 String storyPhotoStoragePath({
   required String familyId,
   required String storyId,
@@ -137,7 +147,7 @@ List<Photo> photosWithHeroFirst(List<Photo> photos, String heroId) {
 
 void ensurePhotoCap(int currentCount) {
   if (currentCount >= maxPhotosPerStory) {
-    throw StateError('PHOTO_CAP');
+    throw const PhotoCapException();
   }
 }
 
@@ -170,10 +180,8 @@ enum StoryPhotoFailure {
   storage,
 
   /// A missing object or a failed transfer is null.
+  /// Any other [Exception] still throws.
   storageOrTransport,
-
-  /// Any [Exception] is null. An [Error] still throws.
-  any,
 }
 
 /// Bytes for [path], or null for the failures [failure] names.
@@ -191,16 +199,7 @@ Future<Uint8List?> downloadStoryPhotoBytes(
       case StoryPhotoFailure.storage:
         rethrow;
       case StoryPhotoFailure.storageOrTransport:
-      case StoryPhotoFailure.any:
         return null;
-    }
-  } on Exception {
-    switch (failure) {
-      case StoryPhotoFailure.any:
-        return null;
-      case StoryPhotoFailure.storage:
-      case StoryPhotoFailure.storageOrTransport:
-        rethrow;
     }
   }
 }

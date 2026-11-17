@@ -141,6 +141,16 @@ class NotSignedInException implements Exception {
   const NotSignedInException();
 }
 
+/// An RPC payload was not the list the gateway asked for.
+class UnexpectedFamilyPayloadException implements Exception {
+  const UnexpectedFamilyPayloadException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Mapped from `set_family_origin` and `list_origin_dependents`.
 class OriginRpcException implements Exception {
   const OriginRpcException(this.code, this.message);
@@ -383,11 +393,7 @@ class FamiliesApi
   }
 
   @override
-  Future<List<MemberFamily>> listMine() {
-    return _listMine();
-  }
-
-  Future<List<MemberFamily>> _listMine() async {
+  Future<List<MemberFamily>> listMine() async {
     final uid = _requireUserId();
     final rows = await _client
         .from('memberships')
@@ -419,7 +425,11 @@ class FamiliesApi
     final rows = familyTreeRows(
       await _client.rpc('list_family_tree', params: {'fid': familyId}),
     );
-    if (rows == null) return const [];
+    if (rows == null) {
+      throw const UnexpectedFamilyPayloadException(
+        'list_family_tree did not return a list',
+      );
+    }
     return [for (final row in rows) TreeFamily.fromJson(row)];
   }
 
@@ -453,7 +463,11 @@ class FamiliesApi
       if (mapped != null) throw mapped;
       rethrow;
     }
-    if (rows is! List) return const [];
+    if (rows is! List) {
+      throw const UnexpectedFamilyPayloadException(
+        'list_origin_dependents did not return a list',
+      );
+    }
     final dependents = <OriginDependent>[];
     for (final row in rows) {
       final map = row is Map<String, dynamic>
@@ -544,14 +558,9 @@ class FamiliesApi
         displayName = profile['display_name'] as String?;
         avatarPath = profile['avatar_path'] as String?;
       }
-      Uint8List? bytes;
-      if (avatarPath != null && avatarPath.isNotEmpty) {
-        try {
-          bytes = await _client.storage.from('avatars').download(avatarPath);
-        } on Exception catch (_) {
-          bytes = null;
-        }
-      }
+      final bytes = avatarPath == null || avatarPath.isEmpty
+          ? null
+          : await _client.storage.from('avatars').download(avatarPath);
       people.add(
         FamilyPerson(
           userId: userId,

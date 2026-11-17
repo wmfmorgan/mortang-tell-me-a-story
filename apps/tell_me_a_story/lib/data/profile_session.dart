@@ -72,8 +72,9 @@ class ProfileSession extends ChangeNotifier {
       email = profile.email;
       avatarBytes = bytes;
       notifyListeners();
-    } on Exception catch (_) {
+    } on Exception {
       _started = false;
+      rethrow;
     }
   }
 }

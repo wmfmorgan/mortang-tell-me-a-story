@@ -32,6 +32,14 @@ const _storyCardGap = 20.0;
 /// Pause after the last keystroke before an autosave. Leaving the page does not wait.
 const kAutosavePause = Duration(seconds: 2);
 
+/// Autosave ran before the page had a family id.
+class NoFamilyException implements Exception {
+  const NoFamilyException();
+
+  @override
+  String toString() => 'NoFamilyException';
+}
+
 /// Capture form for `/stories/new` — timeframe, people, place, title, body, persist.
 class NewStoryPage extends StatefulWidget {
   const NewStoryPage({
@@ -401,7 +409,7 @@ class _NewStoryPageState extends State<NewStoryPage> {
         final bytes = await downloadStoryPhotoBytes(
           _photos,
           photo.effectiveStoragePath,
-          failure: StoryPhotoFailure.any,
+          failure: StoryPhotoFailure.storageOrTransport,
         );
         if (bytes != null) previews[photo.id] = bytes;
       }
@@ -423,9 +431,10 @@ class _NewStoryPageState extends State<NewStoryPage> {
     _snapshot = _captureSnapshot();
   }
 
-  Future<String?> _ensureFamilyId() async {
+  Future<String?> _ensureFamilyId({bool create = true}) async {
     var familyId = _familyId;
     if (familyId != null) return familyId;
+    if (!create) return null;
     familyId = await _invite.createFamily('Family');
     if (!mounted) return null;
     setState(() => _familyId = familyId);
@@ -672,11 +681,11 @@ class _NewStoryPageState extends State<NewStoryPage> {
     String? placeId,
   }) async {
     _autosaveDirty = false;
-    final familyId = await _ensureFamilyId();
+    final familyId = await _ensureFamilyId(create: !autosave);
     final date = _storyDate;
     final keepLegacy = !_shouldWriteDate && _loadedLegacy != null;
     if (familyId == null) {
-      if (autosave) throw StateError('no family');
+      if (autosave) throw const NoFamilyException();
       return null;
     }
     if (!autosave && (date == null && !keepLegacy)) return null;

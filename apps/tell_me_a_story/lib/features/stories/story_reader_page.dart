@@ -451,7 +451,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           final bytes = await downloadStoryPhotoBytes(
             _photosApi,
             photo.effectiveStoragePath,
-            failure: StoryPhotoFailure.any,
+            failure: StoryPhotoFailure.storageOrTransport,
           );
           if (bytes != null) previews[photo.id] = bytes;
         }

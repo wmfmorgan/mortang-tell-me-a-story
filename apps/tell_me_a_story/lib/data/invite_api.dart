@@ -73,7 +73,7 @@ class InviteApi implements InviteGateway {
   Future<String> createFamily(String name) async {
     final res = await _client.rpc('create_family', params: {'p_name': name});
     if (res is Map && res['id'] != null) return res['id'] as String;
-    throw StateError('create_family returned unexpected payload');
+    throw const UnexpectedInvitePayloadException();
   }
 
   @override
@@ -218,6 +218,14 @@ class InviteLinkApi implements InviteLinkGateway {
       inviterName: map['inviter_name'] as String?,
     );
   }
+}
+
+/// `create_family` returned a payload with no family id.
+class UnexpectedInvitePayloadException implements Exception {
+  const UnexpectedInvitePayloadException();
+
+  @override
+  String toString() => 'create_family returned unexpected payload';
 }
 
 class InviteApiException implements Exception {

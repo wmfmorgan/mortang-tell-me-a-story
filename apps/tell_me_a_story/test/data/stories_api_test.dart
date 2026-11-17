@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
@@ -134,7 +136,16 @@ void main() {
       authorId: 'u1',
       status: StoryStatus.draft,
     );
-    expect(() => undated.publishedStart, throwsA(isA<StateError>()));
+    expect(
+      () => undated.publishedStart,
+      throwsA(
+        isA<MissingPublishedStartException>().having(
+          (error) => error.storyId,
+          'storyId',
+          'undated',
+        ),
+      ),
+    );
   });
 
   test('lib does not force a story start date with timeframeStart!', () {
@@ -279,6 +290,31 @@ void main() {
     expect(story.photoPaths, ['f1/s1/a.jpg']);
   });
 
+  test('publish throws VALIDATION when the draft is not ready', () async {
+    final api = StoriesApi(
+      client: SupabaseClient(
+        'http://localhost',
+        'test-anon-key',
+        httpClient: _JsonClient({
+          'id': 's1',
+          'family_id': 'f1',
+          'author_id': 'u1',
+          'status': 'draft',
+        }),
+      ),
+    );
+    await expectLater(
+      api.publish('s1'),
+      throwsA(
+        isA<StoryValidationException>().having(
+          (error) => error.code,
+          'code',
+          'VALIDATION',
+        ),
+      ),
+    );
+  });
+
   test('downloadFirstThumbs requests each effective path once', () async {
     final requested = <String>[];
     final gateway = _RecordingPhotos(
@@ -311,6 +347,23 @@ Story _storyWithPaths(List<String> paths, {String id = 's1'}) {
     status: StoryStatus.published,
     photoPaths: paths,
   );
+}
+
+class _JsonClient extends http.BaseClient {
+  _JsonClient(this.body);
+
+  final Object body;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final bytes = utf8.encode(jsonEncode(body));
+    return http.StreamedResponse(
+      Stream.value(bytes),
+      200,
+      headers: const {'content-type': 'application/json'},
+      request: request,
+    );
+  }
 }
 
 class _RecordingPhotos implements PhotosGateway {

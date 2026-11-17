@@ -7,6 +7,26 @@ import 'rpc_error.dart';
 
 enum StoryStatus { draft, published }
 
+/// A published story row has no start date.
+class MissingPublishedStartException implements Exception {
+  const MissingPublishedStartException(this.storyId);
+
+  final String storyId;
+
+  @override
+  String toString() => 'published story $storyId is missing a start date';
+}
+
+/// Publish was called before the story was ready.
+class StoryValidationException implements Exception {
+  const StoryValidationException();
+
+  final String code = 'VALIDATION';
+
+  @override
+  String toString() => 'StoryValidationException($code)';
+}
+
 /// Declaration order matches Postgres `story_date_precision`.
 enum StoryDatePrecision { decade, year, month, day }
 
@@ -55,7 +75,7 @@ class Story {
   DateTime get publishedStart {
     final start = timeframeStart;
     if (start == null) {
-      throw StateError('published story $id is missing a start date');
+      throw MissingPublishedStartException(id);
     }
     return start;
   }
@@ -578,7 +598,7 @@ class StoriesApi implements StoriesGateway {
       personIds: story.personIds,
       placeId: story.placeId,
     ).canPublish) {
-      throw ArgumentError('VALIDATION');
+      throw const StoryValidationException();
     }
     await _client
         .from('stories')
@@ -626,13 +646,9 @@ class StoriesApi implements StoriesGateway {
       String? thumb;
       final path = story.photoPaths.isEmpty ? null : story.photoPaths.first;
       if (path != null && path.isNotEmpty) {
-        try {
-          thumb = await _client.storage
-              .from(storyPhotosBucket)
-              .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
-        } on Exception catch (_) {
-          thumb = null;
-        }
+        thumb = await _client.storage
+            .from(storyPhotosBucket)
+            .createSignedUrl(path, storageSignedUrlLifetimeSeconds);
       }
       cards.add(
         PersonStoryCard(
@@ -857,7 +873,7 @@ Future<Map<String, Uint8List>> downloadFirstThumbs(
         await downloadStoryPhotoBytes(
           gateway,
           path,
-          failure: StoryPhotoFailure.any,
+          failure: StoryPhotoFailure.storageOrTransport,
         );
     if (bytes == null) continue;
     if (cached == null) seen[path] = bytes;
