@@ -101,7 +101,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
         _loading = false;
       });
       if (preview.valid && _isSignedIn) await _accept();
-    } on InviteApiException catch (error) {
+    } on InviteApiException {
       if (!mounted) return;
       setState(() {
         _preview = const InvitePreview(valid: false);
@@ -124,7 +124,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       if (!mounted) return;
       FamilySelection.remember(result.familyId);
       context.go(AppRoutes.familyLanding);
-    } on InviteApiException catch (error) {
+    } on InviteApiException {
       _accepting = false;
       if (!mounted) return;
       setState(() => _preview = const InvitePreview(valid: false));
@@ -164,7 +164,7 @@ class _InviteSignInPageState extends State<InviteSignInPage> {
       setState(() {
         _error = e.message.isEmpty ? 'Request failed' : e.message;
       });
-    } on InviteApiException catch (error) {
+    } on InviteApiException {
       if (!mounted) return;
       setState(() => _error = 'Request failed');
     } finally {

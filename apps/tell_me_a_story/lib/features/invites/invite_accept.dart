@@ -16,7 +16,7 @@ Future<void> acceptInviteFromUriIfPresent({
   final inviteApi = api ?? InviteApi();
   try {
     await inviteApi.acceptInvite(token: token);
-  } on InviteApiException catch (error) {
+  } on InviteApiException {
     // No dedicated accept-error surface. Still open Family Landing.
   }
   if (!context.mounted) return;

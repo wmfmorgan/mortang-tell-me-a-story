@@ -268,7 +268,7 @@ class PhotosApi implements PhotosGateway {
     try {
       final row = await _insert(payload);
       return Photo.fromJson(row);
-    } on PostgrestException catch (e) {
+    } on PostgrestException {
       await _remove([path]);
       rethrow;
     }

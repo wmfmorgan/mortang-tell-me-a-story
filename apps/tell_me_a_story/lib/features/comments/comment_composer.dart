@@ -65,9 +65,9 @@ class _CommentComposerState extends State<CommentComposer> {
       await widget.onPost(body);
       if (!mounted) return;
       _controller.clear();
-    } on PostgrestException catch (error) {
+    } on PostgrestException {
       rethrow;
-    } on FunctionException catch (error) {
+    } on FunctionException {
       rethrow;
     } finally {
       if (mounted) setState(() => _busy = false);
