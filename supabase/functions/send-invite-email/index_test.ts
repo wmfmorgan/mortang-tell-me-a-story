@@ -1,18 +1,12 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
+import { jsonPost } from "../_shared/json_post.ts";
 import { handleSendInviteEmail } from "./index.ts";
 
 const invalidJson = { code: "VALIDATION", message: "Invalid JSON body" };
 
 function rawPost(body: string): Request {
-  return new Request("http://local/send-invite-email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer test-token",
-    },
-    body,
-  });
+  return jsonPost("http://local/send-invite-email", body);
 }
 
 async function expectInvalidJson(body: string): Promise<void> {

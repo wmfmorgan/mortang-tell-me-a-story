@@ -8,7 +8,7 @@ One file, `.github/workflows/ci.yml`, four jobs, no secrets. The jobs are `flutt
 | Job | Runs in | Steps |
 |---|---|---|
 | `flutter` | `apps/tell_me_a_story` | `flutter pub get --enforce-lockfile` → `dart format --output=none --set-exit-if-changed .` → analyze ceiling (below) → `flutter test` |
-| `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env supabase/functions` |
+| `deno` | repo root | `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` → `deno test --allow-env --allow-read=supabase/functions supabase/functions` |
 | `pgtap` | repo root | install pinned Supabase CLI (sha256-verified) → `supabase db start` → `supabase test db` → fetch pinned splinter (commit + sha256) → advisors check against `supabase/advisors-baseline.json` |
 | `e2e` | repo root, drive step in `apps/tell_me_a_story` | `bash e2e/check_flows.sh` → `supabase start` with the workflow's `-x` exclusions → `flutter drive` on `integration_test/e2e_test.dart` |
 
@@ -49,7 +49,7 @@ permissions:
 - `dart format` with default settings (page width 80, no `formatter:` override). The #43 PR's first commit was formatter output only, so main starts clean. Format churn in a feature PR is still only allowed in files the PR changes on purpose.
 
 ## Test counts
-- CI fails on any failing test. Counts are not parsed in CI. Quote the suite totals from the run. Measured after `supabase db reset` on this tree: `flutter test` 677, `deno test --allow-env supabase/functions` 43, `supabase test db` `Files=27, Tests=943`.
+- CI fails on any failing test. Counts are not parsed in CI. Quote the suite totals from the run. Measured after `supabase db reset` on this tree: `flutter test` 677, `deno test --allow-env --allow-read=supabase/functions supabase/functions` 70, `supabase test db` `Files=27, Tests=943`.
 - A red `pgtap` is never fixed by editing tests, migrations, `config.toml` or `seed.sql` in the same PR without a Gilfoyle lock. Fresh-database differences are findings.
 
 ## Exceptions (rev 6)

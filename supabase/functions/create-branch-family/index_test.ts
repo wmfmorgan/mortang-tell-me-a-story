@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
+import { jsonPost } from "../_shared/json_post.ts";
 import { readJsonObject } from "../_shared/json_object.ts";
 import { mapRpcError } from "../_shared/manage.ts";
 import {
@@ -12,14 +13,14 @@ const origin = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const owner = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const person = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
+const branchUrl = "http://local/create-branch-family";
+
 function post(body: unknown, auth = true): Request {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  if (auth) headers.set("Authorization", "Bearer test-token");
-  return new Request("http://local/create-branch-family", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+  return jsonPost(
+    branchUrl,
+    JSON.stringify(body),
+    auth ? "Bearer test-token" : null,
+  );
 }
 
 function gateWith(rpc: BranchRpc) {
@@ -276,13 +277,7 @@ Deno.test("INVITE_INVALID: used passes through", async () => {
 });
 
 function rawPost(body: string): Request {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  headers.set("Authorization", "Bearer test-token");
-  return new Request("http://local/create-branch-family", {
-    method: "POST",
-    headers,
-    body,
-  });
+  return jsonPost(branchUrl, body);
 }
 
 async function expectGateRejects(body: string): Promise<void> {

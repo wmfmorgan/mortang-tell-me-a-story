@@ -1,6 +1,9 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
+import { jsonPost } from "../_shared/json_post.ts";
 import { acceptInvite, type AcceptInviteDb } from "./index.ts";
+
+const acceptUrl = "http://local/accept-invite";
 
 const rawDb =
   'duplicate key value violates unique constraint "memberships_pkey"';
@@ -17,24 +20,13 @@ const pending = {
 };
 
 function post(body: unknown): Request {
-  return rawPost(JSON.stringify(body));
-}
-
-function rawPost(body: string): Request {
-  return new Request("http://local/accept-invite", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer test-token",
-    },
-    body,
-  });
+  return jsonPost(acceptUrl, JSON.stringify(body));
 }
 
 const invalidJson = { code: "VALIDATION", message: "Invalid JSON body" };
 
 async function expectInvalidJson(body: string): Promise<void> {
-  const res = await acceptInvite(rawPost(body));
+  const res = await acceptInvite(jsonPost(acceptUrl, body));
   assertEquals(res.status, 400);
   assertEquals(await res.json(), invalidJson);
 }
@@ -322,6 +314,15 @@ Deno.test("membership failures hide raw database text", async () => {
   assertEquals(insert.status, 400);
   assertEquals(insertBody.includes(rawDb), false);
   assertEquals(insertBody.includes("Could not create membership"), true);
+});
+
+Deno.test("accept-invite rejects a token that is not a string", async () => {
+  const res = await acceptInvite(post({ token: 12 }));
+  assertEquals(res.status, 400);
+  assertEquals(await res.json(), {
+    code: "VALIDATION",
+    message: "token is required",
+  });
 });
 
 Deno.test("accept-invite rejects an empty body", () => expectInvalidJson(""));

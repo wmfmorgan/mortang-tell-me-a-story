@@ -160,8 +160,7 @@ function emailRefusal(
 async function readToken(req: Request): Promise<string | Response> {
   const parsed = await readJsonObject(req);
   if (parsed instanceof Response) return parsed;
-  const body = parsed as { token?: string };
-  const token = body.token?.trim();
+  const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
   if (!token) return errorResponse("VALIDATION", "token is required", 400);
   return token;
 }
