@@ -1,5 +1,6 @@
 import {
   errorResponse,
+  GENERIC_ERROR,
   handleManage,
   jsonResponse,
   mapRpcError,
@@ -19,7 +20,7 @@ Deno.serve((req) =>
     const row = data as { id?: string } | null;
     const familyId = row?.id;
     if (!familyId) {
-      return errorResponse("VALIDATION", "create_family returned no id", 400);
+      return errorResponse("VALIDATION", GENERIC_ERROR, 400);
     }
     return jsonResponse({ family_id: familyId }, 201);
   })

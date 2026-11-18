@@ -55,7 +55,7 @@ export async function handleSendInviteEmail(req: Request): Promise<Response> {
     return errorResponse("INVITE_INVALID", "Invite is not pending", 400);
   }
   if (new Date(invite.expires_at).getTime() <= Date.now()) {
-    return errorResponse("INVITE_EXPIRED", "Invite link expired", 400);
+    return errorResponse("INVITE_INVALID", "Invite link expired", 400);
   }
   if (!invite.email) {
     return errorResponse(

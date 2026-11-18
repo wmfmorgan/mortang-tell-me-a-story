@@ -217,7 +217,8 @@ Deno.test("someone else cannot reuse an accepted invite", async () => {
   });
   const json = await res.json();
   assertEquals(res.status, 400);
-  assertEquals(json.code, "INVITE_ACCEPTED");
+  assertEquals(json.code, "INVITE_INVALID");
+  assertEquals(json.message, "Invite already used");
 });
 
 Deno.test("a mismatched invite email is refused", async () => {
