@@ -722,6 +722,29 @@ void main() {
 
     auth.dispose();
   });
+
+  testWidgets('signed-in /timeline-v2 opens the prototype', (tester) async {
+    final auth = AuthRefresh(initiallySignedIn: true);
+    final router = _router(auth: auth);
+
+    await tester.pumpWidget(TellMeAStoryApp(router: router));
+    await tester.pumpAndSettle();
+
+    router.go(AppRoutes.timelineV2);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.timelineV2,
+    );
+    expect(find.byKey(const Key('header-nav-timeline-v2')), findsOneWidget);
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+
+    auth.dispose();
+  });
 }
 
 class _MemberOf extends FamiliesGateway with QuietFamiliesDefaults {
