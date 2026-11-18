@@ -20,6 +20,7 @@ import 'profile_avatar.dart';
 /// Which signed-in screen is showing the shared bar.
 enum AlbumHeaderPage {
   timeline,
+  timelineV2,
   drafts,
   capture,
   settings,
@@ -125,6 +126,7 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
               onStartTimeline: onStartTimeline,
               onHome: () => _openHome(context),
               onDecades: () => _openDecades(context),
+              onTimelineV2: () => _openTimelineV2(context),
               onTimeline: () => _openTimeline(context),
               onDrafts: () {
                 unawaited(_openDrafts(context));
@@ -167,6 +169,11 @@ class AlbumHeader extends StatelessWidget implements PreferredSizeWidget {
     router.go('${AppRoutes.timeline}?view=decades');
   }
 
+  void _openTimelineV2(BuildContext context) {
+    if (page == AlbumHeaderPage.timelineV2) return;
+    GoRouter.maybeOf(context)?.go(AppRoutes.timelineV2);
+  }
+
   void _openTimeline(BuildContext context) {
     if (page == AlbumHeaderPage.allStories) return;
     final familyId = currentFamilyId;
@@ -206,6 +213,7 @@ class _HeaderBar extends StatelessWidget {
     required this.onStartTimeline,
     required this.onHome,
     required this.onDecades,
+    required this.onTimelineV2,
     required this.onTimeline,
     required this.onDrafts,
     required this.onNewStory,
@@ -228,6 +236,7 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback? onStartTimeline;
   final VoidCallback onHome;
   final VoidCallback onDecades;
+  final VoidCallback onTimelineV2;
   final VoidCallback onTimeline;
   final VoidCallback onDrafts;
   final VoidCallback onNewStory;
@@ -247,8 +256,11 @@ class _HeaderBar extends StatelessWidget {
   static const _clusterGap = 12.0;
 
   /// Unscaled gaps for the bar [Row], in child order: wordmark, hairline,
-  /// family, Home, Stories, Timeline, Drafts. [fit] may scale these.
-  static const barGaps = <double>[16, 12, 20, 8, 14, 14, 12];
+  /// family, Home, Stories, Timeline, Timeline v2, Drafts.
+  /// The two gaps around Timeline v2 stay at 0 so the added link fits in the
+  /// width the family name still needs at 1400px.
+  /// [fit] may scale these.
+  static const barGaps = <double>[16, 12, 20, 8, 14, 0, 0, 8];
 
   Widget _captureActions() {
     final actions = Row(
@@ -359,6 +371,17 @@ class _HeaderBar extends StatelessWidget {
             onTap: onDecades,
           ),
           SizedBox(width: metrics.gaps[5]),
+          Tooltip(
+            message: 'Timeline v2',
+            child: _CompactNavItem(
+              key: const Key('header-nav-timeline-v2'),
+              label: 'V2',
+              active: page == AlbumHeaderPage.timelineV2,
+              underlineKey: const Key('header-underline-timeline-v2'),
+              onTap: onTimelineV2,
+            ),
+          ),
+          SizedBox(width: metrics.gaps[6]),
           _NavItem(
             key: const Key('drafts-nav'),
             label: 'Draft Stories',
@@ -366,7 +389,7 @@ class _HeaderBar extends StatelessWidget {
             underlineKey: const Key('header-underline-drafts'),
             onTap: onDrafts,
           ),
-          SizedBox(width: metrics.gaps[6]),
+          SizedBox(width: metrics.gaps[7]),
           if (page == AlbumHeaderPage.capture) ...[
             const SizedBox(width: 40, height: 40, child: _SearchButton()),
             _captureActions(),
@@ -522,9 +545,16 @@ class _HeaderMetrics {
     // narrower window.
     final home = _homeWidth();
     final decades = _textWidth('Timeline', _navStyle) + _navPadH * 2;
+    final timelineV2 = _textWidth('V2', _compactNavStyle);
     final timeline = _textWidth('Stories', _navStyle) + _navPadH * 2;
     final drafts = _textWidth('Draft Stories', _navStyle) + _navPadH * 2;
-    return 1 + home + decades + timeline + drafts + _actionsWidth();
+    return 1 +
+        home +
+        decades +
+        timelineV2 +
+        timeline +
+        drafts +
+        _actionsWidth();
   }
 
   double _actionsWidth() {
@@ -583,6 +613,10 @@ class _HeaderMetrics {
     fontSize: 15,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.4,
+  );
+  static final TextStyle _compactNavStyle = GoogleFonts.sourceSans3(
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
   );
 }
 
@@ -687,6 +721,7 @@ class _FamilyMenu extends StatelessWidget {
       onSelected(value);
     }
     if (page == AlbumHeaderPage.familyLanding) return;
+    if (page == AlbumHeaderPage.timelineV2) return;
     GoRouter.maybeOf(context)?.go(AppRoutes.familyLanding);
   }
 
@@ -1030,6 +1065,32 @@ class _NavItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CompactNavItem extends StatelessWidget {
+  const _CompactNavItem({
+    super.key,
+    required this.label,
+    required this.active,
+    required this.underlineKey,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final Key underlineKey;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _HeaderMetrics._compactNavStyle.copyWith(
+      color: albumInk.withValues(alpha: active ? 1 : 0.7),
+    );
+    return InkWell(
+      onTap: onTap,
+      child: Text(label, key: active ? underlineKey : null, style: style),
     );
   }
 }
