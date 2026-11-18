@@ -78,6 +78,9 @@ function liveDb(auth: string): CreateInviteDb {
   };
 }
 
+// Authority: migration 20261117120000_invite_email_format.
+const inviteEmailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 function inviteFields(body: Record<string, unknown>): {
   familyId: string;
   email: string | null;
@@ -88,6 +91,13 @@ function inviteFields(body: Record<string, unknown>): {
     return errorResponse("VALIDATION", "family_id is required", 400);
   }
   const email = textField(body, "email");
+  if (email.length > 0 && !inviteEmailPattern.test(email)) {
+    return errorResponse(
+      "VALIDATION",
+      "Please enter a full email address.",
+      400,
+    );
+  }
   const personId = textField(body, "person_id");
   return {
     familyId,

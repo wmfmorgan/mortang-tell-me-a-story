@@ -72,6 +72,7 @@ class _InviteModalState extends State<InviteModal> {
   PeopleGateway? _people;
   var _tab = 0;
   var _busy = false;
+  String? _emailError;
   String? _linkUrl;
   List<Person> _unlinked = const [];
   String? _pickedPersonId;
@@ -248,13 +249,19 @@ class _InviteModalState extends State<InviteModal> {
     }
   }
 
+  // Authority: migration 20261117120000_invite_email_format.
+  static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   Future<void> _sendEmail() async {
     final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      _toast('Couldn’t send invite. Try again.');
+    if (!_emailPattern.hasMatch(email)) {
+      setState(() => _emailError = 'Please enter a full email address.');
       return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _emailError = null;
+    });
     try {
       // The personal note is on the screen only. send-invite-email has no note.
       final created = await _api.createInvite(
@@ -464,6 +471,14 @@ class _InviteModalState extends State<InviteModal> {
           hint: 'name@example.com',
           keyboardType: TextInputType.emailAddress,
         ),
+        if (_emailError != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            _emailError!,
+            key: const Key('invite-email-error'),
+            style: _InviteType.meta.copyWith(color: albumTerracotta),
+          ),
+        ],
         const SizedBox(height: 16),
         _noteLabel(),
         const SizedBox(height: 6),
