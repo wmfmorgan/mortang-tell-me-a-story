@@ -46,7 +46,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     if (id is! String || id.isEmpty) {
       throw ManageFamiliesException(
         code: EdgeErrorCode.validation,
-        message: 'Try again',
+        message: edgeGenericMessage,
       );
     }
     return id;
@@ -73,7 +73,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     if (id is! String || id.isEmpty) {
       throw ManageFamiliesException(
         code: EdgeErrorCode.validation,
-        message: 'Try again',
+        message: edgeGenericMessage,
       );
     }
     return id;
@@ -139,7 +139,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     if (expires == null) {
       throw ManageFamiliesException(
         code: EdgeErrorCode.validation,
-        message: 'Try again',
+        message: edgeGenericMessage,
       );
     }
     return expires;

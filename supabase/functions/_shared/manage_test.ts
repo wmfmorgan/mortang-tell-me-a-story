@@ -1,7 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
 import { jsonPost } from "./json_post.ts";
-import { handleManage } from "./manage.ts";
+import { handleManage, mapRpcError } from "./manage.ts";
 
 const invalidJson = { code: "VALIDATION", message: "Invalid JSON body" };
 
@@ -29,6 +29,21 @@ Deno.test("handleManage rejects invalid JSON", async () => {
     throw new Error("run should not be called");
   });
   await expectInvalid(res);
+});
+
+Deno.test("a bare prefix message is Try again", async () => {
+  const validation = mapRpcError("VALIDATION:");
+  assertEquals(validation.status, 400);
+  assertEquals(await validation.json(), {
+    code: "VALIDATION",
+    message: "Try again",
+  });
+  const forbidden = mapRpcError("FORBIDDEN:");
+  assertEquals(forbidden.status, 403);
+  assertEquals(await forbidden.json(), {
+    code: "FORBIDDEN",
+    message: "Try again",
+  });
 });
 
 Deno.test("handleManage rejects a non-object body", async () => {

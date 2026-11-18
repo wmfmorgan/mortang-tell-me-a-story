@@ -20,7 +20,11 @@ export function mapRpcError(message: string): Response {
   for (const [prefix, code, status] of rules) {
     if (!trimmed.startsWith(prefix)) continue;
     const detail = trimmed.slice(prefix.length).trim();
-    return errorResponse(code, detail.length > 0 ? detail : trimmed, status);
+    return errorResponse(
+      code,
+      detail.length > 0 ? detail : GENERIC_ERROR,
+      status,
+    );
   }
   return errorResponse("VALIDATION", GENERIC_ERROR, 400);
 }

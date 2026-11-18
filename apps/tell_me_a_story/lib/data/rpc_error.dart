@@ -63,6 +63,8 @@ class EdgeError {
   final String message;
 }
 
+const edgeGenericMessage = 'Try again';
+
 /// Reads a [FunctionException] or a decoded edge body.
 ///
 /// An exact wire string becomes [EdgeErrorCode]. Anything else is
@@ -77,17 +79,14 @@ EdgeError edgeError(Object errorOrBody) {
   final message = body?['message'];
   final shown = code != null && message is String && message.isNotEmpty
       ? message
-      : 'Try again';
+      : edgeGenericMessage;
   return EdgeError(code: code ?? EdgeErrorCode.validation, message: shown);
 }
 
 EdgeErrorCode? _edgeErrorCode(Object? raw) {
-  return switch (raw) {
-    'NOT_FOUND' => EdgeErrorCode.notFound,
-    'FORBIDDEN' => EdgeErrorCode.forbidden,
-    'VALIDATION' => EdgeErrorCode.validation,
-    'INVITE_INVALID' => EdgeErrorCode.inviteInvalid,
-    'AUTH_REQUIRED' => EdgeErrorCode.authRequired,
-    _ => null,
-  };
+  if (raw is! String) return null;
+  for (final code in EdgeErrorCode.values) {
+    if (code.wire == raw) return code;
+  }
+  return null;
 }
