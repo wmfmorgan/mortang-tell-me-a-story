@@ -174,7 +174,7 @@ async function reopenAccepted(
   // The magic-link return opens this invite again after the first accept.
   // The same person continues into the family. Anyone else still sees it used.
   if (invite.accepted_by !== userId) {
-    return errorResponse("INVITE_ACCEPTED", "Invite already used", 400);
+    return errorResponse("INVITE_INVALID", "Invite already used", 400);
   }
   const again = await store.membershipId(invite.family_id, userId);
   if (again.error || !again.id) {
@@ -191,7 +191,7 @@ function rejectPending(invite: InviteRow): Response | null {
     return errorResponse("INVITE_INVALID", "Invite is not valid", 400);
   }
   if (new Date(invite.expires_at).getTime() <= Date.now()) {
-    return errorResponse("INVITE_EXPIRED", "Invite link expired", 400);
+    return errorResponse("INVITE_INVALID", "Invite link expired", 400);
   }
   if (invite.family_deleted) return mapRpcError(INVITE_NOT_VALID);
   return null;

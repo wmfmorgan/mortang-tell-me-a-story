@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 import { corsHeaders, errorResponse, jsonResponse } from "./cors.ts";
+import type { ErrorCode } from "./error_codes.ts";
 import { readJsonObject } from "./json_object.ts";
 import { bearerToken, userClient } from "./supabase.ts";
 
@@ -10,7 +11,7 @@ export const GENERIC_ERROR = "Try again";
 
 export function mapRpcError(message: string): Response {
   const trimmed = message.trim();
-  const rules: Array<[string, string, number]> = [
+  const rules: Array<[string, ErrorCode, number]> = [
     ["NOT_FOUND:", "NOT_FOUND", 404],
     ["FORBIDDEN:", "FORBIDDEN", 403],
     ["VALIDATION:", "VALIDATION", 400],
@@ -19,7 +20,11 @@ export function mapRpcError(message: string): Response {
   for (const [prefix, code, status] of rules) {
     if (!trimmed.startsWith(prefix)) continue;
     const detail = trimmed.slice(prefix.length).trim();
-    return errorResponse(code, detail.length > 0 ? detail : trimmed, status);
+    return errorResponse(
+      code,
+      detail.length > 0 ? detail : GENERIC_ERROR,
+      status,
+    );
   }
   return errorResponse("VALIDATION", GENERIC_ERROR, 400);
 }

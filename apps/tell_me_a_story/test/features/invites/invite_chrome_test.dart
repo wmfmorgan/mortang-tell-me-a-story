@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/config/env.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/rpc_error.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/invites/invite_modal.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
@@ -246,7 +247,7 @@ void main() {
   ) async {
     final api = _StubInviteApi()
       ..createError = InviteApiException(
-        code: 'VALIDATION',
+        code: EdgeErrorCode.validation,
         message: 'person is already linked',
       );
     final people = _EmailPeople();
@@ -417,7 +418,7 @@ void main() {
   ) async {
     final api = _StubInviteApi()
       ..sendError = InviteApiException(
-        code: 'VALIDATION',
+        code: EdgeErrorCode.validation,
         message: 'Invite has no email address to send to',
       );
     final people = _EmailPeople()

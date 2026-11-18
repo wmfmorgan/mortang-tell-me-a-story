@@ -1,6 +1,8 @@
+import type { ErrorCode } from "../_shared/error_codes.ts";
+
 export type InviteDecision = {
   valid: boolean;
-  code: string | null;
+  code: ErrorCode | null;
   message: string | null;
   family_id: string | null;
   family_name: string | null;
@@ -43,7 +45,7 @@ export function decideInvite(
   }
 
   if (invite.status === "accepted") {
-    return invalid("INVITE_ACCEPTED", "Invite already used", status, expiresAt);
+    return invalid("INVITE_INVALID", "Invite already used", status, expiresAt);
   }
 
   if (invite.status === "revoked" || invite.status === "expired") {
@@ -51,7 +53,7 @@ export function decideInvite(
   }
 
   if (new Date(invite.expires_at).getTime() <= now) {
-    return invalid("INVITE_EXPIRED", "Invite link expired", status, expiresAt);
+    return invalid("INVITE_INVALID", "Invite link expired", status, expiresAt);
   }
 
   return {
@@ -67,7 +69,7 @@ export function decideInvite(
 }
 
 function invalid(
-  code: string,
+  code: ErrorCode,
   message: string,
   status: string | null,
   expiresAt: string | null,

@@ -70,7 +70,7 @@ select ok(
       and expires_at < now()
       and status = 'pending'
   ),
-  'expired pending invite exists for INVITE_EXPIRED'
+  'expired pending invite exists for INVITE_INVALID'
 );
 
 select ok(
@@ -111,7 +111,7 @@ select ok(
 select is(
   (select status::text from public.invites where token = 'tok_live_m2_test'),
   'accepted',
-  'second accept would see INVITE_ACCEPTED'
+  'second accept would see INVITE_INVALID'
 );
 
 select * from finish();

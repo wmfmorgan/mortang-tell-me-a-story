@@ -6,6 +6,7 @@ import '../../core/theme/album_theme.dart';
 import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
 import '../../data/manage_families_api.dart';
+import '../../data/rpc_error.dart';
 import '../../data/people_api.dart';
 import '../../data/stories_api.dart';
 import '../timeline/timeline_zoom.dart';
@@ -213,22 +214,17 @@ class _StartTimelineDialogState extends State<_StartTimelineDialog> {
   }
 
   String _inlineError(ManageFamiliesException error) {
-    if (error.code == 'NOT_FOUND') {
-      if (widget.allowChange) {
-        return "That story isn't available anymore. Pick another one.";
-      }
-      return "That story isn't available anymore.";
-    }
-    if (error.code == 'FORBIDDEN') {
-      return "You're not a member of ${widget.parentName} anymore.";
-    }
-    if (_isInternal(error.message)) return 'Try again';
-    return error.message;
-  }
-
-  bool _isInternal(String message) {
-    const hidden = {'create_branch_family returned no id', 'Request failed'};
-    return hidden.contains(message.trim());
+    return switch (error.code) {
+      EdgeErrorCode.notFound =>
+        widget.allowChange
+            ? "That story isn't available anymore. Pick another one."
+            : "That story isn't available anymore.",
+      EdgeErrorCode.forbidden =>
+        "You're not a member of ${widget.parentName} anymore.",
+      EdgeErrorCode.validation ||
+      EdgeErrorCode.inviteInvalid ||
+      EdgeErrorCode.authRequired => error.message,
+    };
   }
 
   @override

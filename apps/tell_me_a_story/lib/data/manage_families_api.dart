@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'rpc_error.dart';
+
 abstract class ManageFamiliesGateway {
   Future<String> createRootFamily(String name);
 
@@ -43,8 +45,8 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     final id = json['family_id'];
     if (id is! String || id.isEmpty) {
       throw ManageFamiliesException(
-        code: 'VALIDATION',
-        message: 'create_family returned no id',
+        code: EdgeErrorCode.validation,
+        message: edgeGenericMessage,
       );
     }
     return id;
@@ -69,7 +71,10 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     }, expectStatus: 201);
     final id = json['family_id'];
     if (id is! String || id.isEmpty) {
-      throw ManageFamiliesException(code: 'VALIDATION', message: 'Try again');
+      throw ManageFamiliesException(
+        code: EdgeErrorCode.validation,
+        message: edgeGenericMessage,
+      );
     }
     return id;
   }
@@ -133,8 +138,8 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
     final expires = raw is String ? DateTime.tryParse(raw) : null;
     if (expires == null) {
       throw ManageFamiliesException(
-        code: 'VALIDATION',
-        message: 'resend_invite returned no expires_at',
+        code: EdgeErrorCode.validation,
+        message: edgeGenericMessage,
       );
     }
     return expires;
@@ -152,7 +157,7 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
   }) async {
     if (_client.auth.currentSession == null) {
       throw ManageFamiliesException(
-        code: 'AUTH_REQUIRED',
+        code: EdgeErrorCode.authRequired,
         message: 'Sign-in required',
       );
     }
@@ -160,20 +165,18 @@ class ManageFamiliesApi implements ManageFamiliesGateway {
       final res = await _client.functions.invoke(functionName, body: body);
       final decoded = _asMap(res.data);
       if (res.status != expectStatus) {
+        final parsed = edgeError(decoded);
         throw ManageFamiliesException(
-          code: decoded['code'] as String? ?? 'VALIDATION',
-          message: decoded['message'] as String? ?? 'Try again',
+          code: parsed.code,
+          message: parsed.message,
         );
       }
       return decoded;
     } on ManageFamiliesException {
       rethrow;
     } on FunctionException catch (e) {
-      final decoded = _asMap(e.details);
-      throw ManageFamiliesException(
-        code: decoded['code'] as String? ?? 'VALIDATION',
-        message: decoded['message'] as String? ?? 'Try again',
-      );
+      final parsed = edgeError(e);
+      throw ManageFamiliesException(code: parsed.code, message: parsed.message);
     }
   }
 }
@@ -189,7 +192,7 @@ Map<String, dynamic> _asMap(dynamic data) {
 class ManageFamiliesException implements Exception {
   ManageFamiliesException({required this.code, required this.message});
 
-  final String code;
+  final EdgeErrorCode code;
   final String message;
 
   @override

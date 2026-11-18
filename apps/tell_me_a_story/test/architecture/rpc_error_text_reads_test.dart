@@ -5,12 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Grandfathered raw-error reads. Key is `path: pattern`. The count is exact.
 /// Known gaps: casts like `(e as PostgrestException).message`, aliasing like `final err = e`, and prefixed types like `on supa.AuthException`.
 const temporaryErrorTextReads = <String, int>{
-  'data/invite_api.dart: e.details': 1,
-  'data/manage_families_api.dart: e.details': 1,
   'features/auth/invite_sign_in_page.dart: e.message': 2,
   'features/auth/magic_link_page.dart: e.message': 2,
-  'features/family/start_timeline_dialog.dart: code ==': 2,
-  'features/people/edit_person_dialog.dart: \$error': 1,
 };
 
 const _rawCatchTypes = <String>{
@@ -79,6 +75,9 @@ void f() {
       'message.contains(',
       'code ==',
     });
+
+    const phrase = 'final phrase = e.reasonPhrase;';
+    expect(_errorTextReadPatterns(phrase), {'reasonPhrase'});
 
     const lookalikes = r'''
 void f() {
@@ -215,6 +214,8 @@ void _add(Map<String, int> hits, String pattern, int count) {
 }
 
 void _scanLine(String line, _Scan scan) {
+  final phrases = RegExp(r'\breasonPhrase\b').allMatches(line);
+  _add(scan.hits, 'reasonPhrase', phrases.length);
   var i = 0;
   while (i < line.length) {
     final skipped = _skipNoise(line, i, scan);

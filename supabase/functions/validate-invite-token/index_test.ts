@@ -59,7 +59,8 @@ Deno.test("a soft-deleted family is INVITE_INVALID and stays 200-shaped", () => 
 
 Deno.test("invalid results use the locked codes", () => {
   const accepted = decideInvite({ ...live, status: "accepted" });
-  assertEquals(accepted.code, "INVITE_ACCEPTED");
+  assertEquals(accepted.code, "INVITE_INVALID");
+  assertEquals(accepted.message, "Invite already used");
   const revoked = decideInvite({ ...live, status: "revoked" });
   assertEquals(revoked.code, "INVITE_INVALID");
   assertEquals(revoked.status, "revoked");
@@ -69,7 +70,8 @@ Deno.test("invalid results use the locked codes", () => {
     { ...live, expires_at: "2000-01-01T00:00:00.000Z" },
     Date.parse("2020-01-01T00:00:00.000Z"),
   );
-  assertEquals(past.code, "INVITE_EXPIRED");
+  assertEquals(past.code, "INVITE_INVALID");
+  assertEquals(past.message, "Invite link expired");
   assertEquals(past.valid, false);
 });
 

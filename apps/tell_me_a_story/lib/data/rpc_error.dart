@@ -41,3 +41,52 @@ bool rpcConstraintViolation(Object error, String sqlstate, String constraint) {
   final quoted = '"$constraint"';
   return error.message.contains(quoted);
 }
+
+/// Wire codes from `supabase/functions/_shared/error_codes.ts`, in that order.
+enum EdgeErrorCode {
+  notFound('NOT_FOUND'),
+  forbidden('FORBIDDEN'),
+  validation('VALIDATION'),
+  inviteInvalid('INVITE_INVALID'),
+  authRequired('AUTH_REQUIRED');
+
+  const EdgeErrorCode(this.wire);
+
+  final String wire;
+}
+
+/// Edge-function failure a screen can switch on.
+class EdgeError {
+  const EdgeError({required this.code, required this.message});
+
+  final EdgeErrorCode code;
+  final String message;
+}
+
+const edgeGenericMessage = 'Try again';
+
+/// Reads a [FunctionException] or a decoded edge body.
+///
+/// An exact wire string becomes [EdgeErrorCode]. Anything else is
+/// [EdgeErrorCode.validation]. [EdgeError.message] is the body's message
+/// when the code matched and that message is a non-empty [String].
+EdgeError edgeError(Object errorOrBody) {
+  final raw = errorOrBody is FunctionException
+      ? errorOrBody.details
+      : errorOrBody;
+  final body = raw is Map ? Map<Object?, Object?>.from(raw) : null;
+  final code = _edgeErrorCode(body?['code']);
+  final message = body?['message'];
+  final shown = code != null && message is String && message.isNotEmpty
+      ? message
+      : edgeGenericMessage;
+  return EdgeError(code: code ?? EdgeErrorCode.validation, message: shown);
+}
+
+EdgeErrorCode? _edgeErrorCode(Object? raw) {
+  if (raw is! String) return null;
+  for (final code in EdgeErrorCode.values) {
+    if (code.wire == raw) return code;
+  }
+  return null;
+}

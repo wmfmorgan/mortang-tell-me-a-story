@@ -1,3 +1,5 @@
+import type { ErrorCode } from "./error_codes.ts";
+
 export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -16,7 +18,7 @@ export function jsonResponse(
 }
 
 export function errorResponse(
-  code: string,
+  code: ErrorCode,
   message: string,
   status = 400,
 ): Response {

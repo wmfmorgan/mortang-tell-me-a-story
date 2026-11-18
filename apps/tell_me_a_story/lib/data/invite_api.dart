@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/env.dart';
 import 'family_selection.dart';
+import 'rpc_error.dart';
 import 'profile_session.dart';
 import 'unexpected_payload_exception.dart';
 
@@ -120,7 +121,7 @@ class InviteApi implements InviteGateway {
   }) async {
     if (_client.auth.currentSession == null) {
       throw InviteApiException(
-        code: 'AUTH_REQUIRED',
+        code: EdgeErrorCode.authRequired,
         message: 'Sign-in required',
       );
     }
@@ -128,19 +129,13 @@ class InviteApi implements InviteGateway {
       final res = await _client.functions.invoke(functionName, body: body);
       final decoded = _asMap(res.data);
       if (res.status != expectStatus) {
-        throw InviteApiException(
-          code: decoded['code'] as String? ?? 'VALIDATION',
-          message: decoded['message'] as String? ?? 'Request failed',
-        );
+        final parsed = edgeError(decoded);
+        throw InviteApiException(code: parsed.code, message: parsed.message);
       }
       return decoded;
     } on FunctionException catch (e) {
-      final decoded = _asMap(e.details);
-      throw InviteApiException(
-        code: decoded['code'] as String? ?? 'VALIDATION',
-        message:
-            decoded['message'] as String? ?? e.reasonPhrase ?? 'Request failed',
-      );
+      final parsed = edgeError(e);
+      throw InviteApiException(code: parsed.code, message: parsed.message);
     }
   }
 
@@ -224,7 +219,7 @@ class InviteLinkApi implements InviteLinkGateway {
 class InviteApiException implements Exception {
   InviteApiException({required this.code, required this.message});
 
-  final String code;
+  final EdgeErrorCode code;
   final String message;
 
   @override

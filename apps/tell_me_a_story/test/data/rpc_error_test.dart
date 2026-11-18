@@ -187,4 +187,46 @@ void main() {
       expect(mapRpcError(raw), isNull);
     },
   );
+
+  test('edgeError reads a FunctionException body', () {
+    final error = edgeError(
+      const FunctionException(
+        status: 403,
+        details: {'code': 'FORBIDDEN', 'message': 'Not a family member'},
+        reasonPhrase: 'Forbidden',
+      ),
+    );
+    expect(error.code, EdgeErrorCode.forbidden);
+    expect(error.message, 'Not a family member');
+  });
+
+  test('edgeError reads a decoded response body map', () {
+    final error = edgeError({
+      'code': 'NOT_FOUND',
+      'message': 'Invite not found',
+    });
+    expect(error.code, EdgeErrorCode.notFound);
+    expect(error.message, 'Invite not found');
+  });
+
+  test('edgeError maps an unknown code to validation and Try again', () {
+    final error = edgeError({
+      'code': 'INVITE_EXPIRED',
+      'message': 'Invite link expired',
+    });
+    expect(error.code, EdgeErrorCode.validation);
+    expect(error.message, 'Try again');
+  });
+
+  test('edgeError uses Try again when the message is missing or empty', () {
+    expect(edgeError({'code': 'AUTH_REQUIRED'}).message, 'Try again');
+    expect(
+      edgeError({'code': 'AUTH_REQUIRED', 'message': ''}).message,
+      'Try again',
+    );
+    expect(
+      edgeError({'code': 'AUTH_REQUIRED'}).code,
+      EdgeErrorCode.authRequired,
+    );
+  });
 }
