@@ -7,6 +7,7 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/rpc_error.dart';
 import 'package:tell_me_a_story/features/family/manage_family_page.dart';
 
 import '../../support/quiet_gateways.dart';
@@ -189,7 +190,7 @@ class _Manage implements ManageFamiliesGateway {
   }) async {
     if (failRename) {
       throw ManageFamiliesException(
-        code: 'VALIDATION',
+        code: EdgeErrorCode.validation,
         message: 'Rename failed',
       );
     }

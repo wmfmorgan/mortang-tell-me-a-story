@@ -87,7 +87,7 @@ class _EditPersonDialogState extends State<EditPersonDialog> {
       setState(() => _existingUrl = url);
     } on Exception catch (error) {
       // Optional portrait URL; the avatar stays empty when load fails.
-      debugPrint('edit_person_dialog portrait: $error');
+      debugPrint('edit_person_dialog portrait: ${error.runtimeType}');
     }
   }
 

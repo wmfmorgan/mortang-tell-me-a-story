@@ -8,6 +8,7 @@ import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
+import 'package:tell_me_a_story/data/rpc_error.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/features/auth/invite_sign_in_page.dart';
 import 'package:tell_me_a_story/features/auth/magic_link_page.dart';
@@ -259,7 +260,10 @@ void main() {
     tester,
   ) async {
     final invites = _Invites()
-      ..acceptError = InviteApiException(code: 'used', message: 'used');
+      ..acceptError = InviteApiException(
+        code: EdgeErrorCode.validation,
+        message: 'used',
+      );
     await tester.pumpWidget(
       MaterialApp(
         home: InviteSignInPage(

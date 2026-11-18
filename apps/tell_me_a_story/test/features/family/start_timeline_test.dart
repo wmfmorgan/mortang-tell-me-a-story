@@ -12,6 +12,7 @@ import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/invite_api.dart';
 import 'package:tell_me_a_story/data/manage_families_api.dart';
+import 'package:tell_me_a_story/data/rpc_error.dart';
 import 'package:tell_me_a_story/data/people_api.dart';
 import 'package:tell_me_a_story/data/perspectives_api.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
@@ -989,7 +990,7 @@ void main() {
     await tester.pump();
 
     manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
+      code: EdgeErrorCode.validation,
       message: 'too many levels',
     );
     await _tapCreate(tester);
@@ -998,7 +999,10 @@ void main() {
     expect(find.textContaining('VALIDATION:'), findsNothing);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
-    manage.error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
+    manage.error = ManageFamiliesException(
+      code: EdgeErrorCode.notFound,
+      message: 'story',
+    );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
     expect(
@@ -1008,7 +1012,7 @@ void main() {
     expect(find.text('story'), findsNothing);
 
     manage.error = ManageFamiliesException(
-      code: 'FORBIDDEN',
+      code: EdgeErrorCode.forbidden,
       message: 'member only',
     );
     await _tapCreate(tester);
@@ -1027,23 +1031,21 @@ void main() {
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
     manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
-      message: 'create_branch_family returned no id',
+      code: EdgeErrorCode.inviteInvalid,
+      message: 'That invite is no longer valid.',
     );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
-    expect(find.text('Try again'), findsOneWidget);
-    expect(find.text('create_branch_family returned no id'), findsNothing);
+    expect(find.text('That invite is no longer valid.'), findsOneWidget);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
 
     manage.error = ManageFamiliesException(
-      code: 'VALIDATION',
-      message: 'Request failed',
+      code: EdgeErrorCode.authRequired,
+      message: 'Sign-in required',
     );
     await _tapCreate(tester);
     await tester.pumpAndSettle();
-    expect(find.text('Try again'), findsOneWidget);
-    expect(find.text('Request failed'), findsNothing);
+    expect(find.text('Sign-in required'), findsOneWidget);
     expect(find.byKey(const Key('start-timeline-dialog')), findsOneWidget);
   });
 
@@ -1051,7 +1053,10 @@ void main() {
     tester,
   ) async {
     final manage = _Manage()
-      ..error = ManageFamiliesException(code: 'NOT_FOUND', message: 'story');
+      ..error = ManageFamiliesException(
+        code: EdgeErrorCode.notFound,
+        message: 'story',
+      );
     await _openForm(
       tester,
       origin: _story(),
