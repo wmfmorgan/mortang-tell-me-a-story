@@ -1,5 +1,6 @@
--- Reject a new invite whose email is not an address. Insert only, so the
--- pending prod row email = 'joe blow' can still be updated or revoked.
+-- Reject an invite email that is not an address on insert, or update of email.
+-- A status change does not recheck, so the pending prod row email = 'joe blow'
+-- can still be revoked.
 -- Blank addresses become null (shareable links, LA-04).
 
 create or replace function public.invites_email_format()
@@ -27,6 +28,6 @@ revoke all on function public.invites_email_format() from public;
 revoke all on function public.invites_email_format() from anon, authenticated;
 
 create trigger invites_email_format
-  before insert on public.invites
+  before insert or update of email on public.invites
   for each row
   execute function public.invites_email_format();

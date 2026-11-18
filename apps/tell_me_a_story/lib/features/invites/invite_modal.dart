@@ -249,6 +249,7 @@ class _InviteModalState extends State<InviteModal> {
     }
   }
 
+  // Authority: migration 20261117120000_invite_email_format.
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   Future<void> _sendEmail() async {

@@ -47,6 +47,22 @@ Deno.test("a provider 422 is a 400 validation error", async () => {
   }
 });
 
+Deno.test("provider 400, 403, and 429 stay 502", async () => {
+  for (const status of [400, 403, 429]) {
+    const restore = stubProvider(status);
+    try {
+      const failed = await sendInviteEmail({
+        to: "a@b.co",
+        familyName: "Ada",
+        token: "tok",
+      });
+      assertEquals(failed?.status, 502, `status ${status}`);
+    } finally {
+      restore();
+    }
+  }
+});
+
 Deno.test("a provider outage stays a 502", async () => {
   const restore = stubProvider(500);
   try {

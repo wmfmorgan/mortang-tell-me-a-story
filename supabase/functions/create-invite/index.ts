@@ -78,6 +78,7 @@ function liveDb(auth: string): CreateInviteDb {
   };
 }
 
+// Authority: migration 20261117120000_invite_email_format.
 const inviteEmailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function inviteFields(body: Record<string, unknown>): {

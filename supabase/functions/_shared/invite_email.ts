@@ -78,9 +78,7 @@ export function emailNotConfiguredResponse(): Response {
 async function providerFailure(res: Response): Promise<Response> {
   const detail = await res.text();
   console.error("invite email provider failed", detail);
-  const rejected = res.status === 422 ||
-    (res.status >= 400 && res.status < 500 &&
-      detail.includes("validation_error"));
+  const rejected = res.status === 422;
   return errorResponse(
     "VALIDATION",
     emailSendFailedMessage,

@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(4);
+select plan(5);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values (
@@ -61,6 +61,15 @@ select is(
   (select email from public.invites where token = 'tok-trimmed'),
   'a@b.co',
   'the stored email is trimmed'
+);
+
+select throws_ok(
+  $$update public.invites
+    set email = 'joe blow'
+    where token = 'tok-trimmed'$$,
+  'P0001',
+  'VALIDATION: Please enter a full email address.',
+  'updating a good invite email to a name is rejected'
 );
 
 alter table public.invites disable trigger invites_email_format;
