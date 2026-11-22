@@ -96,7 +96,7 @@ UI reads the code with an exhaustive `switch (error.code)`, never `==` on a code
 Client payload failures, any malformed success payload (a missing id or expires_at), throw ManageFamiliesException(EdgeErrorCode.validation, "Try again"), so no internal text can reach a message.
 A parity test (test/architecture/edge_error_codes_parity_test.dart) reads ../../supabase/functions/_shared/error_codes.ts and requires its ERROR_CODES list to equal the EdgeErrorCode wire strings, in order.
 8. The Flutter app does not open Postgres on its own. It uses the Supabase client. The service role key, `RESEND_API_KEY`, and `RESEND_FROM` stay out of the client and out of git.
-9. CI (`.github/workflows/ci.yml`) runs `flutter`, `deno`, `pgtap`, and `e2e` on every pull request to `main` and every push to `main`. There is no path filter.
+9. CI (`.github/workflows/ci.yml`) runs `flutter`, `deno`, `pgtap`, and `e2e` on pull requests to, and pushes to, `main` and the active feature branch listed in `.github/workflows/ci.yml`. There is no path filter.
    - `flutter` runs in `apps/tell_me_a_story`: `flutter pub get --enforce-lockfile`, `dart format --output=none --set-exit-if-changed .`, the analyze ceiling, and `flutter test`.
    - `deno` runs `deno check supabase/functions/*/index.ts supabase/functions/_shared/*.ts` and `deno test --allow-env --allow-read=supabase/functions supabase/functions`.
    - `pgtap` runs `supabase db start`, `supabase test db`, and the splinter advisors check against `supabase/advisors-baseline.json`.
