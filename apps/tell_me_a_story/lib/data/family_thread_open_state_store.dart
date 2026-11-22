@@ -42,6 +42,21 @@ class FamilyThreadOpenStateStore {
     });
   }
 
+  Future<void> clearAll() async {
+    try {
+      final prefs = await _preferences();
+      final keys = [
+        for (final key in prefs.getKeys())
+          if (key.startsWith(keyPrefix)) key,
+      ];
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+    } on PlatformException {
+      return;
+    }
+  }
+
   Future<T?> _use<T>(
     String familyId,
     Future<T?> Function(SharedPreferences prefs, String key) body,

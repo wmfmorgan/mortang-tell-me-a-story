@@ -59,6 +59,7 @@ class Story {
     this.commentCount = 0,
     this.perspectiveCount = 0,
     this.photoPaths = const [],
+    this.photoEditVersions = const [],
     this.placeAddress,
     this.personUserIds = const {},
   });
@@ -96,6 +97,7 @@ class Story {
   final int commentCount;
   final int perspectiveCount;
   final List<String> photoPaths;
+  final List<int> photoEditVersions;
 
   /// `places.address`, trimmed. Null when the embed is missing or blank.
   final String? placeAddress;
@@ -106,6 +108,7 @@ class Story {
   factory Story.fromJson(Map<String, dynamic> json) {
     final people = json['story_people'];
     final photos = json['photos'];
+    final ordered = _sortedEmbedPhotos(json);
     return Story(
       id: json['id'] as String,
       familyId: json['family_id'] as String,
@@ -138,7 +141,8 @@ class Story {
       authorAvatarPath: _authorAvatarPath(json['profiles']),
       commentCount: _rowCount(json['comments']),
       perspectiveCount: _rowCount(json['perspectives']),
-      photoPaths: _photoPaths(photos),
+      photoPaths: [for (final photo in ordered) photo.effectiveStoragePath],
+      photoEditVersions: [for (final photo in ordered) photo.editVersion],
       placeAddress: _embedAddress(json['places']),
       personUserIds: _personUserIds(json['story_people']),
     );
@@ -270,27 +274,47 @@ String _profileWhen(Story story) {
   }
 }
 
-List<String> _photoPaths(Object? photos) {
+List<Photo> _sortedEmbedPhotos(Map<String, dynamic> json) {
+  final photos = json['photos'];
   if (photos is! List) return const [];
-  final rows = photos.whereType<Map>().toList();
-  rows.sort(
-    (a, b) => ((a['sort_order'] as int?) ?? 0).compareTo(
-      (b['sort_order'] as int?) ?? 0,
-    ),
-  );
-  return [for (final row in rows) ?_effectivePhotoPath(row)];
+  final built = <Photo>[];
+  for (final row in photos) {
+    final photo = _embedPhoto(
+      row,
+      storyId: json['id'] as String,
+      familyId: json['family_id'] as String,
+    );
+    if (photo != null) built.add(photo);
+  }
+  built.sort(comparePhotoOrder);
+  return built;
 }
 
-String? _effectivePhotoPath(Map row) {
+Photo? _embedPhoto(
+  Object row, {
+  required String storyId,
+  required String familyId,
+}) {
+  if (row is! Map) return null;
   final keyed = <String, Object?>{
     for (final entry in row.entries)
       if (entry.key != null) entry.key.toString(): entry.value,
   };
   final edited = keyed['edited_storage_path'];
-  if (edited is String) return edited;
   final original = keyed['storage_path'];
-  if (original is String) return original;
-  return null;
+  if (edited is! String && original is! String) return null;
+  final id = keyed['id'];
+  final editVersion = keyed['edit_version'];
+  return Photo(
+    id: id is String ? id : '',
+    storyId: storyId,
+    familyId: familyId,
+    uploaderId: '',
+    storagePath: original is String ? original : '',
+    editedStoragePath: edited is String ? edited : null,
+    editVersion: editVersion is int ? editVersion : 0,
+    sortOrder: (keyed['sort_order'] as int?) ?? 0,
+  );
 }
 
 /// One published story on a person profile.

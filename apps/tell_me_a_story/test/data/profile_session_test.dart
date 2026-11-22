@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
 import 'package:tell_me_a_story/data/profile_api.dart';
 import 'package:tell_me_a_story/data/profile_session.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(() {
     ProfileSession.loadOwn = null;
     ProfileSession.downloadAvatar = null;
