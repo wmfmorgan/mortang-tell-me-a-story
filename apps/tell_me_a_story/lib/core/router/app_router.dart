@@ -31,6 +31,7 @@ import '../../features/family/manage_family_page.dart';
 import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
+import '../../features/timeline_river/timeline_river_page.dart';
 import '../../data/search_api.dart';
 import '../theme/album_theme.dart';
 import 'auth_refresh.dart';
@@ -170,6 +171,7 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const familyLanding = '/family';
   static const timeline = '/timeline';
+  static const timelineRiver = '/timeline-river';
   static const allStories = '/family/:id/stories';
 
   static String allStoriesPath(String familyId) => '/family/$familyId/stories';
@@ -324,6 +326,15 @@ GoRouter createAppRouter({
           storiesApi: storiesApi,
           familiesApi: familiesApi,
           peopleApi: peopleApi,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.timelineRiver,
+        builder: (context, state) => TimelineRiverPage(
+          inviteApi: inviteApi,
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+          photosApi: photosApi,
         ),
       ),
       GoRoute(
