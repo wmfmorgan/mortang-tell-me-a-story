@@ -3,10 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'current_session.dart';
 import 'family_thread_open_state.dart';
-
-final _uuid = RegExp(
-  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-);
+import 'uuid.dart';
 
 class FamilyThreadOpenStateStore {
   FamilyThreadOpenStateStore({
@@ -56,14 +53,14 @@ class FamilyThreadOpenStateStore {
     } on PlatformException {
       return null;
     } on FormatException {
-      return null;
+      return null; // Spec O-01: catch FormatException by name.
     }
   }
 
   String? _key(String familyId) {
     final userId = _currentUserId();
-    if (userId == null || !_uuid.hasMatch(userId)) return null;
-    if (!_uuid.hasMatch(familyId)) return null;
+    if (userId == null || !isUuid(userId)) return null;
+    if (!isUuid(familyId)) return null;
     return '$keyPrefix$userId.$familyId';
   }
 }

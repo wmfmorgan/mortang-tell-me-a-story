@@ -1,13 +1,12 @@
 import 'dart:convert';
 
 import 'family_thread_density.dart';
-
-final _uuid = RegExp(
-  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-);
+import 'uuid.dart';
 
 class FamilyThreadOpenState {
   const FamilyThreadOpenState({required this.density, required this.storyId});
+
+  static const maxBytes = 256;
 
   final FamilyThreadDensity density;
   final String storyId;
@@ -17,7 +16,7 @@ class FamilyThreadOpenState {
   }
 
   static FamilyThreadOpenState? tryDecode(String raw) {
-    if (utf8.encode(raw).length > 256) return null;
+    if (utf8.encode(raw).length > maxBytes) return null;
     final Object? decoded;
     try {
       decoded = jsonDecode(raw);
@@ -28,13 +27,8 @@ class FamilyThreadOpenState {
       'density': final String name,
       'storyId': final String storyId,
     }) {
-      if (decoded.length != 2 || !_uuid.hasMatch(storyId)) return null;
-      final density = switch (name) {
-        'overview' => FamilyThreadDensity.overview,
-        'browse' => FamilyThreadDensity.browse,
-        'read' => FamilyThreadDensity.read,
-        _ => null,
-      };
+      if (decoded.length != 2 || !isUuid(storyId)) return null;
+      final density = FamilyThreadDensity.values.asNameMap()[name];
       if (density == null) return null;
       return FamilyThreadOpenState(density: density, storyId: storyId);
     }

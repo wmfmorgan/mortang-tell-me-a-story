@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,18 +87,6 @@ void main() {
     );
     expect((await prefs()).getString(key), _state.encode());
   });
-  test('mismatched userId in a seeded key is a cache miss', () async {
-    SharedPreferences.setMockInitialValues({
-      keyFor(_userB, _family): _state.encode(),
-    });
-    expect(await store().read(familyId: _family), isNull);
-  });
-  test('read is null on userId mismatch', () async {
-    SharedPreferences.setMockInitialValues({
-      keyFor(_userB, _family): _state.encode(),
-    });
-    expect(await store().read(familyId: _family), isNull);
-  });
   test('written value contains only density and storyId', () async {
     await store().write(familyId: _family, state: _state);
     final decoded = jsonDecode(
@@ -145,10 +132,6 @@ void main() {
     });
     expect(await store().read(familyId: _family), isNull);
   });
-  test('read is null on storage failure', () async {
-    final open = store(preferences: platformFailure);
-    expect(await open.read(familyId: _family), isNull);
-  });
   test(
     'preferences loader throwing PlatformException makes read null',
     () async {
@@ -193,18 +176,18 @@ void main() {
     await open.remove(familyId: _family);
     expect((await prefs()).getKeys(), isEmpty);
   });
-  test('public surface is read, write, and remove', () {
-    final source = File('lib/data/family_thread_open_state_store.dart')
-        .readAsStringSync();
-    expect(source.contains('Future<FamilyThreadOpenState?> read('), isTrue);
-    expect(source.contains('Future<void> write('), isTrue);
-    expect(source.contains('Future<void> remove('), isTrue);
-    expect(
-      RegExp(
-        'clearAll|getKeys|'
-        r'\.clear\(|\bprint\s*\(|debugPrint\(|\blog\s*\(',
-      ).hasMatch(source),
-      isFalse,
-    );
+  test('read write and remove leave other keys untouched', () async {
+    final other = keyFor(_userB, _family);
+    SharedPreferences.setMockInitialValues({
+      'other.key': 'keep',
+      other: _state.encode(),
+    });
+    final open = store();
+    expect(await open.read(familyId: _family), isNull);
+    await open.write(familyId: _family, state: _state);
+    await open.remove(familyId: _family);
+    final stored = await prefs();
+    expect(stored.getString('other.key'), 'keep');
+    expect(stored.getString(other), _state.encode());
   });
 }

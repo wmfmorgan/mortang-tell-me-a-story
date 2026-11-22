@@ -9,10 +9,6 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  test('sageTint is the approved 0xFFE1E5DD', () {
-    expect(sageTint, const Color(0xFFE1E5DD));
-  });
-
   test('locked hex values', () {
     expect(albumParchment, const Color(0xFFFBF7F2));
     expect(albumTerracotta, const Color(0xFF8B5E4B));

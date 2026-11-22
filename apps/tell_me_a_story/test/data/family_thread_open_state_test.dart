@@ -19,10 +19,12 @@ void main() {
 
   test('tryDecode rejects malformed fixtures', () {
     const valid = '{"density":"browse","storyId":"$_story"}';
-    final over = valid.padRight(257);
-    expect(utf8.encode(over).length, 257);
+    final limit = FamilyThreadOpenState.maxBytes;
+    final over = valid.padRight(limit + 1);
+    expect(utf8.encode(over).length, limit + 1);
     const fixtures = <String>[
       'not json',
+      '{',
       '[]',
       '{"density":"browse"}',
       '{"density":"browse","storyId":"$_story","extra":1}',
@@ -33,13 +35,9 @@ void main() {
       expect(FamilyThreadOpenState.tryDecode(raw), isNull, reason: raw);
     }
     expect(FamilyThreadOpenState.tryDecode(over), isNull);
-    final exact = valid.padRight(256);
-    expect(utf8.encode(exact).length, 256);
+    final exact = valid.padRight(limit);
+    expect(utf8.encode(exact).length, limit);
     expect(FamilyThreadOpenState.tryDecode(exact)?.storyId, _story);
-  });
-
-  test('tryDecode catches FormatException and returns null', () {
-    expect(FamilyThreadOpenState.tryDecode('{'), isNull);
   });
 
   test('round trip returns the same state', () {
