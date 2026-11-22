@@ -8,13 +8,23 @@ import '../../data/family_selection.dart';
 import '../../data/gateway_read.dart';
 import '../../data/stories_api.dart';
 import 'family_thread_copy.dart';
+import 'insert_published_origin.dart';
 import 'thread_skeleton.dart';
 
 class FamilyThreadPage extends StatefulWidget {
-  const FamilyThreadPage({super.key, this.storiesApi, this.familiesApi});
+  const FamilyThreadPage({
+    super.key,
+    this.storiesApi,
+    this.familiesApi,
+    this.currentUserId,
+  });
 
   final StoriesGateway? storiesApi;
   final FamiliesGateway? familiesApi;
+
+  /// Signed-in user. Widget tests pass this because [CurrentSession] is null
+  /// before Supabase starts. Null means [CurrentSession.userId].
+  final String? Function()? currentUserId;
 
   @override
   State<FamilyThreadPage> createState() => _FamilyThreadPageState();
@@ -26,7 +36,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   var _loading = true;
   var _failed = false;
   String? _familyId;
-  var _familyName = 'Family';
+  var _familyName = FamilyThreadCopy.fallbackFamily;
   List<MemberFamily> _families = const [];
   List<Story> _stories = const [];
 
@@ -66,17 +76,22 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     }
   }
 
+  String? get _sessionUserId {
+    final currentUserId = widget.currentUserId;
+    if (currentUserId != null) return currentUserId();
+    return CurrentSession.userId;
+  }
+
   Future<({String? id, String name, List<MemberFamily> mine, String? originId})>
   _opened() async {
     final mine = await _familiesApi.listMine();
     FamilyMembership.remember([for (final row in mine) row.id]);
-    final remembered = FamilySelection.id;
-    var id = _selected(mine, remembered);
-    if (remembered != null &&
-        remembered != id &&
-        await _readable(_familiesApi, remembered)) {
-      id = remembered;
-    }
+    final id = await resolveShownFamilyId(
+      families: _familiesApi,
+      userId: _sessionUserId,
+      remembered: FamilySelection.id,
+      memberships: mine,
+    );
     final tree = id == null
         ? const <TreeFamily>[]
         : await _familiesApi.listFamilyTree(id);
@@ -95,10 +110,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     if (originId != null && !merged.any((story) => story.id == originId)) {
       final origin = await _storiesApi.getPublished(originId);
       if (origin != null && origin.status == StoryStatus.published) {
-        merged.add(origin);
+        return insertPublishedOrigin(merged, origin);
       }
     }
-    return _published(merged);
+    return merged;
   }
 
   void _retry() {
@@ -134,44 +149,15 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   }
 }
 
-String? _selected(List<MemberFamily> mine, String? remembered) {
-  final ids = [for (final row in mine) row.id];
-  final fallback = ids.isEmpty ? null : ids.first;
-  final userId = CurrentSession.userId;
-  if (userId == null) {
-    if (remembered != null && ids.contains(remembered)) return remembered;
-    return fallback;
-  }
-  return resolveCurrentFamilyId(
-    userId: userId,
-    remembered: remembered,
-    membershipIds: ids,
-    fallback: fallback,
-  );
-}
-
-Future<bool> _readable(FamiliesGateway families, String familyId) async {
-  try {
-    final tree = await guardRead(() => families.listFamilyTree(familyId));
-    for (final row in tree) {
-      if (row.id == familyId) return true;
-    }
-  } on GatewayReadException {
-    // A tree read that throws cannot confirm the saved family.
-    return false;
-  }
-  return false;
-}
-
 String _nameFor(String? id, List<MemberFamily> mine, List<TreeFamily> tree) {
-  if (id == null) return 'Family';
+  if (id == null) return FamilyThreadCopy.fallbackFamily;
   for (final row in mine) {
     if (row.id == id) return row.name;
   }
   for (final row in tree) {
     if (row.id == id) return row.name;
   }
-  return 'Family';
+  return FamilyThreadCopy.fallbackFamily;
 }
 
 String? _originOf(List<TreeFamily> tree, String? id) {

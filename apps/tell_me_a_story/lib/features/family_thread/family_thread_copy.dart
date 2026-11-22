@@ -5,4 +5,5 @@ abstract final class FamilyThreadCopy {
   static const loadingStories = 'Loading stories';
   static const emptyFamily =
       'No stories yet. Capture the first one for this family.';
+  static const fallbackFamily = 'Family';
 }

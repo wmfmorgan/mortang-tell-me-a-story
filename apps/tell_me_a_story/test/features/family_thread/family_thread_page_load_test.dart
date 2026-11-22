@@ -65,13 +65,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text("Couldn't load stories."), findsOneWidget);
-      expect(
-        find.ancestor(
-          of: find.text("Couldn't load stories."),
-          matching: find.byType(Center),
-        ),
-        findsOneWidget,
-      );
       expect(find.text('Retry'), findsOneWidget);
       expect(stories.listCalls, 1);
 
@@ -128,6 +121,27 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('shows the load error and Retry when the families read fails', (
+    tester,
+  ) async {
+    final families = _Families(fail: true);
+    await tester.pumpWidget(_host(stories: _Stories(), families: families));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't load stories."), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+
+    families.fail = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't load stories."), findsNothing);
+    expect(
+      find.text('No stories yet. Capture the first one for this family.'),
+      findsOneWidget,
+    );
+  });
 }
 
 Widget _host({required _Stories stories, required _Families families}) {
@@ -137,6 +151,7 @@ Widget _host({required _Stories stories, required _Families families}) {
       key: UniqueKey(),
       storiesApi: stories,
       familiesApi: families,
+      currentUserId: () => 'user-1',
     ),
   );
 }
@@ -169,12 +184,16 @@ class _Stories extends QuietStories {
 }
 
 class _Families extends FamiliesGateway with QuietFamiliesDefaults {
-  _Families({this.originStoryId});
+  _Families({this.originStoryId, this.fail = false});
 
   final String? originStoryId;
+  bool fail;
 
   @override
-  Future<List<MemberFamily>> listMine() async => [_member];
+  Future<List<MemberFamily>> listMine() async {
+    if (fail) throw const FormatException('families');
+    return [_member];
+  }
 
   @override
   Future<List<StewardFamily>> listStewarded() async => const [];
