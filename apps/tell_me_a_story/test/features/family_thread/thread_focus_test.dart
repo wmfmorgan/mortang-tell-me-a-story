@@ -92,19 +92,21 @@ void main() {
         _story('next', DateTime.utc(1994, 1, 1)),
       ]);
 
-      expect(_anchored(model, FamilyThreadDensity.read), 'focus');
-      expect(_anchored(model, FamilyThreadDensity.browse), 'focus');
-      expect(_anchored(model, FamilyThreadDensity.overview), 'focus');
-      expect(_anchored(model, FamilyThreadDensity.browse), 'focus');
-      expect(_anchored(model, FamilyThreadDensity.read), 'focus');
+      var focusId = 'focus';
+      for (final density in [
+        FamilyThreadDensity.browse,
+        FamilyThreadDensity.overview,
+        FamilyThreadDensity.browse,
+        FamilyThreadDensity.read,
+      ]) {
+        focusId = ThreadFocus.representative(
+          model.beatsFor(density)[model.indexOfStory(focusId, density)],
+          previousFocusId: focusId,
+        ).id;
+        expect(focusId, 'focus');
+      }
     },
   );
-}
-
-String _anchored(ThreadBeatModel model, FamilyThreadDensity density) {
-  const focusId = 'focus';
-  final beat = model.beatsFor(density)[model.indexOfStory(focusId, density)];
-  return ThreadFocus.representative(beat, previousFocusId: focusId).id;
 }
 
 Story _story(String id, DateTime start) {
