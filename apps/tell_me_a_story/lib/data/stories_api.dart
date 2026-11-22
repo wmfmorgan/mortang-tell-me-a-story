@@ -36,7 +36,7 @@ StoryDatePrecision storyDatePrecisionFrom(String? raw) {
 }
 
 class Story {
-  const Story({
+  Story({
     required this.id,
     required this.familyId,
     required this.authorId,
@@ -62,7 +62,10 @@ class Story {
     this.photoEditVersions = const [],
     this.placeAddress,
     this.personUserIds = const {},
-  });
+  }) : assert(
+         photoEditVersions.isEmpty ||
+             photoEditVersions.length == photoPaths.length,
+       );
   final String id;
   final String familyId;
   final String authorId;
@@ -305,6 +308,7 @@ Photo? _embedPhoto(
   if (edited is! String && original is! String) return null;
   final id = keyed['id'];
   final editVersion = keyed['edit_version'];
+  final sortOrder = keyed['sort_order'];
   return Photo(
     id: id is String ? id : '',
     storyId: storyId,
@@ -313,7 +317,7 @@ Photo? _embedPhoto(
     storagePath: original is String ? original : '',
     editedStoragePath: edited is String ? edited : null,
     editVersion: editVersion is int ? editVersion : 0,
-    sortOrder: (keyed['sort_order'] as int?) ?? 0,
+    sortOrder: sortOrder is int ? sortOrder : 0,
   );
 }
 

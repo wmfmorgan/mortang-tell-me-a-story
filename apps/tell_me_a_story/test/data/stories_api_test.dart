@@ -297,7 +297,7 @@ void main() {
       'author_id': 'u1',
       'status': 'draft',
       'photos': [
-        {'id': 'c', 'storage_path': 'f1/s1/c.jpg', 'sort_order': 0},
+        {'id': 'c', 'storage_path': 'f1/s1/c.jpg', 'sort_order': '0'},
         {'id': 'a', 'storage_path': 'f1/s1/a.jpg', 'sort_order': 0},
         {
           'id': 'b',
@@ -346,6 +346,20 @@ void main() {
       'f1/s1/b.jpg',
     ]);
     expect(story.photoEditVersions, [2, 0, 4]);
+  });
+
+  test('photoEditVersions is empty or the same length as photoPaths', () {
+    expect(
+      () => Story(
+        id: 's',
+        familyId: 'f',
+        authorId: 'a',
+        status: StoryStatus.draft,
+        photoPaths: const ['a.jpg'],
+        photoEditVersions: const [1, 2],
+      ),
+      throwsA(isA<AssertionError>()),
+    );
   });
 
   test('publish throws VALIDATION when the draft is not ready', () async {
