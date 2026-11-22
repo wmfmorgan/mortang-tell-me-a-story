@@ -127,7 +127,7 @@ Check: The PR body names **Milestone** and **Lane**. `git diff --stat main...HEA
 2. Give each new file one public top-level type, and name the file after that type in snake_case. SQL migrations and edge-function `index.ts` files are exempt.
 3. Follow the gateway pattern already in the folder. A screen in `lib/features/` takes the gateway (`lib/data/*_api.dart`) as an optional constructor argument. The live `*Api()` is only the default when that argument is null. Tests pass a fake. `lib/main.dart` may construct the live gateways it passes into the router.
 4. When behavior varies by kind, use a Dart `sealed` class and an exhaustive `switch`. Do not add a chain of `is` checks, `runtimeType` checks, or a string-keyed `if` ladder.
-5. Do not add a state-management, dependency-injection, error-handling, or result library, and do not add a new error or result pattern. That is a dependency (item 6) and an architecture question. Stop and report. A new error pattern means anything other than the four rules in Client gateway errors.
+5. Do not add a state-management, dependency-injection, error-handling, or result library, and do not add a new error or result pattern. That is a dependency (item 6) and an architecture question. Stop and report. A new error pattern means anything other than the five rules in Client gateway errors.
 Check: Function bodies and parameter lists in the diff stay within these limits, or the PR body names each exception and the reason. A new screen that calls a gateway takes that gateway as a constructor argument. The diff adds no new `is` or `runtimeType` dispatch chain.
 
 ### Which skill when
@@ -214,9 +214,10 @@ Product failures from Postgres reach the screen through `mapRpcError`.
 1. Gateways in `lib/data/` let `PostgrestException` and `FunctionException` pass through. They map only by letting the caller use `mapRpcError`. They do not turn a failure into null, false, or an empty result. The one exception is a method whose locked spec says not-found and unreadable look the same.
 2. `lib/data/rpc_error.dart` holds `mapRpcError`, `rpcErrorPrefix`, and `rpcConstraintViolation`, as defined in § Architecture and layers item 7. `mapRpcError` returns the trimmed detail after `NOT_FOUND:`, `FORBIDDEN:`, `VALIDATION:`, or `INVITE_INVALID:`, or null when none of those prefixes start the message. Screens show that detail, gateway catalog copy chosen from `rpcErrorPrefix`, or the copy already on the screen when the result is null.
 3. The edge-function copy is `mapRpcError` in `supabase/functions/_shared/manage.ts`. It maps the same four prefixes to status codes. A new edge function uses that function. It does not keep a second list of prefixes.
-4. A failure that matches none of the four prefixes is a stop-and-report to Gilfoyle. Do not invent a type or a fifth prefix.
+4. A failure that matches none of the four prefixes is a stop-and-report to Gilfoyle. Do not invent a type (item 5's GatewayReadException is the one sanctioned type) or a fifth prefix.
+5. A screen that only needs 'the read failed' wraps the gateway call in `guardRead` (`lib/data/gateway_read.dart`) and catches `on GatewayReadException`. guardRead converts only its listed named types and carries no error text. Adding a type to that list is a stop-and-report to Gilfoyle. Screens that show a mapped detail still catch in a data helper and use `mapRpcError`. New screens add no `on Exception`.
 
-A new error pattern means anything other than these four rules.
+A new error pattern means anything other than these five rules.
 
 ### PR body sections
 

@@ -1,3 +1,6 @@
+import 'families_api.dart';
+import 'gateway_read.dart';
+
 /// Process-memory family choice. Not a table and not kept across a restart.
 class FamilySelection {
   static String? _familyId;
@@ -54,6 +57,37 @@ String? resolveCurrentFamilyId({
     return remembered;
   }
   return fallback;
+}
+
+/// Family id to show, matching Timeline `currentFamilyId` then
+/// `_readableSavedFamily`. Timeline adopts this in a later PR.
+///
+/// Signed out returns null. A remembered id outside [memberships] is used
+/// only when its tree read contains that id. A tree read that throws cannot
+/// confirm the saved family, so the membership id is used.
+Future<String?> resolveShownFamilyId({
+  required FamiliesGateway families,
+  required String? userId,
+  required String? remembered,
+  required List<MemberFamily> memberships,
+}) async {
+  if (userId == null) return null;
+  final ids = [for (final row in memberships) row.id];
+  final fallback = ids.isEmpty ? null : ids.first;
+  final membershipId = resolveCurrentFamilyId(
+    userId: userId,
+    remembered: remembered,
+    membershipIds: ids,
+    fallback: fallback,
+  );
+  if (remembered == null || remembered == membershipId) return membershipId;
+  try {
+    final tree = await guardRead(() => families.listFamilyTree(remembered));
+    if (tree.any((row) => row.id == remembered)) return remembered;
+  } on GatewayReadException {
+    return membershipId;
+  }
+  return membershipId;
 }
 
 /// Families the signed-in user can write in, kept for this app session.
