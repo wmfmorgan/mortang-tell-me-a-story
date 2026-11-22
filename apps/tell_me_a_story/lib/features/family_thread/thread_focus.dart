@@ -10,12 +10,14 @@ abstract final class ThreadFocus {
     };
   }
 
+  /// publishedStart tie: later list entry wins (newer, listPublished order).
   static Story? nearestInTime(List<Story> candidates, DateTime target) {
-    Story? best;
-    Duration? bestGap;
-    for (final story in candidates) {
+    if (candidates.isEmpty) return null;
+    var best = candidates.first;
+    var bestGap = best.publishedStart.difference(target).abs();
+    for (final story in candidates.skip(1)) {
       final gap = story.publishedStart.difference(target).abs();
-      if (best == null || gap < bestGap!) {
+      if (gap < bestGap) {
         best = story;
         bestGap = gap;
       } else if (gap == bestGap && _newerOrTied(story, best)) {
@@ -31,12 +33,8 @@ abstract final class ThreadFocus {
 
   static Story? moreTarget(YearBeat beat, Story cardStory) {
     final stories = beat.stories;
-    for (var index = 0; index < stories.length; index++) {
-      if (stories[index].id != cardStory.id) continue;
-      final next = index + 1;
-      return next < stories.length ? stories[next] : null;
-    }
-    return null;
+    final i = stories.indexWhere((story) => story.id == cardStory.id);
+    return i >= 0 && i + 1 < stories.length ? stories[i + 1] : null;
   }
 }
 
