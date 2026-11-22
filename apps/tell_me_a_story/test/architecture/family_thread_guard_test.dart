@@ -49,9 +49,9 @@ void main() {
     }
     expect(outside, isEmpty, reason: outside.join('\n'));
   });
-  test('no logging in family_thread data paths', () {
+  test('no logging in family_thread paths', () {
     final hits = <String>[];
-    for (final file in _familyThreadDataFiles()) {
+    for (final file in _familyThreadFiles()) {
       final path = _libPath(file.path);
       final lines = file.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
@@ -59,6 +59,20 @@ void main() {
         if (_logCall.hasMatch(line)) {
           hits.add('$path:${i + 1}: ${line.trim()}');
         }
+      }
+    }
+    expect(hits, isEmpty, reason: hits.join('\n'));
+  });
+  test('family_thread imports no supabase_flutter or shared_preferences', () {
+    final importLine = RegExp(
+      r'''^\s*(import|export)\s+['"]package:(supabase_flutter|shared_preferences)/''',
+    );
+    final hits = <String>[];
+    for (final file in _featureFiles()) {
+      final path = _libPath(file.path);
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (importLine.hasMatch(lines[i])) hits.add('$path:${i + 1}');
       }
     }
     expect(hits, isEmpty, reason: hits.join('\n'));
@@ -79,15 +93,17 @@ List<File> _familyThreadDataFiles() {
 }
 
 List<File> _familyThreadFiles() {
+  return [..._familyThreadDataFiles(), ..._featureFiles()];
+}
+
+List<File> _featureFiles() {
   final features = Directory('lib/features/family_thread');
-  if (!features.existsSync()) return _familyThreadDataFiles();
-  return [
-    ..._familyThreadDataFiles(),
-    ...features
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.dart')),
-  ];
+  if (!features.existsSync()) return const [];
+  return features
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((file) => file.path.endsWith('.dart'))
+      .toList();
 }
 
 bool _importsSharedPreferences(File file) {
