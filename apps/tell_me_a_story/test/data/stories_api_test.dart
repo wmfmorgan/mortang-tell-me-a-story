@@ -290,6 +290,78 @@ void main() {
     expect(story.photoPaths, ['f1/s1/a.jpg']);
   });
 
+  test('photoPaths ties on sort_order break by id', () {
+    final story = Story.fromJson({
+      'id': 's1',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'status': 'draft',
+      'photos': [
+        {'id': 'c', 'storage_path': 'f1/s1/c.jpg', 'sort_order': '0'},
+        {'id': 'a', 'storage_path': 'f1/s1/a.jpg', 'sort_order': 0},
+        {
+          'id': 'b',
+          'storage_path': 'f1/s1/b.jpg',
+          'edited_storage_path': 'f1/s1/b.edited.jpg',
+          'sort_order': 1,
+        },
+      ],
+    });
+
+    expect(story.photoPaths, [
+      'f1/s1/a.jpg',
+      'f1/s1/c.jpg',
+      'f1/s1/b.edited.jpg',
+    ]);
+  });
+
+  test('photoEditVersions align with photoPaths', () {
+    final story = Story.fromJson({
+      'id': 's1',
+      'family_id': 'f1',
+      'author_id': 'u1',
+      'status': 'draft',
+      'photos': [
+        {
+          'id': 'b',
+          'storage_path': 'f1/s1/b.jpg',
+          'sort_order': 1,
+          'edit_version': 4,
+        },
+        {'id': 'c', 'storage_path': 'f1/s1/c.jpg', 'sort_order': 0},
+        {
+          'id': 'a',
+          'storage_path': 'f1/s1/a.jpg',
+          'edited_storage_path': 'f1/s1/a.edited.jpg',
+          'sort_order': 0,
+          'edit_version': 2,
+        },
+        {'id': 'd', 'sort_order': 0, 'edit_version': 9},
+      ],
+    });
+
+    expect(story.photoPaths, [
+      'f1/s1/a.edited.jpg',
+      'f1/s1/c.jpg',
+      'f1/s1/b.jpg',
+    ]);
+    expect(story.photoEditVersions, [2, 0, 4]);
+  });
+
+  test('photoEditVersions is empty or the same length as photoPaths', () {
+    expect(
+      () => Story(
+        id: 's',
+        familyId: 'f',
+        authorId: 'a',
+        status: StoryStatus.draft,
+        photoPaths: const ['a.jpg'],
+        photoEditVersions: const [1, 2],
+      ),
+      throwsA(isA<AssertionError>()),
+    );
+  });
+
   test('publish throws VALIDATION when the draft is not ready', () async {
     final api = StoriesApi(
       client: SupabaseClient(

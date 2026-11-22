@@ -176,6 +176,42 @@ void main() {
     await open.remove(familyId: _family);
     expect((await prefs()).getKeys(), isEmpty);
   });
+  test('clearAll removes only family_thread.v1. keys', () async {
+    const token = 'sb-lchytafmnuefrgkguynt-auth-token';
+    SharedPreferences.setMockInitialValues({
+      keyFor(_userA, _family): _state.encode(),
+      keyFor(_userB, _otherFamily): 'keep-b',
+      token: 'session',
+      'other.key': 1,
+    });
+    await store(currentUserId: () => null).clearAll();
+    final stored = await prefs();
+    expect(stored.getKeys(), {token, 'other.key'});
+    expect(stored.getString(token), 'session');
+    expect(stored.getInt('other.key'), 1);
+  });
+
+  test(
+    'clearAll is a no-op when the preferences loader throws PlatformException',
+    () async {
+      const token = 'sb-lchytafmnuefrgkguynt-auth-token';
+      final key = keyFor(_userA, _family);
+      SharedPreferences.setMockInitialValues({
+        key: _state.encode(),
+        token: 'session',
+      });
+      await store(preferences: platformFailure).clearAll();
+      final stored = await prefs();
+      expect(stored.getString(key), _state.encode());
+      expect(stored.getString(token), 'session');
+    },
+  );
+
+  test('a StateError from the loader is not caught by clearAll', () {
+    final open = store(preferences: () async => throw StateError('boom'));
+    expect(open.clearAll(), throwsA(isA<StateError>()));
+  });
+
   test('read write and remove leave other keys untouched', () async {
     final other = keyFor(_userB, _family);
     SharedPreferences.setMockInitialValues({
