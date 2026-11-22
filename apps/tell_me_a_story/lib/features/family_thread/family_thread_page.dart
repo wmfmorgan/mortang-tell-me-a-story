@@ -5,6 +5,7 @@ import '../../core/theme/album_theme.dart';
 import '../../data/current_session.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
+import '../../data/gateway_read.dart';
 import '../../data/stories_api.dart';
 import 'family_thread_copy.dart';
 import 'thread_skeleton.dart';
@@ -43,8 +44,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
 
   Future<void> _load() async {
     try {
-      final opened = await _opened();
-      final stories = await _storiesFor(opened.id, opened.originId);
+      final opened = await guardRead(_opened);
+      final stories = await guardRead(
+        () => _storiesFor(opened.id, opened.originId),
+      );
       if (!mounted) return;
       setState(() {
         _familyId = opened.id;
@@ -54,7 +57,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
         _loading = false;
         _failed = false;
       });
-    } on Exception {
+    } on GatewayReadException {
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -149,11 +152,11 @@ String? _selected(List<MemberFamily> mine, String? remembered) {
 
 Future<bool> _readable(FamiliesGateway families, String familyId) async {
   try {
-    final tree = await families.listFamilyTree(familyId);
+    final tree = await guardRead(() => families.listFamilyTree(familyId));
     for (final row in tree) {
       if (row.id == familyId) return true;
     }
-  } on Exception {
+  } on GatewayReadException {
     // A tree read that throws cannot confirm the saved family.
     return false;
   }
