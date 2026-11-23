@@ -6,4 +6,7 @@ abstract final class FamilyThreadCopy {
   static const emptyFamily =
       'No stories yet. Capture the first one for this family.';
   static const fallbackFamily = 'Family';
+
+  static String threadList(int storyCount) =>
+      'Family Thread, $storyCount stories';
 }
