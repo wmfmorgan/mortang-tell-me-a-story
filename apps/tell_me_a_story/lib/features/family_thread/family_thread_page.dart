@@ -20,7 +20,7 @@ class FamilyThreadPage extends StatefulWidget {
     this.storiesApi,
     this.familiesApi,
     this.currentUserId,
-    this.live,
+    required this.live,
   });
 
   final StoriesGateway? storiesApi;
@@ -30,10 +30,8 @@ class FamilyThreadPage extends StatefulWidget {
   /// before Supabase starts. Null means [CurrentSession.userId].
   final String? Function()? currentUserId;
 
-  /// Realtime signal. Null in production builds [SupabaseTimelineLive] after
-  /// the first load. A test that injects [storiesApi] and no live does not
-  /// subscribe, so it never touches Supabase.
-  final TimelineLive? live;
+  /// Realtime signal. The route passes [SupabaseTimelineLive].
+  final TimelineLive live;
 
   @override
   State<FamilyThreadPage> createState() => _FamilyThreadPageState();
@@ -109,7 +107,6 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       setState(() => _applyStories(stories));
     } on GatewayReadException {
       if (!mounted || ticket != _ticket) return;
-      _fail();
     }
   }
 
@@ -128,14 +125,23 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
 
   void _applyStories(List<Story> stories) {
     _stories = stories;
-    _focusId = _keptFocus(stories, _focusId, _focusStart);
-    _focusStart = _startFor(_focusId, stories);
+    final focus = _focusOf(stories, _focusId, _focusStart);
+    _focusId = focus.id;
+    _focusStart = focus.start;
+  }
+
+  void _onScrollFocus(String storyId) {
+    final focus = _focusOf(_stories, storyId, null);
+    if (focus.id == null || focus.id == _focusId) return;
+    setState(() {
+      _focusId = focus.id;
+      _focusStart = focus.start;
+    });
   }
 
   void _watch(String? familyId) {
     if (familyId == null) return;
-    if (widget.live == null && widget.storiesApi != null) return;
-    final live = _subscribed ??= widget.live ?? SupabaseTimelineLive();
+    final live = _subscribed ??= widget.live;
     live.watch(familyId: familyId, onChange: _onLive);
   }
 
@@ -223,6 +229,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       key: const Key('family-thread-loaded'),
       stories: _stories,
       focusStoryId: _focusId,
+      onFocusChanged: _onScrollFocus,
     );
   }
 }
@@ -234,26 +241,22 @@ typedef _Opened = ({
   String? originId,
 });
 
-String? _keptFocus(List<Story> stories, String? focusId, DateTime? focusStart) {
-  if (stories.isEmpty) return null;
-  if (focusId != null) {
-    for (final story in stories) {
-      if (story.id == focusId) return focusId;
-    }
-  }
-  if (focusStart != null) {
-    return ThreadFocus.nearestInTime(stories, focusStart)?.id ??
-        stories.last.id;
-  }
-  return stories.last.id;
-}
-
-DateTime? _startFor(String? id, List<Story> stories) {
-  if (id == null) return null;
-  for (final story in stories) {
-    if (story.id == id) return story.publishedStart;
-  }
-  return null;
+({String? id, DateTime? start}) _focusOf(
+  List<Story> stories,
+  String? focusId,
+  DateTime? focusStart,
+) {
+  if (stories.isEmpty) return (id: null, start: null);
+  final kept = focusId == null
+      ? null
+      : stories.where((story) => story.id == focusId).firstOrNull;
+  final story =
+      kept ??
+      (focusStart == null
+          ? null
+          : ThreadFocus.nearestInTime(stories, focusStart)) ??
+      stories.last;
+  return (id: story.id, start: story.publishedStart);
 }
 
 String _nameFor(String? id, List<MemberFamily> mine, List<TreeFamily> tree) {
