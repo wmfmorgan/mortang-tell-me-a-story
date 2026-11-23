@@ -20,12 +20,20 @@ const _phoneLeadWidth = 32.0;
 const _phoneMarkMaxWidth = 160.0;
 
 class ThreadView extends StatefulWidget {
-  const ThreadView({super.key, required this.stories, this.focusStoryId});
+  const ThreadView({
+    super.key,
+    required this.stories,
+    this.focusStoryId,
+    this.onFocusChanged,
+  });
 
   final List<Story> stories;
 
   /// Story to keep on the focus line. Null centres the newest story.
   final String? focusStoryId;
+
+  /// Reports the story on the focus line when a scroll ends.
+  final ValueChanged<String>? onFocusChanged;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -81,7 +89,16 @@ class _ThreadViewState extends State<ThreadView> {
           _centrePending = true;
         }
         _scheduleCentre();
-        return _list(height, constraints.maxWidth);
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollEndNotification &&
+                notification.depth == 0) {
+              _reportFocus();
+            }
+            return false;
+          },
+          child: _list(height, constraints.maxWidth),
+        );
       },
     );
   }
@@ -118,6 +135,20 @@ class _ThreadViewState extends State<ThreadView> {
     });
   }
 
+  void _reportFocus() {
+    if (!_scroll.hasClients || _beats.isEmpty || _viewport <= 0) return;
+    final pad = math.max(0.0, (_viewport - _extent) / 2);
+    final center = _scroll.offset + _viewport / 2;
+    var index = ((center - pad - _extent / 2) / _extent).round();
+    if (index < 0) index = 0;
+    if (index >= _beats.length) index = _beats.length - 1;
+    final id = _storyIdOn(_beats[index]);
+    if (id == _focusId) return;
+    _focusId = id;
+    _focusIndex = index;
+    widget.onFocusChanged?.call(id);
+  }
+
   int _indexHolding(String? id) {
     if (id == null || _beats.isEmpty) return 0;
     final index = threadBeatIndex(_beats, id);
@@ -134,6 +165,20 @@ class _ThreadViewState extends State<ThreadView> {
         focusId: _focusId,
       ),
       DecadeBeat() || StoryBeat() => const SizedBox.shrink(),
+    };
+  }
+
+  String _storyIdOn(ThreadBeat beat) {
+    return switch (beat) {
+      final YearBeat year => ThreadFocus.browseCardStory(
+        year,
+        focusId: _focusId,
+      ).id,
+      final StoryBeat story => story.story.id,
+      final DecadeBeat decade => ThreadFocus.representative(
+        decade,
+        previousFocusId: _focusId,
+      ).id,
     };
   }
 }

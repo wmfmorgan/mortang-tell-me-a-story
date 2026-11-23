@@ -17,26 +17,89 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   tearDown(FamilySelection.clear);
 
-  testWidgets(
-    'onChange triggers one listPublished reload and state comes only from the reload',
-    (tester) async {
-      final stories = _Stories([_story('a', 2000, 'Before')]);
-      final live = _Live();
-      await tester.pumpWidget(_host(stories, live));
-      await tester.pumpAndSettle();
+  testWidgets('onChange triggers one listPublished reload', (tester) async {
+    final stories = _Stories([_story('a', 2000, 'Before')]);
+    final live = _Live();
+    await tester.pumpWidget(_host(stories, live));
+    await tester.pumpAndSettle();
 
-      stories.rows = [_story('a', 2000, 'After')];
-      live.emit();
-      await tester.pumpAndSettle();
+    stories.rows = [_story('a', 2000, 'After')];
+    live.emit();
+    await tester.pumpAndSettle();
 
-      expect(live.watchCount, 1);
-      expect(live.familyId, 'fam-1');
-      expect(stories.listCalls, 2);
-      expect(find.text('After'), findsOneWidget);
-      expect(find.text('Before'), findsNothing);
-      expect(find.text(_Live.decoy), findsNothing);
-    },
-  );
+    expect(live.watchCount, 1);
+    expect(live.familyId, 'fam-1');
+    expect(stories.listCalls, 2);
+    expect(find.text('After'), findsOneWidget);
+    expect(find.text('Before'), findsNothing);
+  });
+
+  testWidgets('reload keeps the story scrolled onto the focus line', (
+    tester,
+  ) async {
+    final stories = _Stories([
+      _story('early', 1990, 'Early'),
+      _story('mid', 2000, 'Mid'),
+      _story('new', 2010, 'Newest'),
+    ]);
+    final live = _Live();
+    await tester.pumpWidget(_host(stories, live));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    _expectOnFocusLine(tester, 'Early');
+
+    stories.rows = [
+      _story('early', 1990, 'Early'),
+      _story('mid', 2000, 'Mid'),
+      _story('new', 2010, 'Newest'),
+      _story('later', 2020, 'Later'),
+    ];
+    live.emit();
+    await tester.pumpAndSettle();
+
+    _expectOnFocusLine(tester, 'Early');
+  });
+
+  testWidgets('returning to the route reloads once', (tester) async {
+    final stories = _Stories([_story('a', 2000, 'Before')]);
+    await tester.pumpWidget(_host(stories, _Live()));
+    await tester.pumpAndSettle();
+    stories.listCalls = 0;
+
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(
+      MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+    );
+    await tester.pumpAndSettle();
+    stories.rows = [_story('a', 2000, 'After')];
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    expect(stories.listCalls, 1);
+    expect(find.text('After'), findsOneWidget);
+  });
+
+  testWidgets('a failed reload keeps the loaded thread', (tester) async {
+    final stories = _Stories([_story('a', 2000, 'Kept')]);
+    final live = _Live();
+    await tester.pumpWidget(_host(stories, live));
+    await tester.pumpAndSettle();
+
+    stories.fail = true;
+    live.emit();
+    await tester.pumpAndSettle();
+    expect(find.text('Kept'), findsOneWidget);
+    expect(find.text("Couldn't load stories."), findsNothing);
+
+    stories
+      ..fail = false
+      ..rows = [_story('a', 2000, 'Again')];
+    live.emit();
+    await tester.pumpAndSettle();
+    expect(find.text('Again'), findsOneWidget);
+  });
 
   testWidgets('focus kept by storyId after reload', (tester) async {
     final stories = _Stories([
@@ -102,8 +165,6 @@ Widget _host(_Stories stories, _Live live) {
 }
 
 class _Live implements TimelineLive {
-  static const decoy = 'Wire payload';
-
   void Function()? onChange;
   String? familyId;
   var watchCount = 0;
@@ -132,10 +193,12 @@ class _Stories extends QuietStories {
 
   List<Story> rows;
   var listCalls = 0;
+  var fail = false;
 
   @override
   Future<List<Story>> listPublished(String familyId) async {
     listCalls += 1;
+    if (fail) throw const FormatException('reload');
     return rows;
   }
 }

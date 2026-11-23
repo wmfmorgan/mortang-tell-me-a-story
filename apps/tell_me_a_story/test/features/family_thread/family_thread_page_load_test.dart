@@ -7,6 +7,7 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_page.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_skeleton.dart';
 
@@ -152,8 +153,23 @@ Widget _host({required _Stories stories, required _Families families}) {
       storiesApi: stories,
       familiesApi: families,
       currentUserId: () => 'user-1',
+      live: _QuietLive(),
     ),
   );
+}
+
+class _QuietLive implements TimelineLive {
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void dispose() {}
 }
 
 class _Stories extends QuietStories {
