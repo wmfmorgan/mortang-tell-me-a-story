@@ -116,6 +116,13 @@ void main() {
     expect(empty.indexOfStory('a', FamilyThreadDensity.browse), -1);
     expect(empty.indexOfStory('a', FamilyThreadDensity.read), -1);
   });
+
+  test('threadDecadeOfYear is the decade start', () {
+    expect(threadDecadeOfYear(1994), 1990);
+    expect(threadDecadeOfYear(2000), 2000);
+    final story = _story('a', DateTime.utc(1994, 6, 1));
+    expect(threadDecadeOf(story), threadDecadeOfYear(1994));
+  });
 }
 
 List<String> _ids(List<Story> stories) {
