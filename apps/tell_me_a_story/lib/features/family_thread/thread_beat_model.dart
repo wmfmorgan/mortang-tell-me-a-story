@@ -50,7 +50,10 @@ class ThreadBeatModel {
   }
 }
 
-int threadDecadeOf(Story story) => (story.publishedStart.year ~/ 10) * 10;
+int threadDecadeOfYear(int year) => (year ~/ 10) * 10;
+
+int threadDecadeOf(Story story) =>
+    threadDecadeOfYear(story.publishedStart.year);
 
 int _yearOf(Story story) => story.publishedStart.year;
 

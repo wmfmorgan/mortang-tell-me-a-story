@@ -8,5 +8,8 @@ abstract final class FamilyThreadCopy {
   static const fallbackFamily = 'Family';
 
   static String threadList(int storyCount) =>
-      'Family Thread, $storyCount stories';
+      'Family Thread, ${_stories(storyCount)}';
+
+  static String _stories(int count) =>
+      count == 1 ? '1 story' : '$count stories';
 }

@@ -13,7 +13,7 @@ class ThreadBeatTile extends StatelessWidget {
     final title = story.title?.trim() ?? '';
     final theme = Theme.of(context).textTheme;
     return Semantics(
-      label: _label(year, story),
+      label: _label(year, title, story),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -32,10 +32,9 @@ class ThreadBeatTile extends StatelessWidget {
   }
 }
 
-String _label(int year, Story story) {
+String _label(int year, String title, Story story) {
   final parts = <String>['$year'];
-  final title = story.title?.trim();
-  if (title != null && title.isNotEmpty) parts.add(title);
+  if (title.isNotEmpty) parts.add(title);
   final place = story.placeLabel?.trim();
   if (place != null && place.isNotEmpty) parts.add(place);
   final names = <String>[
