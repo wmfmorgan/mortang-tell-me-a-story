@@ -1,5 +1,6 @@
 import '../../data/stories_api.dart';
 import '../all_stories/all_stories_logic.dart';
+import 'thread_beat_model.dart';
 
 class ThreadFilter {
   const ThreadFilter({
@@ -41,13 +42,8 @@ class ThreadFilter {
     return (n: n, total: stories.length);
   }
 
-  bool _peopleMatch(Story story) {
-    if (personIds.isEmpty) return true;
-    for (final id in story.personIds) {
-      if (personIds.contains(id)) return true;
-    }
-    return false;
-  }
+  bool _peopleMatch(Story story) =>
+      personIds.isEmpty || story.personIds.any(personIds.contains);
 
   bool _placeMatches(Story story) {
     if (placeIds.isEmpty) return true;
@@ -56,10 +52,11 @@ class ThreadFilter {
   }
 
   bool _decadeMatches(Story story) {
-    if (decadeFrom == null && decadeTo == null) return true;
-    final decade = (story.publishedStart.year ~/ 10) * 10;
-    if (decadeFrom != null && decade < decadeFrom!) return false;
-    if (decadeTo != null && decade > decadeTo!) return false;
+    final from = decadeFrom;
+    final to = decadeTo;
+    final decade = threadDecadeOf(story);
+    if (from != null && decade < from) return false;
+    if (to != null && decade > to) return false;
     return true;
   }
 }

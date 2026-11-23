@@ -16,7 +16,7 @@ class ThreadBeatModel {
   List<ThreadBeat> beatsFor(FamilyThreadDensity density) {
     return switch (density) {
       FamilyThreadDensity.overview => _grouped(
-        _decadeOf,
+        threadDecadeOf,
         (decade, stories) => DecadeBeat(decadeStart: decade, stories: stories),
       ),
       FamilyThreadDensity.browse => _grouped(
@@ -50,7 +50,7 @@ class ThreadBeatModel {
   }
 }
 
-int _decadeOf(Story story) => (story.publishedStart.year ~/ 10) * 10;
+int threadDecadeOf(Story story) => (story.publishedStart.year ~/ 10) * 10;
 
 int _yearOf(Story story) => story.publishedStart.year;
 
