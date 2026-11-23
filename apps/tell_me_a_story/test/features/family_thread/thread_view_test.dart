@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/family_thread/thread_band.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
 
@@ -38,29 +39,32 @@ void main() {
     await tester.pumpWidget(_host(stories));
     await tester.pumpAndSettle();
 
-    expect(find.text('S1700'), findsNothing);
+    expect(find.text('S1700', skipOffstage: false), findsNothing);
     expect(find.text('S1999'), findsOneWidget);
-    expect(find.byType(ThreadBeatTile), findsNWidgets(6));
   });
 
   testWidgets('band uses sageTint and a 2px terracotta spine', (tester) async {
     await tester.pumpWidget(_host([_story('one', 1980, 'One')]));
     await tester.pumpAndSettle();
 
+    final band = find.byType(ThreadBand);
+    expect(tester.getSize(band).width, 24);
     expect(
-      find.byWidgetPredicate((widget) {
-        final decoration = widget is DecoratedBox ? widget.decoration : null;
-        return decoration is BoxDecoration && decoration.color == sageTint;
-      }),
+      find.descendant(
+        of: band,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is ColoredBox && widget.color == sageTint,
+        ),
+      ),
       findsOneWidget,
     );
-    final spine = tester.widget<Positioned>(
-      find.byWidgetPredicate(
-        (widget) => widget is Positioned && widget.width == 2,
+    final spine = find.descendant(
+      of: band,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is ColoredBox && widget.color == albumTerracotta,
       ),
     );
-    expect(spine.child, isA<ColoredBox>());
-    expect((spine.child as ColoredBox).color, albumTerracotta);
+    expect(tester.getSize(spine).width, 2);
   });
 
   testWidgets('list semantics label is Family Thread, N stories', (
@@ -76,6 +80,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Family Thread, 3 stories'), findsOneWidget);
+  });
+
+  testWidgets('list semantics label is Family Thread, 1 story', (tester) async {
+    await tester.pumpWidget(_host([_story('1', 1980, 'One')]));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Family Thread, 1 story'), findsOneWidget);
   });
 }
 

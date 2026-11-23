@@ -87,6 +87,13 @@ void main() {
     expect(_ids(decade.stories), ['legacy', 'later']);
   });
 
+  test('threadDecadeOfYear is the decade start', () {
+    expect(threadDecadeOfYear(1994), 1990);
+    expect(threadDecadeOfYear(2000), 2000);
+    final story = _story('a', DateTime.utc(1994, 6, 1));
+    expect(threadDecadeOf(story), threadDecadeOfYear(1994));
+  });
+
   test('indexOfStory returns the containing beat per density', () {
     final model = ThreadBeatModel.build([
       _story('a', DateTime.utc(1982, 3, 1)),

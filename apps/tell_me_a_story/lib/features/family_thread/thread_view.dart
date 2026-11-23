@@ -13,6 +13,11 @@ import 'thread_beat_tile.dart';
 import 'thread_focus.dart';
 
 const _extent = 64.0;
+const _phoneBreakpoint = 600.0;
+const _phoneBandWidth = 16.0;
+const _wideBandWidth = 24.0;
+const _phoneLeadWidth = 32.0;
+const _phoneMarkMaxWidth = 160.0;
 
 class ThreadView extends StatefulWidget {
   const ThreadView({super.key, required this.stories});
@@ -24,33 +29,58 @@ class ThreadView extends StatefulWidget {
 }
 
 class _ThreadViewState extends State<ThreadView> {
-  ScrollController? _scroll;
-  var _placed = false;
+  final _scroll = ScrollController();
+  late ThreadBeatModel _model;
+  late List<ThreadBeat> _beats;
+  String? _focusId;
+  var _focusIndex = 0;
+  var _viewport = -1.0;
+  var _centrePending = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _bind(rebuildModel: true);
+  }
+
+  @override
+  void didUpdateWidget(ThreadView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.stories, widget.stories)) return;
+    _bind(rebuildModel: true);
+    _centrePending = true;
+  }
 
   @override
   void dispose() {
-    _scroll?.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  void _bind({required bool rebuildModel}) {
+    if (rebuildModel) _model = ThreadBeatModel.build(widget.stories);
+    _beats = _model.beatsFor(FamilyThreadDensity.browse);
+    _focusId = widget.stories.isEmpty ? null : widget.stories.last.id;
+    _focusIndex = _indexHolding(_focusId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final model = ThreadBeatModel.build(widget.stories);
-    final beats = model.beatsFor(FamilyThreadDensity.browse);
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
-        final offset = _offset(model, beats.length, height);
-        _scroll ??= ScrollController(initialScrollOffset: offset);
-        _place(offset);
-        return _list(beats, height, constraints.maxWidth);
+        if (height != _viewport) {
+          _viewport = height;
+          _centrePending = true;
+        }
+        _scheduleCentre();
+        return _list(height, constraints.maxWidth);
       },
     );
   }
 
-  Widget _list(List<ThreadBeat> beats, double height, double width) {
+  Widget _list(double height, double width) {
     final pad = math.max(0.0, (height - _extent) / 2);
-    final focusId = widget.stories.isEmpty ? null : widget.stories.last.id;
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -59,48 +89,42 @@ class _ThreadViewState extends State<ThreadView> {
         controller: _scroll,
         itemExtent: _extent,
         padding: EdgeInsets.symmetric(vertical: pad),
-        itemCount: beats.length,
+        itemCount: _beats.length,
         itemBuilder: (context, index) =>
-            _row(beats, index, phone: width < 600, focusId: focusId),
+            _row(index, phone: width < _phoneBreakpoint),
       ),
     );
   }
 
-  double _offset(ThreadBeatModel model, int count, double viewport) {
-    if (widget.stories.isEmpty || count == 0) return 0;
-    final index = model.indexOfStory(
-      widget.stories.last.id,
-      FamilyThreadDensity.browse,
-    );
-    final focus = index < 0 ? count - 1 : index;
-    return _centerOffset(focus, count, viewport);
-  }
-
-  void _place(double offset) {
-    if (_placed) return;
-    _placed = true;
+  void _scheduleCentre() {
+    if (!_centrePending || _viewport <= 0) return;
+    final offset = _centerOffset(_focusIndex, _beats.length, _viewport);
+    _centrePending = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final scroll = _scroll;
-      if (!mounted || scroll == null || !scroll.hasClients) return;
-      final target = offset.clamp(0.0, scroll.position.maxScrollExtent);
-      if ((scroll.offset - target).abs() < 0.5) return;
-      scroll.jumpTo(target);
+      if (!mounted || !_scroll.hasClients) {
+        _centrePending = true;
+        return;
+      }
+      final target = offset.clamp(0.0, _scroll.position.maxScrollExtent);
+      if ((_scroll.offset - target).abs() < 0.5) return;
+      _scroll.jumpTo(target);
     });
   }
 
-  Widget _row(
-    List<ThreadBeat> beats,
-    int index, {
-    required bool phone,
-    required String? focusId,
-  }) {
-    return switch (beats[index]) {
+  int _indexHolding(String? id) {
+    if (id == null || _beats.isEmpty) return 0;
+    final index = threadBeatIndex(_beats, id);
+    return index < 0 ? _beats.length - 1 : index;
+  }
+
+  Widget _row(int index, {required bool phone}) {
+    return switch (_beats[index]) {
       final YearBeat beat => _yearRow(
-        beats,
+        _beats,
         beat,
         index,
         phone: phone,
-        focusId: focusId,
+        focusId: _focusId,
       ),
       DecadeBeat() || StoryBeat() => const SizedBox.shrink(),
     };
@@ -108,6 +132,7 @@ class _ThreadViewState extends State<ThreadView> {
 }
 
 double _centerOffset(int index, int count, double viewport) {
+  if (count == 0) return 0;
   final pad = math.max(0.0, (viewport - _extent) / 2);
   final raw = pad + index * _extent + _extent / 2 - viewport / 2;
   final maxScroll = math.max(0.0, pad * 2 + count * _extent - viewport);
@@ -124,19 +149,19 @@ Widget _yearRow(
   final card = ThreadFocus.browseCardStory(beat, focusId: focusId);
   final tile = ThreadBeatTile(year: beat.year, story: card);
   final mark = _startsDecade(beats, index)
-      ? _decadeMark(_decade(beat.year))
+      ? _decadeMark(threadDecadeOfYear(beat.year))
       : const SizedBox.shrink();
   final band = ThreadBand(
-    bandWidth: phone ? 16 : 24,
+    bandWidth: phone ? _phoneBandWidth : _wideBandWidth,
     roundTop: index == 0,
     roundBottom: index == beats.length - 1,
     knot: index == 0,
   );
   final leading = phone
       ? SizedBox(
-          width: 32,
+          width: _phoneLeadWidth,
           child: OverflowBox(
-            maxWidth: 160,
+            maxWidth: _phoneMarkMaxWidth,
             alignment: Alignment.centerRight,
             child: mark,
           ),
@@ -166,7 +191,8 @@ bool _startsDecade(List<ThreadBeat> beats, int index) {
   if (year == null) return false;
   if (index == 0) return true;
   final previous = _yearOf(beats[index - 1]);
-  return previous == null || _decade(year) != _decade(previous);
+  return previous == null ||
+      threadDecadeOfYear(year) != threadDecadeOfYear(previous);
 }
 
 int? _yearOf(ThreadBeat beat) {
@@ -175,5 +201,3 @@ int? _yearOf(ThreadBeat beat) {
     DecadeBeat() || StoryBeat() => null,
   };
 }
-
-int _decade(int year) => (year ~/ 10) * 10;
