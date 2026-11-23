@@ -20,9 +20,12 @@ const _phoneLeadWidth = 32.0;
 const _phoneMarkMaxWidth = 160.0;
 
 class ThreadView extends StatefulWidget {
-  const ThreadView({super.key, required this.stories});
+  const ThreadView({super.key, required this.stories, this.focusStoryId});
 
   final List<Story> stories;
+
+  /// Story to keep on the focus line. Null centres the newest story.
+  final String? focusStoryId;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -46,8 +49,10 @@ class _ThreadViewState extends State<ThreadView> {
   @override
   void didUpdateWidget(ThreadView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (identical(oldWidget.stories, widget.stories)) return;
-    _bind(rebuildModel: true);
+    final storiesChanged = !identical(oldWidget.stories, widget.stories);
+    final focusChanged = oldWidget.focusStoryId != widget.focusStoryId;
+    if (!storiesChanged && !focusChanged) return;
+    _bind(rebuildModel: storiesChanged);
     _centrePending = true;
   }
 
@@ -58,9 +63,11 @@ class _ThreadViewState extends State<ThreadView> {
   }
 
   void _bind({required bool rebuildModel}) {
-    if (rebuildModel) _model = ThreadBeatModel.build(widget.stories);
-    _beats = _model.beatsFor(FamilyThreadDensity.browse);
-    _focusId = widget.stories.isEmpty ? null : widget.stories.last.id;
+    if (rebuildModel) {
+      _model = ThreadBeatModel.build(widget.stories);
+      _beats = _model.beatsFor(FamilyThreadDensity.browse);
+    }
+    _focusId = widget.focusStoryId ?? _newestId(widget.stories);
     _focusIndex = _indexHolding(_focusId);
   }
 
@@ -131,6 +138,11 @@ class _ThreadViewState extends State<ThreadView> {
       DecadeBeat() || StoryBeat() => const SizedBox.shrink(),
     };
   }
+}
+
+String? _newestId(List<Story> stories) {
+  if (stories.isEmpty) return null;
+  return stories.last.id;
 }
 
 double _centerOffset(int index, int count, double viewport) {
