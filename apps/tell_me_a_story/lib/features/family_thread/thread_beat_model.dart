@@ -30,11 +30,7 @@ class ThreadBeatModel {
   }
 
   int indexOfStory(String storyId, FamilyThreadDensity density) {
-    final beats = beatsFor(density);
-    for (var index = 0; index < beats.length; index++) {
-      if (_contains(beats[index], storyId)) return index;
-    }
-    return -1;
+    return threadBeatIndex(beatsFor(density), storyId);
   }
 
   List<ThreadBeat> _grouped(
@@ -48,6 +44,13 @@ class ThreadBeatModel {
     }
     return [for (final entry in groups.entries) make(entry.key, entry.value)];
   }
+}
+
+int threadBeatIndex(List<ThreadBeat> beats, String storyId) {
+  for (var index = 0; index < beats.length; index++) {
+    if (_contains(beats[index], storyId)) return index;
+  }
+  return -1;
 }
 
 int threadDecadeOfYear(int year) => (year ~/ 10) * 10;

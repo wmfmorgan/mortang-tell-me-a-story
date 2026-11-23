@@ -7,12 +7,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
+import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_page.dart';
-import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
 
-import '../../fakes/quiet_stories.dart';
+import '../../support/family_thread_surface.dart';
 import '../../support/quiet_gateways.dart';
 
 void main() {
@@ -22,7 +23,7 @@ void main() {
   testWidgets(
     'density radio group labelled Density with three selectable stops',
     (tester) async {
-      await tester.pumpWidget(_host([_story('a', 2004, 'Kept')]));
+      await tester.pumpWidget(_host(_rows([threadStory('a', 2004, 'Kept')])));
       await tester.pumpAndSettle();
 
       expect(find.bySemanticsLabel('Density'), findsOneWidget);
@@ -48,51 +49,98 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _host([
-        _story('old', 1980, 'Old'),
-        _story('mid', 2001, 'Mid'),
-        _story('new', 2004, 'Newest'),
-      ]),
+      _host(
+        _rows([
+          threadStory('old', 1980, 'Old'),
+          threadStory('mid', 2001, 'Mid'),
+          threadStory('new', 2004, 'Newest'),
+        ]),
+      ),
     );
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, 'Newest');
+    expectOnFocusLine(tester, 'Newest');
 
     await tester.tap(find.text('Overview'));
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, '2000s · 2 stories');
+    expectOnFocusLine(tester, '2000s · 2 stories');
 
     await tester.tap(find.text('Read'));
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, 'Newest');
+    expectOnFocusLine(tester, 'Newest');
   });
 
   testWidgets('read to browse to overview and back returns the same story', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _host([_story('old', 1980, 'Old'), _story('new', 2004, 'Newest')]),
+      _host(
+        _rows([
+          threadStory('old', 1980, 'Old'),
+          threadStory('new', 2004, 'Newest'),
+        ]),
+      ),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Read'));
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, 'Newest');
+    expectOnFocusLine(tester, 'Newest');
 
     await tester.tap(find.text('Browse'));
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, 'Newest');
+    expectOnFocusLine(tester, 'Newest');
 
     await tester.tap(find.text('Overview'));
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, '2000s · 1 story');
+    expectOnFocusLine(tester, '2000s · 1 story');
 
     await tester.tap(find.text('Read'));
     await tester.pumpAndSettle();
-    _expectOnFocusLine(tester, 'Newest');
+    expectOnFocusLine(tester, 'Newest');
+  });
+
+  testWidgets('a density change anchors on the scrolled focus', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        _rows([
+          threadStory('old', 1980, 'Old'),
+          threadStory('mid', 2000, 'Mid'),
+          threadStory('new', 2010, 'Newest'),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    expectOnFocusLine(tester, 'Old');
+
+    await tester.tap(find.text('Read'));
+    await tester.pumpAndSettle();
+    expectOnFocusLine(tester, 'Old');
+  });
+
+  testWidgets('a long read title does not overflow', (tester) async {
+    final title = List.filled(40, 'carried').join(' ');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: albumTheme(),
+        home: Scaffold(
+          body: ThreadView(
+            stories: [threadStory('a', 2004, title)],
+            density: FamilyThreadDensity.read,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('carried'), findsWidgets);
   });
 
   testWidgets('announces Showing Overview', (tester) async {
-    await tester.pumpWidget(_host([_story('a', 2004, 'Kept')]));
+    await tester.pumpWidget(_host(_rows([threadStory('a', 2004, 'Kept')])));
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Showing Overview'), findsNothing);
@@ -103,7 +151,7 @@ void main() {
 
   testWidgets('reduced motion swaps instantly', (tester) async {
     await tester.pumpWidget(
-      _host([_story('a', 2004, 'Kept')], animations: false),
+      _host(_rows([threadStory('a', 2004, 'Kept')]), animations: false),
     );
     await tester.pumpAndSettle();
 
@@ -117,7 +165,7 @@ void main() {
   testWidgets(
     'overview caption reads {Family name} · stories carried down the years',
     (tester) async {
-      await tester.pumpWidget(_host([_story('a', 2004, 'Kept')]));
+      await tester.pumpWidget(_host(_rows([threadStory('a', 2004, 'Kept')])));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Overview'));
       await tester.pumpAndSettle();
@@ -129,26 +177,20 @@ void main() {
 
   testWidgets('density disabled while loading', (tester) async {
     final pending = Completer<List<Story>>();
-    final stories = _Stories(const [], pending: pending.future);
-    await tester.pumpWidget(_hostStories(stories));
+    final stories = ThreadStories(const [], pending: pending.future);
+    await tester.pumpWidget(_host(stories));
 
     expect(find.text('Overview'), findsOneWidget);
     await tester.tap(find.text('Overview'));
     await tester.pump();
 
-    pending.complete([_story('a', 2004, 'Kept')]);
+    pending.complete([threadStory('a', 2004, 'Kept')]);
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Showing Overview'), findsNothing);
     expect(find.text('Kept'), findsOneWidget);
     expect(find.textContaining('carried down the years'), findsNothing);
   });
-}
-
-void _expectOnFocusLine(WidgetTester tester, String text) {
-  final tile = tester.getRect(find.widgetWithText(ThreadBeatTile, text));
-  final view = tester.getRect(find.byType(ThreadView));
-  expect(tile.center.dy, closeTo(view.center.dy, 1));
 }
 
 double _opacity(WidgetTester tester, Finder finder) {
@@ -164,23 +206,30 @@ double _opacity(WidgetTester tester, Finder finder) {
   return opacity;
 }
 
-Widget _host(List<Story> stories, {bool animations = true}) {
-  return _frame(
-    animations: animations,
-    page: FamilyThreadPage(
-      storiesApi: _Stories(stories),
-      familiesApi: _families,
-      currentUserId: () => 'user-1',
-    ),
-  );
+ThreadStories _rows(List<Story> rows) => ThreadStories(rows);
+
+class _QuietThreadLive implements TimelineLive {
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void dispose() {}
 }
 
-Widget _hostStories(_Stories stories) {
+Widget _host(ThreadStories stories, {bool animations = true}) {
   return _frame(
+    animations: animations,
     page: FamilyThreadPage(
       storiesApi: stories,
       familiesApi: _families,
       currentUserId: () => 'user-1',
+      live: _QuietThreadLive(),
     ),
   );
 }
@@ -202,29 +251,3 @@ Widget _frame({required Widget page, bool animations = true}) {
 final _families = TestFamilies([
   MemberFamily(id: 'fam-1', name: 'Ada', createdAt: DateTime.utc(2020)),
 ]);
-
-class _Stories extends QuietStories {
-  _Stories(this.rows, {this.pending});
-
-  List<Story> rows;
-  Future<List<Story>>? pending;
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async {
-    final pending = this.pending;
-    if (pending != null) return pending;
-    return rows;
-  }
-}
-
-Story _story(String id, int year, String title) {
-  return Story(
-    id: id,
-    familyId: 'fam-1',
-    authorId: 'author',
-    status: StoryStatus.published,
-    timeframeStart: DateTime.utc(year, 6, 1),
-    datePrecision: StoryDatePrecision.year,
-    title: title,
-  );
-}
