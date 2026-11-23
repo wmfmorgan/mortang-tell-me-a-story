@@ -120,10 +120,8 @@ class _ThreadViewState extends State<ThreadView> {
 
   int _indexHolding(String? id) {
     if (id == null || _beats.isEmpty) return 0;
-    for (var index = 0; index < _beats.length; index++) {
-      if (_holds(_beats[index], id)) return index;
-    }
-    return _beats.length - 1;
+    final index = threadBeatIndex(_beats, id);
+    return index < 0 ? _beats.length - 1 : index;
   }
 
   Widget _row(int index, {required bool phone}) {
@@ -213,13 +211,5 @@ int? _yearOf(ThreadBeat beat) {
   return switch (beat) {
     YearBeat(:final year) => year,
     DecadeBeat() || StoryBeat() => null,
-  };
-}
-
-bool _holds(ThreadBeat beat, String storyId) {
-  return switch (beat) {
-    DecadeBeat(:final stories) => stories.any((story) => story.id == storyId),
-    YearBeat(:final stories) => stories.any((story) => story.id == storyId),
-    StoryBeat(:final story) => story.id == storyId,
   };
 }
