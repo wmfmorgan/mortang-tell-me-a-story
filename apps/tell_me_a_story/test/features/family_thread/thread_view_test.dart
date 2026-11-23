@@ -60,7 +60,7 @@ void main() {
       ),
     );
     expect(spine.child, isA<ColoredBox>());
-    expect((spine.child! as ColoredBox).color, albumTerracotta);
+    expect((spine.child as ColoredBox).color, albumTerracotta);
   });
 
   testWidgets('list semantics label is Family Thread, N stories', (
