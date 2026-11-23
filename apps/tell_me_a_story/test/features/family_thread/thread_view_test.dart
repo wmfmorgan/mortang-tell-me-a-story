@@ -39,7 +39,6 @@ void main() {
     await tester.pumpWidget(_host(stories));
     await tester.pumpAndSettle();
 
-    expect(find.text('S1700'), findsNothing);
     expect(find.text('S1700', skipOffstage: false), findsNothing);
     expect(find.text('S1999'), findsOneWidget);
   });
