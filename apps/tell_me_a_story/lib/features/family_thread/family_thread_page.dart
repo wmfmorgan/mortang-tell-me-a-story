@@ -10,6 +10,7 @@ import '../../data/stories_api.dart';
 import 'family_thread_copy.dart';
 import 'insert_published_origin.dart';
 import 'thread_skeleton.dart';
+import 'thread_view.dart';
 
 class FamilyThreadPage extends StatefulWidget {
   const FamilyThreadPage({
@@ -145,7 +146,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     if (_loading) return const ThreadSkeleton();
     if (_failed) return _LoadError(onRetry: _retry);
     if (_stories.isEmpty) return const _EmptyFamily();
-    return const SizedBox(key: Key('family-thread-loaded'));
+    return ThreadView(
+      key: const Key('family-thread-loaded'),
+      stories: _stories,
+    );
   }
 }
 
