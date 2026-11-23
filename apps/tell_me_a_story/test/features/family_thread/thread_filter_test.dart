@@ -75,6 +75,29 @@ void main() {
     expect(ThreadFilter(decadeFrom: 1960, decadeTo: 1990).activeCount, 1);
   });
 
+  test('activeCount counts each place as one', () {
+    expect(ThreadFilter(placeIds: {'farm'}).activeCount, 1);
+    expect(ThreadFilter(placeIds: {'farm'}).isActive, isTrue);
+    expect(ThreadFilter(placeIds: {'farm', 'town'}).activeCount, 2);
+  });
+
+  test('activeCount counts a non-empty search as one', () {
+    expect(ThreadFilter(search: 'tractor').activeCount, 1);
+    expect(ThreadFilter(search: 'tractor').isActive, isTrue);
+  });
+
+  test('activeCount counts a whitespace-only search as zero', () {
+    expect(ThreadFilter(search: '   ').activeCount, 0);
+    expect(ThreadFilter(search: '   ').isActive, isFalse);
+  });
+
+  test('a null placeId fails an active place filter', () {
+    const filter = ThreadFilter(placeIds: {'farm'});
+    expect(filter.isActive, isTrue);
+    expect(filter.matches(_s('nowhere', 1990)), isFalse);
+    expect(filter.matches(_s('farm', 1990, placeId: 'farm')), isTrue);
+  });
+
   test('cleared has no active filters', () {
     expect(ThreadFilter.cleared.activeCount, 0);
     expect(ThreadFilter.cleared.isActive, isFalse);
