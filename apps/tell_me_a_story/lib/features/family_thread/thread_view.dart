@@ -20,9 +20,20 @@ const _phoneLeadWidth = 32.0;
 const _phoneMarkMaxWidth = 160.0;
 
 class ThreadView extends StatefulWidget {
-  const ThreadView({super.key, required this.stories});
+  const ThreadView({
+    super.key,
+    required this.stories,
+    this.focusStoryId,
+    this.onFocusChanged,
+  });
 
   final List<Story> stories;
+
+  /// Story to keep on the focus line. Null centres the newest story.
+  final String? focusStoryId;
+
+  /// Reports the story on the focus line when a scroll ends.
+  final ValueChanged<String>? onFocusChanged;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -46,8 +57,10 @@ class _ThreadViewState extends State<ThreadView> {
   @override
   void didUpdateWidget(ThreadView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (identical(oldWidget.stories, widget.stories)) return;
-    _bind(rebuildModel: true);
+    final storiesChanged = !identical(oldWidget.stories, widget.stories);
+    final focusChanged = oldWidget.focusStoryId != widget.focusStoryId;
+    if (!storiesChanged && !focusChanged) return;
+    _bind(rebuildModel: storiesChanged);
     _centrePending = true;
   }
 
@@ -58,9 +71,11 @@ class _ThreadViewState extends State<ThreadView> {
   }
 
   void _bind({required bool rebuildModel}) {
-    if (rebuildModel) _model = ThreadBeatModel.build(widget.stories);
-    _beats = _model.beatsFor(FamilyThreadDensity.browse);
-    _focusId = widget.stories.isEmpty ? null : widget.stories.last.id;
+    if (rebuildModel) {
+      _model = ThreadBeatModel.build(widget.stories);
+      _beats = _model.beatsFor(FamilyThreadDensity.browse);
+    }
+    _focusId = widget.focusStoryId ?? _newestId(widget.stories);
     _focusIndex = _indexHolding(_focusId);
   }
 
@@ -74,7 +89,16 @@ class _ThreadViewState extends State<ThreadView> {
           _centrePending = true;
         }
         _scheduleCentre();
-        return _list(height, constraints.maxWidth);
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollEndNotification &&
+                notification.depth == 0) {
+              _reportFocus();
+            }
+            return false;
+          },
+          child: _list(height, constraints.maxWidth),
+        );
       },
     );
   }
@@ -111,6 +135,20 @@ class _ThreadViewState extends State<ThreadView> {
     });
   }
 
+  void _reportFocus() {
+    if (!_scroll.hasClients || _beats.isEmpty || _viewport <= 0) return;
+    final pad = math.max(0.0, (_viewport - _extent) / 2);
+    final center = _scroll.offset + _viewport / 2;
+    var index = ((center - pad - _extent / 2) / _extent).round();
+    if (index < 0) index = 0;
+    if (index >= _beats.length) index = _beats.length - 1;
+    final id = _storyIdOn(_beats[index]);
+    if (id == _focusId) return;
+    _focusId = id;
+    _focusIndex = index;
+    widget.onFocusChanged?.call(id);
+  }
+
   int _indexHolding(String? id) {
     if (id == null || _beats.isEmpty) return 0;
     final index = threadBeatIndex(_beats, id);
@@ -129,6 +167,25 @@ class _ThreadViewState extends State<ThreadView> {
       DecadeBeat() || StoryBeat() => const SizedBox.shrink(),
     };
   }
+
+  String _storyIdOn(ThreadBeat beat) {
+    return switch (beat) {
+      final YearBeat year => ThreadFocus.browseCardStory(
+        year,
+        focusId: _focusId,
+      ).id,
+      final StoryBeat story => story.story.id,
+      final DecadeBeat decade => ThreadFocus.representative(
+        decade,
+        previousFocusId: _focusId,
+      ).id,
+    };
+  }
+}
+
+String? _newestId(List<Story> stories) {
+  if (stories.isEmpty) return null;
+  return stories.last.id;
 }
 
 double _centerOffset(int index, int count, double viewport) {

@@ -7,8 +7,10 @@ import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/gateway_read.dart';
 import '../../data/stories_api.dart';
+import '../../data/timeline_live.dart';
 import 'family_thread_copy.dart';
 import 'insert_published_origin.dart';
+import 'thread_focus.dart';
 import 'thread_skeleton.dart';
 import 'thread_view.dart';
 
@@ -18,6 +20,7 @@ class FamilyThreadPage extends StatefulWidget {
     this.storiesApi,
     this.familiesApi,
     this.currentUserId,
+    required this.live,
   });
 
   final StoriesGateway? storiesApi;
@@ -27,6 +30,9 @@ class FamilyThreadPage extends StatefulWidget {
   /// before Supabase starts. Null means [CurrentSession.userId].
   final String? Function()? currentUserId;
 
+  /// Realtime signal. The route passes [SupabaseTimelineLive].
+  final TimelineLive live;
+
   @override
   State<FamilyThreadPage> createState() => _FamilyThreadPageState();
 }
@@ -34,9 +40,16 @@ class FamilyThreadPage extends StatefulWidget {
 class _FamilyThreadPageState extends State<FamilyThreadPage> {
   StoriesGateway? _ownedStories;
   FamiliesGateway? _ownedFamilies;
+  TimelineLive? _subscribed;
   var _loading = true;
   var _failed = false;
+  var _ready = false;
+  var _onRoute = false;
+  var _ticket = 0;
   String? _familyId;
+  String? _originId;
+  String? _focusId;
+  DateTime? _focusStart;
   var _familyName = FamilyThreadCopy.fallbackFamily;
   List<MemberFamily> _families = const [];
   List<Story> _stories = const [];
@@ -53,28 +66,95 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     _load();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? false;
+    final returned = _ready && current && !_onRoute;
+    _onRoute = current;
+    if (returned) _reloadStories();
+  }
+
+  @override
+  void dispose() {
+    _subscribed?.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final ticket = ++_ticket;
     try {
       final opened = await guardRead(_opened);
       final stories = await guardRead(
         () => _storiesFor(opened.id, opened.originId),
       );
-      if (!mounted) return;
-      setState(() {
-        _familyId = opened.id;
-        _familyName = opened.name;
-        _families = opened.mine;
-        _stories = stories;
-        _loading = false;
-        _failed = false;
-      });
+      if (!mounted || ticket != _ticket) return;
+      _show(opened, stories);
+      _watch(opened.id);
     } on GatewayReadException {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _failed = true;
-      });
+      if (!mounted || ticket != _ticket) return;
+      _fail();
     }
+  }
+
+  Future<void> _reloadStories() async {
+    final familyId = _familyId;
+    if (familyId == null || !_ready) return;
+    final ticket = ++_ticket;
+    try {
+      final stories = await guardRead(() => _storiesFor(familyId, _originId));
+      if (!mounted || ticket != _ticket) return;
+      setState(() => _applyStories(stories));
+    } on GatewayReadException {
+      if (!mounted || ticket != _ticket) return;
+    }
+  }
+
+  void _show(_Opened opened, List<Story> stories) {
+    setState(() {
+      _familyId = opened.id;
+      _originId = opened.originId;
+      _familyName = opened.name;
+      _families = opened.mine;
+      _loading = false;
+      _failed = false;
+      _ready = true;
+      _applyStories(stories);
+    });
+  }
+
+  void _applyStories(List<Story> stories) {
+    _stories = stories;
+    final focus = _focusOf(stories, _focusId, _focusStart);
+    _focusId = focus.id;
+    _focusStart = focus.start;
+  }
+
+  void _onScrollFocus(String storyId) {
+    final focus = _focusOf(_stories, storyId, null);
+    if (focus.id == null || focus.id == _focusId) return;
+    setState(() {
+      _focusId = focus.id;
+      _focusStart = focus.start;
+    });
+  }
+
+  void _watch(String? familyId) {
+    if (familyId == null) return;
+    final live = _subscribed ??= widget.live;
+    live.watch(familyId: familyId, onChange: _onLive);
+  }
+
+  void _onLive() {
+    if (!mounted) return;
+    _reloadStories();
+  }
+
+  void _fail() {
+    setState(() {
+      _loading = false;
+      _failed = true;
+    });
   }
 
   String? get _sessionUserId {
@@ -83,8 +163,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     return CurrentSession.userId;
   }
 
-  Future<({String? id, String name, List<MemberFamily> mine, String? originId})>
-  _opened() async {
+  Future<_Opened> _opened() async {
     final mine = await _familiesApi.listMine();
     FamilyMembership.remember([for (final row in mine) row.id]);
     final id = await resolveShownFamilyId(
@@ -149,8 +228,35 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     return ThreadView(
       key: const Key('family-thread-loaded'),
       stories: _stories,
+      focusStoryId: _focusId,
+      onFocusChanged: _onScrollFocus,
     );
   }
+}
+
+typedef _Opened = ({
+  String? id,
+  String name,
+  List<MemberFamily> mine,
+  String? originId,
+});
+
+({String? id, DateTime? start}) _focusOf(
+  List<Story> stories,
+  String? focusId,
+  DateTime? focusStart,
+) {
+  if (stories.isEmpty) return (id: null, start: null);
+  final kept = focusId == null
+      ? null
+      : stories.where((story) => story.id == focusId).firstOrNull;
+  final story =
+      kept ??
+      (focusStart == null
+          ? null
+          : ThreadFocus.nearestInTime(stories, focusStart)) ??
+      stories.last;
+  return (id: story.id, start: story.publishedStart);
 }
 
 String _nameFor(String? id, List<MemberFamily> mine, List<TreeFamily> tree) {
