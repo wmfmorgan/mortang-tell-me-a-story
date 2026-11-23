@@ -5,9 +5,11 @@ import '../../core/theme/album_theme.dart';
 import '../../data/current_session.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
+import '../../data/family_thread_density.dart';
 import '../../data/gateway_read.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
+import 'density_control.dart';
 import 'family_thread_copy.dart';
 import 'insert_published_origin.dart';
 import 'thread_focus.dart';
@@ -45,7 +47,9 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   var _failed = false;
   var _ready = false;
   var _onRoute = false;
+  var _announce = false;
   var _ticket = 0;
+  var _density = FamilyThreadDensity.browse;
   String? _familyId;
   String? _originId;
   String? _focusId;
@@ -157,6 +161,14 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     });
   }
 
+  void _setDensity(FamilyThreadDensity density) {
+    if (density == _density) return;
+    setState(() {
+      _density = density;
+      _announce = true;
+    });
+  }
+
   String? get _sessionUserId {
     final currentUserId = widget.currentUserId;
     if (currentUserId != null) return currentUserId();
@@ -222,12 +234,41 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   }
 
   Widget _body() {
-    if (_loading) return const ThreadSkeleton();
     if (_failed) return _LoadError(onRetry: _retry);
-    if (_stories.isEmpty) return const _EmptyFamily();
+    if (!_loading && _stories.isEmpty) return const _EmptyFamily();
+    return Column(
+      children: [
+        _toolbar(),
+        if (_announce) _DensityAnnouncement(density: _density),
+        Expanded(child: _thread()),
+        if (!_loading && _density == FamilyThreadDensity.overview)
+          _OverviewCaption(familyName: _familyName),
+      ],
+    );
+  }
+
+  Widget _toolbar() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final phone = constraints.maxWidth < threadPhoneBreakpoint;
+        return Align(
+          alignment: phone ? Alignment.centerRight : Alignment.center,
+          child: DensityControl(
+            density: _density,
+            enabled: !_loading,
+            onChanged: _setDensity,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _thread() {
+    if (_loading) return const ThreadSkeleton();
     return ThreadView(
       key: const Key('family-thread-loaded'),
       stories: _stories,
+      density: _density,
       focusStoryId: _focusId,
       onFocusChanged: _onScrollFocus,
     );
@@ -283,6 +324,40 @@ List<Story> _published(Iterable<Story> stories) {
     for (final story in stories)
       if (story.status == StoryStatus.published) story,
   ];
+}
+
+class _DensityAnnouncement extends StatelessWidget {
+  const _DensityAnnouncement({required this.density});
+
+  final FamilyThreadDensity density;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      label: FamilyThreadCopy.showingDensity(density),
+      child: const SizedBox.shrink(),
+    );
+  }
+}
+
+class _OverviewCaption extends StatelessWidget {
+  const _OverviewCaption({required this.familyName});
+
+  final String familyName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      child: Text(
+        FamilyThreadCopy.overviewCaption(familyName),
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(fontStyle: FontStyle.italic, color: albumInkDim),
+      ),
+    );
+  }
 }
 
 class _ThreadBar extends StatelessWidget implements PreferredSizeWidget {
