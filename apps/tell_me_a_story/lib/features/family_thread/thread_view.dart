@@ -146,7 +146,8 @@ class _ThreadViewState extends State<ThreadView>
   Widget build(BuildContext context) {
     return ThreadKeyboard(
       onBeatDelta: _onBeatDelta,
-      onBeatEdge: _onBeatEdge,
+      onFirst: () => _moveBeat(0),
+      onLast: () => _moveBeat(_beats.length - 1),
       onDensityDelta: widget.onDensityDelta,
       child: _scene(),
     );
@@ -221,10 +222,6 @@ class _ThreadViewState extends State<ThreadView>
       _extent,
     );
     _moveBeat(current + delta);
-  }
-
-  void _onBeatEdge(int edge) {
-    _moveBeat(edge == 0 ? 0 : _beats.length - 1);
   }
 
   void _moveBeat(int index) {

@@ -5,13 +5,15 @@ class ThreadKeyboard extends StatefulWidget {
   const ThreadKeyboard({
     super.key,
     required this.onBeatDelta,
-    required this.onBeatEdge,
+    required this.onFirst,
+    required this.onLast,
     required this.child,
     this.onDensityDelta,
   });
 
   final ValueChanged<int> onBeatDelta;
-  final ValueChanged<int> onBeatEdge;
+  final VoidCallback onFirst;
+  final VoidCallback onLast;
   final ValueChanged<int>? onDensityDelta;
   final Widget child;
 
@@ -36,7 +38,6 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
     final action = _keyAction(
       key: event.logicalKey,
       controlOrMeta: keys.isControlPressed || keys.isMetaPressed,
-      textField: _textFieldFocused(),
     );
     if (action == null || !_run(action)) return KeyEventResult.ignored;
     return KeyEventResult.handled;
@@ -51,10 +52,10 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
         widget.onBeatDelta(1);
         return true;
       case _KeyAction.first:
-        widget.onBeatEdge(0);
+        widget.onFirst();
         return true;
       case _KeyAction.last:
-        widget.onBeatEdge(1);
+        widget.onLast();
         return true;
       case _KeyAction.finer:
       case _KeyAction.coarser:
@@ -88,6 +89,7 @@ final _zoomKeys = <LogicalKeyboardKey>{
   LogicalKeyboardKey.minus,
   LogicalKeyboardKey.numpadAdd,
   LogicalKeyboardKey.numpadSubtract,
+  // Spec: never Ctrl/Cmd 0.
   LogicalKeyboardKey.digit0,
   LogicalKeyboardKey.numpad0,
 };
@@ -107,16 +109,7 @@ final _actions = <LogicalKeyboardKey, _KeyAction>{
 _KeyAction? _keyAction({
   required LogicalKeyboardKey key,
   required bool controlOrMeta,
-  required bool textField,
 }) {
-  if (textField) return null;
   if (controlOrMeta && _zoomKeys.contains(key)) return null;
   return _actions[key];
-}
-
-bool _textFieldFocused() {
-  final context = FocusManager.instance.primaryFocus?.context;
-  if (context == null) return false;
-  return context.widget is EditableText ||
-      context.findAncestorStateOfType<EditableTextState>() != null;
 }
