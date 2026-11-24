@@ -220,24 +220,33 @@ void main() {
     expect(find.byKey(const Key('filter-drawer')), findsNothing);
   });
 
-  testWidgets('esc does nothing to the page once the sheet is closed', (
+  testWidgets('esc closes the sheet and does not reach the page shortcut', (
     tester,
   ) async {
+    var pageEscapes = 0;
     _size(tester, const Size(899, 800));
-    await tester.pumpWidget(_host([_story('only', 1975, 'Only')]));
+    await tester.pumpWidget(
+      _host([_story('only', 1975, 'Only')], onPageEscape: () => pageEscapes++),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FilterButton));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Show 1 story'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('filter-drawer')), findsNothing);
+    expect(find.byKey(const Key('filter-drawer')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('filter-drawer')),
+        matching: find.byElementPredicate(
+          (element) => element == FocusManager.instance.primaryFocus?.context,
+        ),
+      ),
+      findsOneWidget,
+    );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('filter-drawer')), findsNothing);
-    expect(find.text('Only'), findsWidgets);
-    expect(tester.takeException(), isNull);
+    expect(pageEscapes, 0);
   });
 
   testWidgets('widening to 900 closes the drawer', (tester) async {
@@ -284,16 +293,23 @@ Text _label(WidgetTester tester, String name) {
   return tester.widget<Text>(_chip(name));
 }
 
-Widget _host(List<Story> stories) {
+Widget _host(List<Story> stories, {VoidCallback? onPageEscape}) {
   return MaterialApp(
     theme: albumTheme(),
-    home: FamilyThreadPage(
-      storiesApi: ThreadStories(stories),
-      familiesApi: TestFamilies([
-        MemberFamily(id: 'fam-1', name: 'Ada', createdAt: DateTime.utc(2020)),
-      ]),
-      currentUserId: () => 'user-1',
-      live: FakeTimelineLive(),
+    home: CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          onPageEscape?.call();
+        },
+      },
+      child: FamilyThreadPage(
+        storiesApi: ThreadStories(stories),
+        familiesApi: TestFamilies([
+          MemberFamily(id: 'fam-1', name: 'Ada', createdAt: DateTime.utc(2020)),
+        ]),
+        currentUserId: () => 'user-1',
+        live: FakeTimelineLive(),
+      ),
     ),
   );
 }

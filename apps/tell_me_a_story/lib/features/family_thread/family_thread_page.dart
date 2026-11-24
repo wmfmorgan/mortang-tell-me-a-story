@@ -306,6 +306,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   Widget _frame(BoxConstraints constraints) {
     final sidebar = constraints.maxWidth >= _sidebarBreakpoint;
     final drawer = !sidebar && _drawerOpen;
+    // Only the LayoutBuilder knows the width, so the reset is scheduled from build.
     _scheduleDrawerReset(sidebar);
     return Stack(
       children: [
@@ -394,17 +395,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       heightFactor: _drawerHeightFactor,
       onClose: _closeDrawer,
       child: _panel(
-        countLabel: _drawerCount(width, count),
+        countLabel: width < threadPhoneBreakpoint ? _matchCount(count) : null,
         onClose: _closeDrawer,
       ),
     );
-  }
-
-  String? _drawerCount(double width, ({int n, int total}) count) {
-    if (width >= threadPhoneBreakpoint || _loading || _stories.isEmpty) {
-      return null;
-    }
-    return FamilyThreadCopy.filterCount(count.n, count.total);
   }
 
   void _closeDrawer() => setState(() => _drawerOpen = false);
@@ -436,10 +430,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
 
   String? _countLabel(bool wide) => wide ? _matchCount() : null;
 
-  String? _matchCount() {
+  String? _matchCount([({int n, int total})? count]) {
     if (_loading || _stories.isEmpty) return null;
-    final count = _filter.countStories(_stories);
-    return FamilyThreadCopy.filterCount(count.n, count.total);
+    final matched = count ?? _filter.countStories(_stories);
+    return FamilyThreadCopy.filterCount(matched.n, matched.total);
   }
 
   Widget _thread() {
