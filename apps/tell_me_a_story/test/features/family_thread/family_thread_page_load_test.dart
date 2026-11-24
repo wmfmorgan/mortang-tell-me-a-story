@@ -7,11 +7,10 @@ import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_page.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_skeleton.dart';
 
-import '../../fakes/quiet_stories.dart';
+import '../../support/family_thread_surface.dart';
 import '../../support/quiet_gateways.dart';
 
 void main() {
@@ -24,7 +23,7 @@ void main() {
     final pending = Completer<List<Story>>();
     await tester.pumpWidget(
       _host(
-        stories: _Stories(pending: pending.future),
+        stories: ThreadStories(const [], pending: pending.future),
         families: _Families(),
       ),
     );
@@ -40,7 +39,9 @@ void main() {
   });
 
   testWidgets('shows FT-37 text when zero published', (tester) async {
-    await tester.pumpWidget(_host(stories: _Stories(), families: _Families()));
+    await tester.pumpWidget(
+      _host(stories: ThreadStories(const []), families: _Families()),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -61,7 +62,7 @@ void main() {
   testWidgets(
     "shows Couldn't load stories. and Retry on gateway error; Retry reloads",
     (tester) async {
-      final stories = _Stories(fail: true);
+      final stories = ThreadStories(const [], fail: true);
       await tester.pumpWidget(_host(stories: stories, families: _Families()));
       await tester.pumpAndSettle();
 
@@ -81,7 +82,7 @@ void main() {
   );
 
   testWidgets('merges a published origin story once', (tester) async {
-    final stories = _Stories(origin: _story('origin'));
+    final stories = ThreadStories(const [], origin: _story('origin'));
     await tester.pumpWidget(
       _host(
         stories: stories,
@@ -97,7 +98,7 @@ void main() {
       findsNothing,
     );
 
-    final present = _Stories(rows: [_story('origin')]);
+    final present = ThreadStories([_story('origin')]);
     await tester.pumpWidget(
       _host(
         stories: present,
@@ -108,7 +109,10 @@ void main() {
     expect(present.getPublishedIds, isEmpty);
     expect(find.byKey(const Key('family-thread-loaded')), findsOneWidget);
 
-    final draft = _Stories(origin: _story('origin', status: StoryStatus.draft));
+    final draft = ThreadStories(
+      const [],
+      origin: _story('origin', status: StoryStatus.draft),
+    );
     await tester.pumpWidget(
       _host(
         stories: draft,
@@ -127,7 +131,9 @@ void main() {
     tester,
   ) async {
     final families = _Families(fail: true);
-    await tester.pumpWidget(_host(stories: _Stories(), families: families));
+    await tester.pumpWidget(
+      _host(stories: ThreadStories(const []), families: families),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text("Couldn't load stories."), findsOneWidget);
@@ -145,7 +151,7 @@ void main() {
   });
 }
 
-Widget _host({required _Stories stories, required _Families families}) {
+Widget _host({required ThreadStories stories, required _Families families}) {
   return MaterialApp(
     theme: albumTheme(),
     home: FamilyThreadPage(
@@ -153,50 +159,9 @@ Widget _host({required _Stories stories, required _Families families}) {
       storiesApi: stories,
       familiesApi: families,
       currentUserId: () => 'user-1',
-      live: _QuietLive(),
+      live: QuietTimelineLive(),
     ),
   );
-}
-
-class _QuietLive implements TimelineLive {
-  @override
-  void watch({required String familyId, required void Function() onChange}) {}
-
-  @override
-  void watchStory({
-    required String storyId,
-    required void Function() onChange,
-  }) {}
-
-  @override
-  void dispose() {}
-}
-
-class _Stories extends QuietStories {
-  _Stories({List<Story>? rows, this.origin, this.pending, this.fail = false})
-    : rows = [...?rows];
-
-  List<Story> rows;
-  Story? origin;
-  Future<List<Story>>? pending;
-  bool fail;
-  var listCalls = 0;
-  final getPublishedIds = <String>[];
-
-  @override
-  Future<List<Story>> listPublished(String familyId) async {
-    listCalls += 1;
-    if (fail) throw const FormatException('load');
-    final pending = this.pending;
-    if (pending != null) return pending;
-    return rows;
-  }
-
-  @override
-  Future<Story?> getPublished(String storyId) async {
-    getPublishedIds.add(storyId);
-    return origin;
-  }
 }
 
 class _Families extends FamiliesGateway with QuietFamiliesDefaults {

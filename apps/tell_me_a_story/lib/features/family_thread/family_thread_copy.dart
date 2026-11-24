@@ -33,6 +33,15 @@ abstract final class FamilyThreadCopy {
   static String decadeBeat(int decade, int count) =>
       '${decade}s, ${_stories(count)}';
 
+  static String focusedStory(int year, String title) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return 'Focused $year';
+    return 'Focused $year, $trimmed';
+  }
+
+  static String focusedDecade(int decadeStart, int count) =>
+      'Focused ${decadeStart}s, ${_stories(count)}';
+
   static String overviewCaption(String familyName) =>
       '$familyName · stories carried down the years';
 

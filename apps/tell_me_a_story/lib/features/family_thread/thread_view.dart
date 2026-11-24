@@ -11,12 +11,14 @@ import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 import 'thread_beat_tile.dart';
 import 'thread_focus.dart';
+import 'thread_focus_controller.dart';
 
 const threadPhoneBreakpoint = 600.0;
 const _browseExtent = 64.0;
 const _overviewExtent = 112.0;
 
-/// Three title lines plus the date. A 64px row overflows that stack.
+/// Three title lines plus the date at text scale 1. Read rows grow with the
+/// text scaler.
 const _readExtent = 124.0;
 const _phoneBandWidth = 16.0;
 const _wideBandWidth = 24.0;
@@ -59,10 +61,12 @@ class ThreadView extends StatefulWidget {
 class _ThreadViewState extends State<ThreadView>
     with SingleTickerProviderStateMixin {
   final _scroll = ScrollController();
+  late final ThreadFocusController _focus;
   late final AnimationController _fade;
   late ThreadBeatModel _model;
   late List<ThreadBeat> _beats;
   String? _focusId;
+  String? _announcement;
   var _focusIndex = 0;
   var _extent = _browseExtent;
   var _viewport = -1.0;
@@ -71,8 +75,15 @@ class _ThreadViewState extends State<ThreadView>
   @override
   void initState() {
     super.initState();
+    _focus = ThreadFocusController(scroll: _scroll, onSettled: _onSettled);
     _bind(rebuildModel: true, regroup: true);
     _fade = AnimationController(vsync: this, duration: _fadeDuration, value: 1);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _applyExtent();
   }
 
   @override
@@ -86,6 +97,7 @@ class _ThreadViewState extends State<ThreadView>
       rebuildModel: storiesChanged,
       regroup: storiesChanged || densityChanged,
     );
+    _applyExtent();
     _centrePending = true;
     if (densityChanged) _fadeIn();
   }
@@ -103,6 +115,20 @@ class _ThreadViewState extends State<ThreadView>
     _extent = _extentFor(widget.density);
     _focusId = widget.focusStoryId ?? _newestId(widget.stories);
     _focusIndex = _indexOfFocus();
+  }
+
+  void _applyExtent() {
+    final next = _scaledExtent(_extentFor(widget.density));
+    if (next == _extent) return;
+    _extent = next;
+    _centrePending = true;
+  }
+
+  double _scaledExtent(double base) {
+    if (widget.density != FamilyThreadDensity.read) return base;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    if (scale <= 1) return base;
+    return base * scale;
   }
 
   void _fadeIn() {
@@ -124,16 +150,15 @@ class _ThreadViewState extends State<ThreadView>
         }
         _scheduleCentre();
         return NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification is ScrollEndNotification &&
-                notification.depth == 0) {
-              _reportFocus();
-            }
-            return false;
-          },
-          child: FadeTransition(
-            opacity: _fade,
-            child: _list(height, constraints.maxWidth),
+          onNotification: _onScroll,
+          child: Stack(
+            children: [
+              FadeTransition(
+                opacity: _fade,
+                child: _list(height, constraints.maxWidth),
+              ),
+              if (_announcement != null) _FocusAnnouncement(_announcement!),
+            ],
           ),
         );
       },
@@ -141,7 +166,7 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   Widget _list(double height, double width) {
-    final pad = math.max(0.0, (height - _extent) / 2);
+    final pad = _padFor(height, _extent);
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -177,18 +202,39 @@ class _ThreadViewState extends State<ThreadView>
     });
   }
 
-  void _reportFocus() {
-    if (!_scroll.hasClients || _beats.isEmpty || _viewport <= 0) return;
-    final pad = math.max(0.0, (_viewport - _extent) / 2);
-    final center = _scroll.offset + _viewport / 2;
-    var index = ((center - pad - _extent / 2) / _extent).round();
-    if (index < 0) index = 0;
-    if (index >= _beats.length) index = _beats.length - 1;
-    final id = _storyIdOn(_beats[index]);
-    if (id == _focusId) return;
-    _focusId = id;
-    _focusIndex = index;
-    widget.onFocusChanged?.call(id);
+  bool _onScroll(ScrollNotification notification) {
+    _focus.onNotification(
+      notification: notification,
+      beats: _beats,
+      extent: _extent,
+      viewport: _viewport,
+      focusId: _focusId,
+      reducedMotion: MediaQuery.disableAnimationsOf(context),
+    );
+    return false;
+  }
+
+  void _onSettled(String storyId) {
+    if (!mounted || storyId == _focusId) return;
+    setState(() {
+      _focusId = storyId;
+      _focusIndex = _indexOfFocus();
+      _announcement = _settledLabel();
+    });
+    widget.onFocusChanged?.call(storyId);
+  }
+
+  String _settledLabel() {
+    final beat = _beats[_focusIndex];
+    final story = ThreadFocus.representative(beat, previousFocusId: _focusId);
+    return switch (beat) {
+      DecadeBeat(:final decadeStart, :final stories) =>
+        FamilyThreadCopy.focusedDecade(decadeStart, stories.length),
+      YearBeat() || StoryBeat() => FamilyThreadCopy.focusedStory(
+        story.publishedStart.year,
+        story.title ?? '',
+      ),
+    };
   }
 
   int _indexOfFocus() {
@@ -203,7 +249,11 @@ class _ThreadViewState extends State<ThreadView>
     return _BeatRow(
       phone: phone,
       index: index,
-      tile: ThreadBeatTile(beat: beat, focusStoryId: _focusId),
+      tile: ThreadBeatTile(
+        beat: beat,
+        focusStoryId: _focusId,
+        distance: (index - _focusIndex).abs(),
+      ),
       mark: _markFor(beat, index),
       band: ThreadBand(
         bandWidth: phone ? _phoneBandWidth : _wideBandWidth,
@@ -223,19 +273,20 @@ class _ThreadViewState extends State<ThreadView>
             : const SizedBox.shrink(),
     };
   }
+}
 
-  String _storyIdOn(ThreadBeat beat) {
-    return switch (beat) {
-      final YearBeat year => ThreadFocus.browseCardStory(
-        year,
-        focusId: _focusId,
-      ).id,
-      final StoryBeat story => story.story.id,
-      final DecadeBeat decade => ThreadFocus.representative(
-        decade,
-        previousFocusId: _focusId,
-      ).id,
-    };
+class _FocusAnnouncement extends StatelessWidget {
+  const _FocusAnnouncement(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      label: label,
+      child: const SizedBox.shrink(),
+    );
   }
 }
 
@@ -278,9 +329,13 @@ String? _newestId(List<Story> stories) {
   return stories.last.id;
 }
 
+double _padFor(double viewport, double extent) {
+  return ((viewport - extent) / 2).clamp(0.0, double.infinity);
+}
+
 double _centerOffset(int index, int count, double viewport, double extent) {
   if (count == 0) return 0;
-  final pad = math.max(0.0, (viewport - extent) / 2);
+  final pad = _padFor(viewport, extent);
   final raw = pad + index * extent + extent / 2 - viewport / 2;
   final maxScroll = math.max(0.0, pad * 2 + count * extent - viewport);
   return raw.clamp(0.0, maxScroll);
