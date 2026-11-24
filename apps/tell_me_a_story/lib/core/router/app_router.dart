@@ -7,31 +7,33 @@ import '../../data/comments_api.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/invite_api.dart';
+import '../../data/manage_families_api.dart';
 import '../../data/mapbox_search.dart';
 import '../../data/people_api.dart';
 import '../../data/perspectives_api.dart' hide displayNameOrMember;
 import '../../data/photos_api.dart';
 import '../../data/places_api.dart';
 import '../../data/profile_api.dart';
+import '../../data/search_api.dart';
 import '../../data/stories_api.dart';
+import '../../data/timeline_live.dart';
+import '../../features/all_stories/all_stories_page.dart';
 import '../../features/auth/invite_sign_in_page.dart';
 import '../../features/auth/magic_link_page.dart';
-import '../../features/settings/settings_page.dart';
 import '../../features/drafts/drafts_page.dart';
-import '../../features/perspectives/add_perspective_page.dart';
-import '../../features/stories/new_story_page.dart';
-import '../navigation/unsaved_guard.dart';
-import '../supabase/auth_user_id.dart';
-import '../../features/search/search_page.dart';
-import '../../data/manage_families_api.dart';
-import '../../features/all_stories/all_stories_page.dart';
 import '../../features/family/family_landing_page.dart';
 import '../../features/family/manage_families_page.dart';
 import '../../features/family/manage_family_page.dart';
+import '../../features/family_thread/family_thread_page.dart';
+import '../../features/perspectives/add_perspective_page.dart';
+import '../../features/search/search_page.dart';
 import '../../features/search/search_recents.dart';
+import '../../features/settings/settings_page.dart';
+import '../../features/stories/new_story_page.dart';
 import '../../features/stories/story_reader_page.dart';
 import '../../features/timeline/timeline_page.dart';
-import '../../data/search_api.dart';
+import '../navigation/unsaved_guard.dart';
+import '../supabase/auth_user_id.dart';
 import '../theme/album_theme.dart';
 import 'auth_refresh.dart';
 
@@ -170,6 +172,7 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const familyLanding = '/family';
   static const timeline = '/timeline';
+  static const familyThread = '/family-thread';
   static const allStories = '/family/:id/stories';
 
   static String allStoriesPath(String familyId) => '/family/$familyId/stories';
@@ -327,6 +330,13 @@ GoRouter createAppRouter({
         ),
       ),
       GoRoute(
+        path: AppRoutes.familyThread,
+        builder: (context, state) => _FamilyThreadRoute(
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.allStories,
         builder: (context, state) => AllStoriesPage(
           familyId: state.pathParameters['id']!,
@@ -472,4 +482,46 @@ GoRouter createAppRouter({
 
 String? _signedInUserId() {
   return readAuthUserId();
+}
+
+class _FamilyThreadRoute extends StatefulWidget {
+  const _FamilyThreadRoute({this.storiesApi, this.familiesApi});
+
+  final StoriesGateway? storiesApi;
+  final FamiliesGateway? familiesApi;
+
+  @override
+  State<_FamilyThreadRoute> createState() => _FamilyThreadRouteState();
+}
+
+class _FamilyThreadRouteState extends State<_FamilyThreadRoute> {
+  late final TimelineLive _live = _familyThreadLive(widget.storiesApi);
+
+  @override
+  Widget build(BuildContext context) {
+    return FamilyThreadPage(
+      storiesApi: widget.storiesApi,
+      familiesApi: widget.familiesApi,
+      live: _live,
+    );
+  }
+}
+
+TimelineLive _familyThreadLive(StoriesGateway? storiesApi) {
+  if (storiesApi == null) return SupabaseTimelineLive();
+  return _HeldTimelineLive();
+}
+
+class _HeldTimelineLive implements TimelineLive {
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void dispose() {}
 }

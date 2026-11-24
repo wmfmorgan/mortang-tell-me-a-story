@@ -226,7 +226,7 @@ void main() {
 
 Future<void> _drag(WidgetTester tester, Offset delta) async {
   final gesture = await tester.startGesture(
-    tester.getCenter(find.byType(ListView)),
+    tester.getCenter(find.bySubtype<ListView>()),
   );
   await gesture.moveBy(delta);
   await tester.pump(const Duration(milliseconds: 70));

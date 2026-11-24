@@ -17,6 +17,24 @@ class ThreadFocusController {
   var _generation = 0;
   var _applying = false;
 
+  /// Jumps the list without treating the scroll-end as a user release.
+  ///
+  /// [ScrollController.jumpTo] emits a scroll end. Snapping from that end
+  /// starts an animate, and that animate leaves the scrollable ignoring
+  /// pointers after the jump replaces the activity. The generation bump
+  /// drops an in-flight snap or drag so its completion cannot settle.
+  void place(double offset) {
+    _generation += 1;
+    _phase = _SnapPhase.idle;
+    if (!scroll.hasClients) return;
+    _applying = true;
+    try {
+      scroll.jumpTo(offset);
+    } finally {
+      _applying = false;
+    }
+  }
+
   void onNotification({
     required ScrollNotification notification,
     required List<ThreadBeat> beats,
@@ -158,13 +176,8 @@ class ThreadFocusController {
     }
     _phase = _SnapPhase.snapping;
     if (reducedMotion) {
-      _applying = true;
-      try {
-        scroll.jumpTo(target);
-      } finally {
-        _applying = false;
-      }
-      _settle(storyId, focusId, generation);
+      place(target);
+      _settle(storyId, focusId, _generation);
       return;
     }
     scroll

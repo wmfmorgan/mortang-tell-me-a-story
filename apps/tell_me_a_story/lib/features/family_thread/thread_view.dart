@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/family_thread_density.dart';
@@ -12,6 +13,7 @@ import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 import 'thread_keyboard.dart';
+import 'thread_pointer_handler.dart';
 
 const threadPhoneBreakpoint = 600.0;
 const _browseExtent = 64.0;
@@ -48,6 +50,7 @@ class ThreadView extends StatefulWidget {
     this.onMore,
     this.ringToken = 0,
     this.focusRequest = 0,
+    this.now,
   });
 
   final List<Story> stories;
@@ -68,6 +71,7 @@ class ThreadView extends StatefulWidget {
   final ValueChanged<ThreadBeat>? onMore;
   final int ringToken;
   final int focusRequest;
+  final Duration Function()? now;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -203,11 +207,13 @@ class _ThreadViewState extends State<ThreadView>
       container: true,
       explicitChildNodes: true,
       label: FamilyThreadCopy.threadList(widget.stories.length),
-      child: ListView.builder(
+      child: _ThreadList(
         controller: _scroll,
         itemExtent: _extent,
         padding: EdgeInsets.symmetric(vertical: pad),
         itemCount: _beats.length,
+        onDensityDelta: widget.onDensityDelta,
+        now: widget.now,
         itemBuilder: (context, index) =>
             _row(index, phone: width < threadPhoneBreakpoint),
       ),
@@ -229,7 +235,7 @@ class _ThreadViewState extends State<ThreadView>
         return;
       }
       if ((_scroll.offset - offset).abs() < 0.5) return;
-      _scroll.jumpTo(offset);
+      _focus.place(offset);
     });
   }
 
@@ -348,6 +354,38 @@ class _ThreadViewState extends State<ThreadView>
             ? _decadeMark(threadDecadeOfYear(_yearOf(beat)))
             : const SizedBox.shrink(),
     };
+  }
+}
+
+/// A [Listener] outside the list loses the pointer-signal race, because the
+/// inner [Scrollable] registers first. The handler has to sit under that
+/// scrollable, which means this list builds the viewport itself.
+class _ThreadList extends ListView {
+  _ThreadList({
+    required ScrollController super.controller,
+    required super.itemExtent,
+    required super.padding,
+    required int super.itemCount,
+    required super.itemBuilder,
+    required this.onDensityDelta,
+    required this.now,
+  }) : super.builder();
+
+  final ValueChanged<int>? onDensityDelta;
+  final Duration Function()? now;
+
+  @override
+  Widget buildViewport(
+    BuildContext context,
+    ViewportOffset offset,
+    AxisDirection axisDirection,
+    List<Widget> slivers,
+  ) {
+    return ThreadPointerHandler(
+      onDensityDelta: onDensityDelta,
+      now: now,
+      child: super.buildViewport(context, offset, axisDirection, slivers),
+    );
   }
 }
 
