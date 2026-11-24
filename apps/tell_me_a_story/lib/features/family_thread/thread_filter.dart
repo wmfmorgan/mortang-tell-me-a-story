@@ -19,6 +19,27 @@ class ThreadFilter {
 
   static const cleared = ThreadFilter();
 
+  ThreadFilter copyWith({
+    Set<String>? personIds,
+    Set<String>? placeIds,
+    bool clearSearch = false,
+    bool clearDecade = false,
+  }) {
+    return ThreadFilter(
+      search: clearSearch ? '' : search,
+      personIds: personIds ?? this.personIds,
+      placeIds: placeIds ?? this.placeIds,
+      decadeFrom: clearDecade ? null : decadeFrom,
+      decadeTo: clearDecade ? null : decadeTo,
+    );
+  }
+
+  ThreadFilter withoutPerson(String id) =>
+      copyWith(personIds: {...personIds}..remove(id));
+
+  ThreadFilter withoutPlace(String id) =>
+      copyWith(placeIds: {...placeIds}..remove(id));
+
   bool get isActive => activeCount > 0;
 
   int get activeCount {
