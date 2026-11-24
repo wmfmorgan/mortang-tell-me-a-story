@@ -96,8 +96,18 @@ List<_Pill> _pillsOf(
 ) {
   return [
     ..._searchPills(filter),
-    ..._idPills(filter, filter.personIds, personLabels, _withoutPeople),
-    ..._idPills(filter, filter.placeIds, placeLabels, _withoutPlaces),
+    ..._idPills(
+      filter,
+      filter.personIds,
+      personLabels,
+      (current, ids) => current.withoutPeople(ids),
+    ),
+    ..._idPills(
+      filter,
+      filter.placeIds,
+      placeLabels,
+      (current, ids) => current.withoutPlaces(ids),
+    ),
     ..._decadePills(filter),
   ];
 }
@@ -105,7 +115,7 @@ List<_Pill> _pillsOf(
 List<_Pill> _searchPills(ThreadFilter filter) {
   final query = filter.search.trim();
   if (query.isEmpty) return const [];
-  return [(label: query, next: _replace(filter, clearSearch: true))];
+  return [(label: query, next: filter.copyWith(clearSearch: true))];
 }
 
 List<_Pill> _decadePills(ThreadFilter filter) {
@@ -117,7 +127,7 @@ List<_Pill> _decadePills(ThreadFilter filter) {
   return [
     (
       label: FamilyThreadCopy.decadeRange(start, end),
-      next: _replace(filter, clearDecade: true),
+      next: filter.copyWith(clearDecade: true),
     ),
   ];
 }
@@ -140,32 +150,4 @@ List<_Pill> _idPills(
   ];
 }
 
-String _label(Map<String, String> labels, String id) {
-  final label = labels[id]?.trim();
-  if (label == null || label.isEmpty) return id;
-  return label;
-}
-
-ThreadFilter _withoutPeople(ThreadFilter filter, Set<String> ids) {
-  return _replace(filter, personIds: ids);
-}
-
-ThreadFilter _withoutPlaces(ThreadFilter filter, Set<String> ids) {
-  return _replace(filter, placeIds: ids);
-}
-
-ThreadFilter _replace(
-  ThreadFilter filter, {
-  Set<String>? personIds,
-  Set<String>? placeIds,
-  bool clearSearch = false,
-  bool clearDecade = false,
-}) {
-  return ThreadFilter(
-    search: clearSearch ? '' : filter.search,
-    personIds: personIds ?? filter.personIds,
-    placeIds: placeIds ?? filter.placeIds,
-    decadeFrom: clearDecade ? null : filter.decadeFrom,
-    decadeTo: clearDecade ? null : filter.decadeTo,
-  );
-}
+String _label(Map<String, String> labels, String id) => labels[id] ?? id;

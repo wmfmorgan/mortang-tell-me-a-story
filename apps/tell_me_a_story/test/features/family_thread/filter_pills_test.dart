@@ -51,6 +51,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Filters · 2'), findsOneWidget);
+    expect(find.textContaining(' of '), findsNothing);
+  });
+
+  testWidgets('switching family clears the active filter', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        ThreadStories([_story('only', 1975, 'Only')]),
+        filter: const ThreadFilter(personIds: {'ada'}),
+        families: TestFamilies([
+          MemberFamily(id: 'fam-1', name: 'Ada', createdAt: DateTime.utc(2020)),
+          MemberFamily(id: 'fam-2', name: 'Bea', createdAt: DateTime.utc(2021)),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Clear filters'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('family-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('family-menu-item-fam-2')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Clear filters'), findsNothing);
+    expect(find.text('Filters'), findsOneWidget);
   });
 
   testWidgets('removing a pill updates the count', (tester) async {
@@ -144,13 +168,14 @@ Widget _host(
   ThreadStories stories, {
   ThreadFilter filter = ThreadFilter.cleared,
   FamilyThreadOpenStateStore? store,
+  FamiliesGateway? families,
 }) {
   return MaterialApp(
     theme: albumTheme(),
     home: FamilyThreadPage(
       key: UniqueKey(),
       storiesApi: stories,
-      familiesApi: _families,
+      familiesApi: families ?? _families,
       currentUserId: () => 'user-1',
       openStateStore: store,
       initialFilter: filter,
