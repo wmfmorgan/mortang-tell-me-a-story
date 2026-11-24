@@ -144,6 +144,15 @@ void main() {
     ];
     expect(filter.countStories(stories), (n: 3, total: 5));
   });
+
+  test('withPerson and withPlace add an id', () {
+    const filter = ThreadFilter.cleared;
+    expect(filter.withPerson('ada').withPerson('ben').personIds, {
+      'ada',
+      'ben',
+    });
+    expect(filter.withPlace('farm').placeIds, {'farm'});
+  });
 }
 
 ({String id, String name}) _p(String id) => (id: id, name: id);

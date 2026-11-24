@@ -30,6 +30,7 @@ import 'thread_view.dart';
 
 const _sidebarBreakpoint = 900.0;
 const _sidebarWidth = 280.0;
+const _drawerHeightFactor = 0.75;
 
 class FamilyThreadPage extends StatefulWidget {
   const FamilyThreadPage({
@@ -298,22 +299,37 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     if (_failed) return _LoadError(onRetry: _retry);
     if (!_loading && _stories.isEmpty) return const _EmptyFamily();
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final sidebar = constraints.maxWidth >= _sidebarBreakpoint;
-        return Stack(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (sidebar && _panelOpen) _sidebar(),
-                Expanded(child: _loadedColumn(sidebar)),
-              ],
-            ),
-            if (!sidebar && _drawerOpen) _drawer(constraints.maxWidth),
-          ],
-        );
-      },
+      builder: (context, constraints) => _frame(constraints),
     );
+  }
+
+  Widget _frame(BoxConstraints constraints) {
+    final sidebar = constraints.maxWidth >= _sidebarBreakpoint;
+    final drawer = !sidebar && _drawerOpen;
+    _scheduleDrawerReset(sidebar);
+    return Stack(
+      children: [
+        ExcludeFocus(
+          excluding: drawer,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (sidebar && _panelOpen) _sidebar(),
+              Expanded(child: _loadedColumn(sidebar)),
+            ],
+          ),
+        ),
+        if (drawer) _drawer(constraints.maxWidth),
+      ],
+    );
+  }
+
+  void _scheduleDrawerReset(bool sidebar) {
+    if (!sidebar || !_drawerOpen) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_drawerOpen) return;
+      setState(() => _drawerOpen = false);
+    });
   }
 
   Widget _loadedColumn(bool sidebar) {
@@ -340,13 +356,13 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
           onDensity: _setDensity,
           activeCount: _filter.activeCount,
           countLabel: _countLabel(wide),
-          onFilters: () => _openFilters(sidebar),
+          onFilters: () => _toggleFilters(sidebar),
         );
       },
     );
   }
 
-  void _openFilters(bool sidebar) {
+  void _toggleFilters(bool sidebar) {
     setState(() {
       if (sidebar) {
         _panelOpen = !_panelOpen;
@@ -371,15 +387,24 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   }
 
   Widget _drawer(double width) {
+    final count = _filter.countStories(_stories);
     return FilterDrawer(
       key: const Key('filter-drawer'),
-      matched: _filter.countStories(_stories).n,
+      matched: count.n,
+      heightFactor: _drawerHeightFactor,
       onClose: _closeDrawer,
       child: _panel(
-        countLabel: width < threadPhoneBreakpoint ? _matchCount() : null,
+        countLabel: _drawerCount(width, count),
         onClose: _closeDrawer,
       ),
     );
+  }
+
+  String? _drawerCount(double width, ({int n, int total}) count) {
+    if (width >= threadPhoneBreakpoint || _loading || _stories.isEmpty) {
+      return null;
+    }
+    return FamilyThreadCopy.filterCount(count.n, count.total);
   }
 
   void _closeDrawer() => setState(() => _drawerOpen = false);

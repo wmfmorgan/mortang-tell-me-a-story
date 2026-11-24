@@ -69,6 +69,7 @@ void main() {
   testWidgets('selected chip uses sageTint fill and albumInk label', (
     tester,
   ) async {
+    final handle = tester.ensureSemantics();
     _size(tester, const Size(1000, 800));
     await tester.pumpWidget(_host(_handful()));
     await tester.pumpAndSettle();
@@ -80,6 +81,14 @@ void main() {
     expect(_fill(tester, 'Ada').color, sageTint);
     expect(_label(tester, 'Ada').style?.color, albumInk);
     expect(
+      tester.getSemantics(find.byKey(const ValueKey('filter-choice-ada'))),
+      isSemantics(isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('filter-choice-ben'))),
+      isSemantics(isSelected: false),
+    );
+    expect(
       find.descendant(
         of: find.byKey(const Key('filter-panel')),
         matching: find.byIcon(Icons.check),
@@ -87,6 +96,7 @@ void main() {
       findsOneWidget,
     );
     expect(_fill(tester, 'Ben').color, isNot(sageTint));
+    handle.dispose();
   });
 
   testWidgets('drawer footer closes the drawer', (tester) async {
@@ -143,9 +153,110 @@ void main() {
     expect(find.text('1 of 5 stories'), findsOneWidget);
 
     final slider = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    // The slider test calls onChanged directly rather than dragging.
     slider.onChanged!(const RangeValues(2000, 2000));
     await tester.pumpAndSettle();
     expect(find.text('0 of 5 stories'), findsOneWidget);
+  });
+
+  testWidgets('clear filters empties the search field', (tester) async {
+    _size(tester, const Size(1000, 800));
+    await tester.pumpWidget(_host(_handful()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Picnic');
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 5 stories'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('filter-panel')),
+        matching: find.text('Clear filters'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      isEmpty,
+    );
+    expect(find.text('5 of 5 stories'), findsOneWidget);
+  });
+
+  testWidgets('full decade span clears the decade filter', (tester) async {
+    _size(tester, const Size(1000, 800));
+    await tester.pumpWidget(_host(_handful()));
+    await tester.pumpAndSettle();
+
+    final narrowed = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    // The slider test calls onChanged directly rather than dragging.
+    narrowed.onChanged!(const RangeValues(2000, 2000));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilterButton, 'Filters · 1'), findsOneWidget);
+    expect(find.text('2000s – 2000s'), findsWidgets);
+
+    final full = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    // The slider test calls onChanged directly rather than dragging.
+    full.onChanged!(RangeValues(full.min, full.max));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilterButton, 'Filters'), findsOneWidget);
+    expect(find.text('Filters · 1'), findsNothing);
+    expect(find.text('2000s – 2000s'), findsNothing);
+  });
+
+  testWidgets('tapping the drawer scrim closes the sheet', (tester) async {
+    _size(tester, const Size(899, 800));
+    await tester.pumpWidget(_host([_story('only', 1975, 'Only')]));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filter-drawer')), findsOneWidget);
+
+    final scrim = tester.getRect(find.byKey(const Key('filter-drawer')));
+    await tester.tapAt(Offset(scrim.center.dx, scrim.top + 8));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('filter-drawer')), findsNothing);
+  });
+
+  testWidgets('esc does nothing to the page once the sheet is closed', (
+    tester,
+  ) async {
+    _size(tester, const Size(899, 800));
+    await tester.pumpWidget(_host([_story('only', 1975, 'Only')]));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show 1 story'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filter-drawer')), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('filter-drawer')), findsNothing);
+    expect(find.text('Only'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('widening to 900 closes the drawer', (tester) async {
+    _size(tester, const Size(899, 800));
+    await tester.pumpWidget(_host([_story('only', 1975, 'Only')]));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilterButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filter-drawer')), findsOneWidget);
+
+    _size(tester, const Size(900, 800));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filter-drawer')), findsNothing);
+    expect(find.byKey(const Key('filter-panel')), findsOneWidget);
+
+    _size(tester, const Size(899, 800));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('filter-drawer')), findsNothing);
+    expect(find.byKey(const Key('filter-panel')), findsNothing);
   });
 }
 

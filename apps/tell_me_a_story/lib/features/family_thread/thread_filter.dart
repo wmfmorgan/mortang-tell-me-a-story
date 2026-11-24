@@ -37,8 +37,12 @@ class ThreadFilter {
     );
   }
 
+  ThreadFilter withPerson(String id) => copyWith(personIds: {...personIds, id});
+
   ThreadFilter withoutPerson(String id) =>
       copyWith(personIds: {...personIds}..remove(id));
+
+  ThreadFilter withPlace(String id) => copyWith(placeIds: {...placeIds, id});
 
   ThreadFilter withoutPlace(String id) =>
       copyWith(placeIds: {...placeIds}..remove(id));

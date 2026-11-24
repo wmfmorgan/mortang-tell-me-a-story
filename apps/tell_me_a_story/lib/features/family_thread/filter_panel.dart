@@ -73,13 +73,13 @@ class _FilterPanelState extends State<FilterPanel> {
           title: FamilyThreadCopy.people,
           labels: widget.personLabels,
           selected: widget.filter.personIds,
-          onTap: (id) => _toggle(id, person: true),
+          onTap: _togglePerson,
         ),
         _ChipGroup(
           title: FamilyThreadCopy.places,
           labels: widget.placeLabels,
           selected: widget.filter.placeIds,
-          onTap: (id) => _toggle(id, person: false),
+          onTap: _togglePlace,
         ),
         if (span != null)
           _Years(
@@ -116,20 +116,21 @@ class _FilterPanelState extends State<FilterPanel> {
     );
   }
 
-  void _toggle(String id, {required bool person}) {
+  void _togglePerson(String id) {
     final filter = widget.filter;
-    final selected = person ? filter.personIds : filter.placeIds;
-    if (selected.contains(id)) {
-      widget.onChanged(
-        person ? filter.withoutPerson(id) : filter.withoutPlace(id),
-      );
-      return;
-    }
-    final next = {...selected, id};
     widget.onChanged(
-      person
-          ? filter.copyWith(personIds: next)
-          : filter.copyWith(placeIds: next),
+      filter.personIds.contains(id)
+          ? filter.withoutPerson(id)
+          : filter.withPerson(id),
+    );
+  }
+
+  void _togglePlace(String id) {
+    final filter = widget.filter;
+    widget.onChanged(
+      filter.placeIds.contains(id)
+          ? filter.withoutPlace(id)
+          : filter.withPlace(id),
     );
   }
 }
@@ -196,6 +197,7 @@ class _ChipGroup extends StatelessWidget {
             children: [
               for (final id in _sortedIds(labels))
                 _ChoiceChip(
+                  id: id,
                   label: labels[id] ?? id,
                   selected: selected.contains(id),
                   onTap: () => onTap(id),
@@ -210,46 +212,67 @@ class _ChipGroup extends StatelessWidget {
 
 class _ChoiceChip extends StatelessWidget {
   const _ChoiceChip({
+    required this.id,
     required this.label,
     required this.selected,
     required this.onTap,
   });
 
+  final String id;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? sageTint : albumPillFill,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: albumPillBorder),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge
-                      ?.copyWith(color: albumInk),
-                ),
-                if (selected) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.check, size: 16, color: albumInk),
-                ],
-              ],
+    return Semantics(
+      key: ValueKey('filter-choice-$id'),
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        color: selected ? sageTint : albumPillFill,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: albumPillBorder),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          excludeFromSemantics: true,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _ChoiceLabel(label: label, selected: selected),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChoiceLabel extends StatelessWidget {
+  const _ChoiceLabel({required this.label, required this.selected});
+
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(color: albumInk),
+        ),
+        if (selected) ...[
+          const SizedBox(width: 4),
+          const Icon(Icons.check, size: 16, color: albumInk),
+        ],
+      ],
     );
   }
 }

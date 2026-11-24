@@ -9,11 +9,13 @@ class FilterDrawer extends StatefulWidget {
     super.key,
     required this.child,
     required this.matched,
+    required this.heightFactor,
     required this.onClose,
   });
 
   final Widget child;
   final int matched;
+  final double heightFactor;
   final VoidCallback onClose;
 
   @override
@@ -21,34 +23,40 @@ class FilterDrawer extends StatefulWidget {
 }
 
 class _FilterDrawerState extends State<FilterDrawer> {
+  final FocusScopeNode _scope = FocusScopeNode(debugLabel: 'filter-drawer');
+
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_onKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focusSheet());
+  }
+
+  void _focusSheet() {
+    if (!mounted) return;
+    _scope.requestFocus();
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
+    _scope.dispose();
     super.dispose();
-  }
-
-  bool _onKey(KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.escape) {
-      return false;
-    }
-    widget.onClose();
-    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        _scrim(),
-        Align(alignment: Alignment.bottomCenter, child: _sheet(context)),
-      ],
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): widget.onClose,
+      },
+      child: FocusScope(
+        node: _scope,
+        child: Stack(
+          children: [
+            _scrim(),
+            Align(alignment: Alignment.bottomCenter, child: _sheet(context)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -56,6 +64,7 @@ class _FilterDrawerState extends State<FilterDrawer> {
     return Positioned.fill(
       child: ExcludeSemantics(
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: widget.onClose,
           child: const ColoredBox(color: albumModalScrim),
         ),
@@ -64,7 +73,7 @@ class _FilterDrawerState extends State<FilterDrawer> {
   }
 
   Widget _sheet(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.75;
+    final height = MediaQuery.sizeOf(context).height * widget.heightFactor;
     return Material(
       color: albumParchment,
       child: SizedBox(
