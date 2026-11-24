@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/family_thread_density.dart';
@@ -12,6 +13,7 @@ import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 import 'thread_keyboard.dart';
+import 'thread_pointer_handler.dart';
 
 const threadPhoneBreakpoint = 600.0;
 const _browseExtent = 64.0;
@@ -203,11 +205,12 @@ class _ThreadViewState extends State<ThreadView>
       container: true,
       explicitChildNodes: true,
       label: FamilyThreadCopy.threadList(widget.stories.length),
-      child: ListView.builder(
+      child: _ThreadList(
         controller: _scroll,
         itemExtent: _extent,
         padding: EdgeInsets.symmetric(vertical: pad),
         itemCount: _beats.length,
+        onDensityDelta: widget.onDensityDelta,
         itemBuilder: (context, index) =>
             _row(index, phone: width < threadPhoneBreakpoint),
       ),
@@ -348,6 +351,32 @@ class _ThreadViewState extends State<ThreadView>
             ? _decadeMark(threadDecadeOfYear(_yearOf(beat)))
             : const SizedBox.shrink(),
     };
+  }
+}
+
+class _ThreadList extends ListView {
+  _ThreadList({
+    required ScrollController super.controller,
+    required super.itemExtent,
+    required super.padding,
+    required int super.itemCount,
+    required super.itemBuilder,
+    required this.onDensityDelta,
+  }) : super.builder();
+
+  final ValueChanged<int>? onDensityDelta;
+
+  @override
+  Widget buildViewport(
+    BuildContext context,
+    ViewportOffset offset,
+    AxisDirection axisDirection,
+    List<Widget> slivers,
+  ) {
+    return ThreadPointerHandler(
+      onDensityDelta: onDensityDelta,
+      child: super.buildViewport(context, offset, axisDirection, slivers),
+    );
   }
 }
 

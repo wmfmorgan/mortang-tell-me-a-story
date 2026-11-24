@@ -30,6 +30,8 @@ import '../../features/family/manage_families_page.dart';
 import '../../features/family/manage_family_page.dart';
 import '../../features/search/search_recents.dart';
 import '../../features/stories/story_reader_page.dart';
+import '../../data/timeline_live.dart';
+import '../../features/family_thread/family_thread_page.dart';
 import '../../features/timeline/timeline_page.dart';
 import '../../data/search_api.dart';
 import '../theme/album_theme.dart';
@@ -170,6 +172,7 @@ abstract final class AppRoutes {
   static const magicLink = '/';
   static const familyLanding = '/family';
   static const timeline = '/timeline';
+  static const familyThread = '/family-thread';
   static const allStories = '/family/:id/stories';
 
   static String allStoriesPath(String familyId) => '/family/$familyId/stories';
@@ -327,6 +330,13 @@ GoRouter createAppRouter({
         ),
       ),
       GoRoute(
+        path: AppRoutes.familyThread,
+        builder: (context, state) => _FamilyThreadRoute(
+          storiesApi: storiesApi,
+          familiesApi: familiesApi,
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.allStories,
         builder: (context, state) => AllStoriesPage(
           familyId: state.pathParameters['id']!,
@@ -472,4 +482,46 @@ GoRouter createAppRouter({
 
 String? _signedInUserId() {
   return readAuthUserId();
+}
+
+class _FamilyThreadRoute extends StatefulWidget {
+  const _FamilyThreadRoute({this.storiesApi, this.familiesApi});
+
+  final StoriesGateway? storiesApi;
+  final FamiliesGateway? familiesApi;
+
+  @override
+  State<_FamilyThreadRoute> createState() => _FamilyThreadRouteState();
+}
+
+class _FamilyThreadRouteState extends State<_FamilyThreadRoute> {
+  late final TimelineLive _live = _familyThreadLive(widget.storiesApi);
+
+  @override
+  Widget build(BuildContext context) {
+    return FamilyThreadPage(
+      storiesApi: widget.storiesApi,
+      familiesApi: widget.familiesApi,
+      live: _live,
+    );
+  }
+}
+
+TimelineLive _familyThreadLive(StoriesGateway? storiesApi) {
+  if (storiesApi == null) return SupabaseTimelineLive();
+  return _HeldTimelineLive();
+}
+
+class _HeldTimelineLive implements TimelineLive {
+  @override
+  void watch({required String familyId, required void Function() onChange}) {}
+
+  @override
+  void watchStory({
+    required String storyId,
+    required void Function() onChange,
+  }) {}
+
+  @override
+  void dispose() {}
 }
