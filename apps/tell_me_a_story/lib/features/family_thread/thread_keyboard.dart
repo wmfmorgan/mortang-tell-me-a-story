@@ -4,18 +4,20 @@ import 'package:flutter/widgets.dart';
 class ThreadKeyboard extends StatefulWidget {
   const ThreadKeyboard({
     super.key,
-    required this.onBeatDelta,
-    required this.onFirst,
-    required this.onLast,
+    required this.onBeat,
+    required this.beatCount,
+    required this.currentIndex,
+    required this.matches,
     required this.child,
     this.onDensityDelta,
     this.onDrill,
     this.focusRequest = 0,
   });
 
-  final ValueChanged<int> onBeatDelta;
-  final VoidCallback onFirst;
-  final VoidCallback onLast;
+  final ValueChanged<int> onBeat;
+  final int beatCount;
+  final int Function() currentIndex;
+  final bool Function(int index) matches;
   final ValueChanged<int>? onDensityDelta;
   final VoidCallback? onDrill;
   final int focusRequest;
@@ -61,17 +63,13 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
   bool _run(_KeyAction action) {
     switch (action) {
       case _KeyAction.previous:
-        widget.onBeatDelta(-1);
-        return true;
+        return _go(_step(widget.currentIndex(), -1));
       case _KeyAction.next:
-        widget.onBeatDelta(1);
-        return true;
+        return _go(_step(widget.currentIndex(), 1));
       case _KeyAction.first:
-        widget.onFirst();
-        return true;
+        return _go(_step(-1, 1));
       case _KeyAction.last:
-        widget.onLast();
-        return true;
+        return _go(_step(widget.beatCount, -1));
       case _KeyAction.finer:
       case _KeyAction.coarser:
         final onDensity = widget.onDensityDelta;
@@ -84,6 +82,21 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
         onDrill();
         return true;
     }
+  }
+
+  bool _go(int? index) {
+    if (index == null) return true;
+    widget.onBeat(index);
+    return true;
+  }
+
+  int? _step(int from, int delta) {
+    var index = from + delta;
+    while (index >= 0 && index < widget.beatCount) {
+      if (widget.matches(index)) return index;
+      index += delta;
+    }
+    return null;
   }
 
   @override

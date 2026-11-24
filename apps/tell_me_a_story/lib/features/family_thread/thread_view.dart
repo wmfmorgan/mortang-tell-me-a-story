@@ -5,6 +5,7 @@ import '../../core/theme/album_theme.dart';
 import '../../data/family_thread_density.dart';
 import '../../data/stories_api.dart';
 import 'family_thread_copy.dart';
+import 'no_match_card.dart';
 import 'thread_band.dart';
 import 'thread_beat.dart';
 import 'thread_beat_model.dart';
@@ -13,6 +14,7 @@ import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 import 'thread_keyboard.dart';
+import 'thread_filter.dart';
 import 'thread_pointer_handler.dart';
 
 const threadPhoneBreakpoint = 600.0;
@@ -51,6 +53,8 @@ class ThreadView extends StatefulWidget {
     this.ringToken = 0,
     this.focusRequest = 0,
     this.now,
+    this.filter = ThreadFilter.cleared,
+    this.onClearFilter,
   });
 
   final List<Story> stories;
@@ -72,6 +76,8 @@ class ThreadView extends StatefulWidget {
   final int ringToken;
   final int focusRequest;
   final Duration Function()? now;
+  final ThreadFilter filter;
+  final VoidCallback? onClearFilter;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -90,6 +96,7 @@ class _ThreadViewState extends State<ThreadView>
   var _extent = _browseExtent;
   var _viewport = -1.0;
   var _centrePending = true;
+  var _noneMatch = false;
 
   @override
   void initState() {
@@ -111,7 +118,10 @@ class _ThreadViewState extends State<ThreadView>
     final storiesChanged = !identical(oldWidget.stories, widget.stories);
     final densityChanged = oldWidget.density != widget.density;
     final focusChanged = oldWidget.focusStoryId != widget.focusStoryId;
-    if (!storiesChanged && !densityChanged && !focusChanged) return;
+    final filterChanged = oldWidget.filter != widget.filter;
+    if (!storiesChanged && !densityChanged && !focusChanged && !filterChanged) {
+      return;
+    }
     _bind(
       rebuildModel: storiesChanged,
       regroup: storiesChanged || densityChanged,
@@ -133,7 +143,36 @@ class _ThreadViewState extends State<ThreadView>
     if (regroup) _beats = _model.beatsFor(widget.density);
     _extent = _extentFor(widget.density);
     _focusId = widget.focusStoryId ?? _newestId(widget.stories);
+    _noneMatch = _noStoriesMatch();
+    _retargetFocus();
     _focusIndex = _indexOfFocus();
+  }
+
+  void _retargetFocus() {
+    final current = _storyById(_focusId);
+    if (current == null || widget.filter.matches(current)) return;
+    final matched = <Story>[
+      for (final story in widget.stories)
+        if (widget.filter.matches(story)) story,
+    ];
+    if (matched.isEmpty) return;
+    final anchor = current.publishedStart;
+    final nearest = ThreadFocus.nearestInTime(matched, anchor);
+    if (nearest == null) return;
+    _focusId = nearest.id;
+    final id = nearest.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onFocusChanged?.call(id);
+    });
+  }
+
+  Story? _storyById(String? id) {
+    if (id == null) return null;
+    for (final story in widget.stories) {
+      if (story.id == id) return story;
+    }
+    return null;
   }
 
   void _applyExtent() {
@@ -160,15 +199,24 @@ class _ThreadViewState extends State<ThreadView>
 
   @override
   Widget build(BuildContext context) {
+    if (_noneMatch) {
+      return NoMatchCard(onClear: widget.onClearFilter);
+    }
     return ThreadKeyboard(
-      onBeatDelta: _onBeatDelta,
-      onFirst: () => _moveBeat(0),
-      onLast: () => _moveBeat(_beats.length - 1),
+      onBeat: _moveBeat,
+      beatCount: _beats.length,
+      currentIndex: _nearestIndex,
+      matches: _matchesIndex,
       onDensityDelta: widget.onDensityDelta,
       onDrill: widget.onBeat == null ? null : _drill,
       focusRequest: widget.focusRequest,
       child: _scene(),
     );
+  }
+
+  bool _noStoriesMatch() {
+    if (!widget.filter.isActive) return false;
+    return widget.filter.countStories(widget.stories).n == 0;
   }
 
   void _drill() {
@@ -239,14 +287,18 @@ class _ThreadViewState extends State<ThreadView>
     });
   }
 
-  void _onBeatDelta(int delta) {
-    final current = ThreadCenter.nearestIndex(
+  int _nearestIndex() {
+    return ThreadCenter.nearestIndex(
       _scroll.hasClients ? _scroll.offset : 0,
       _beats.length,
       _viewport,
       _extent,
     );
-    _moveBeat(current + delta);
+  }
+
+  bool _matchesIndex(int index) {
+    if (index < 0 || index >= _beats.length) return false;
+    return widget.filter.matchesBeat(_beats[index]);
   }
 
   void _moveBeat(int index) {
@@ -257,6 +309,7 @@ class _ThreadViewState extends State<ThreadView>
       viewport: _viewport,
       focusId: _focusId,
       reducedMotion: MediaQuery.disableAnimationsOf(context),
+      filter: widget.filter,
     );
   }
 
@@ -268,6 +321,7 @@ class _ThreadViewState extends State<ThreadView>
       viewport: _viewport,
       focusId: _focusId,
       reducedMotion: MediaQuery.disableAnimationsOf(context),
+      filter: widget.filter,
     );
     return false;
   }
@@ -335,6 +389,7 @@ class _ThreadViewState extends State<ThreadView>
       focusStoryId: _focusId,
       distance: (index - _focusIndex).abs(),
       ringToken: widget.ringToken,
+      filter: widget.filter,
       onBeat: onBeat == null
           ? null
           : ({required bool focused}) => onBeat(beat, focused: focused),

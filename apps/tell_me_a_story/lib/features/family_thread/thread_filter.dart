@@ -1,5 +1,6 @@
 import '../../data/stories_api.dart';
 import '../all_stories/all_stories_logic.dart';
+import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 
 class ThreadFilter {
@@ -55,6 +56,15 @@ class ThreadFilter {
     return personIds.length + placeIds.length + range + query;
   }
 
+  bool matchesBeat(ThreadBeat beat) {
+    if (!isActive) return true;
+    return switch (beat) {
+      StoryBeat(:final story) => matches(story),
+      DecadeBeat(:final stories) ||
+      YearBeat(:final stories) => stories.any(matches),
+    };
+  }
+
   bool matches(Story story) {
     return _peopleMatch(story) &&
         _placeMatches(story) &&
@@ -87,4 +97,27 @@ class ThreadFilter {
     if (to != null && decade > to) return false;
     return true;
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ThreadFilter &&
+        search == other.search &&
+        decadeFrom == other.decadeFrom &&
+        decadeTo == other.decadeTo &&
+        _sameIds(personIds, other.personIds) &&
+        _sameIds(placeIds, other.placeIds);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    search,
+    decadeFrom,
+    decadeTo,
+    Object.hashAllUnordered(personIds),
+    Object.hashAllUnordered(placeIds),
+  );
+}
+
+bool _sameIds(Set<String> left, Set<String> right) {
+  return left.length == right.length && left.containsAll(right);
 }

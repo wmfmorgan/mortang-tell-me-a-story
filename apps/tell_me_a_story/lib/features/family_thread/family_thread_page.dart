@@ -452,6 +452,8 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       onCard: _onCard,
       onOpen: () => _openReader(_focusId),
       onMore: _onMore,
+      filter: _filter,
+      onClearFilter: () => _setFilter(ThreadFilter.cleared),
     );
   }
 

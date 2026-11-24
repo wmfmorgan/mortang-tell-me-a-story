@@ -1,12 +1,17 @@
 import '../../data/stories_api.dart';
 import 'thread_beat.dart';
+import 'thread_filter.dart';
 
 abstract final class ThreadFocus {
-  static Story representative(ThreadBeat beat, {String? previousFocusId}) {
+  static Story representative(
+    ThreadBeat beat, {
+    String? previousFocusId,
+    ThreadFilter filter = ThreadFilter.cleared,
+  }) {
     return switch (beat) {
       StoryBeat(:final story) => story,
-      DecadeBeat(:final stories) => _kept(stories, previousFocusId),
-      YearBeat(:final stories) => _kept(stories, previousFocusId),
+      DecadeBeat(:final stories) => _kept(stories, previousFocusId, filter),
+      YearBeat(:final stories) => _kept(stories, previousFocusId, filter),
     };
   }
 
@@ -28,7 +33,7 @@ abstract final class ThreadFocus {
   }
 
   static Story browseCardStory(YearBeat beat, {String? focusId}) {
-    return _kept(beat.stories, focusId);
+    return _kept(beat.stories, focusId, ThreadFilter.cleared);
   }
 
   static Story? moreTarget(YearBeat beat, Story cardStory) {
@@ -38,11 +43,14 @@ abstract final class ThreadFocus {
   }
 }
 
-Story _kept(List<Story> stories, String? focusId) {
+Story _kept(List<Story> stories, String? focusId, ThreadFilter filter) {
   if (focusId != null) {
     for (final story in stories) {
-      if (story.id == focusId) return story;
+      if (story.id == focusId && filter.matches(story)) return story;
     }
+  }
+  for (final story in stories) {
+    if (filter.matches(story)) return story;
   }
   return stories.first;
 }

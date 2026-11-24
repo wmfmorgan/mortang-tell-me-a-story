@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'thread_beat.dart';
 import 'thread_center.dart';
+import 'thread_filter.dart';
 import 'thread_focus.dart';
 
 enum _SnapPhase { idle, dragging, snapping }
@@ -42,6 +43,7 @@ class ThreadFocusController {
     required double viewport,
     required String? focusId,
     required bool reducedMotion,
+    ThreadFilter filter = ThreadFilter.cleared,
   }) {
     if (_applying || notification.depth != 0) return;
     final drag = switch (notification) {
@@ -70,18 +72,18 @@ class ThreadFocusController {
         viewport: viewport,
         focusId: focusId,
         reducedMotion: reducedMotion,
+        filter: filter,
       );
       return;
     }
-    if (_phase == _SnapPhase.dragging || _phase == _SnapPhase.snapping) {
-      return;
-    }
+    if (_phase == _SnapPhase.dragging || _phase == _SnapPhase.snapping) return;
     _snap(
       beats: beats,
       extent: extent,
       viewport: viewport,
       focusId: focusId,
       reducedMotion: reducedMotion,
+      filter: filter,
     );
   }
 
@@ -91,6 +93,7 @@ class ThreadFocusController {
     required double viewport,
     required String? focusId,
     required bool reducedMotion,
+    required ThreadFilter filter,
   }) {
     _phase = _SnapPhase.idle;
     if (reducedMotion) {
@@ -100,6 +103,7 @@ class ThreadFocusController {
         viewport: viewport,
         focusId: focusId,
         reducedMotion: reducedMotion,
+        filter: filter,
       );
       return;
     }
@@ -116,6 +120,7 @@ class ThreadFocusController {
         viewport: viewport,
         focusId: focusId,
         reducedMotion: reducedMotion,
+        filter: filter,
       );
     });
   }
@@ -126,6 +131,7 @@ class ThreadFocusController {
     required double viewport,
     required String? focusId,
     required bool reducedMotion,
+    required ThreadFilter filter,
   }) {
     if (_phase == _SnapPhase.dragging) return;
     moveToBeat(
@@ -140,6 +146,7 @@ class ThreadFocusController {
       viewport: viewport,
       focusId: focusId,
       reducedMotion: reducedMotion,
+      filter: filter,
     );
   }
 
@@ -150,17 +157,36 @@ class ThreadFocusController {
     required double viewport,
     required String? focusId,
     required bool reducedMotion,
+    ThreadFilter filter = ThreadFilter.cleared,
   }) {
     if (!scroll.hasClients || beats.isEmpty || viewport <= 0 || extent <= 0) {
       return;
     }
-    final clamped = index.clamp(0, beats.length - 1).toInt();
+    final landed = _landOn(index, beats, filter);
     _moveTo(
-      ThreadCenter.centerOffset(clamped, beats.length, viewport, extent),
-      ThreadFocus.representative(beats[clamped], previousFocusId: focusId).id,
+      ThreadCenter.centerOffset(landed, beats.length, viewport, extent),
+      ThreadFocus.representative(
+        beats[landed],
+        previousFocusId: focusId,
+        filter: filter,
+      ).id,
       focusId,
       reducedMotion,
     );
+  }
+
+  int _landOn(int index, List<ThreadBeat> beats, ThreadFilter filter) {
+    final clamped = index.clamp(0, beats.length - 1).toInt();
+    if (filter.matchesBeat(beats[clamped])) return clamped;
+    for (var distance = 1; distance < beats.length; distance++) {
+      final later = clamped + distance;
+      final earlier = clamped - distance;
+      if (later < beats.length && filter.matchesBeat(beats[later])) {
+        return later;
+      }
+      if (earlier >= 0 && filter.matchesBeat(beats[earlier])) return earlier;
+    }
+    return clamped;
   }
 
   void _moveTo(

@@ -3,6 +3,7 @@ import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat_model.dart';
+import 'package:tell_me_a_story/features/family_thread/thread_filter.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_focus.dart';
 
 void main() {
@@ -38,6 +39,24 @@ void main() {
       'keep',
     );
   });
+
+  test(
+    'year beat picks the matching story over a non-matching previousFocusId',
+    () {
+      final other = _story('other', DateTime.utc(1996, 1, 1));
+      final ada = _story('ada-story', DateTime.utc(1996, 8, 1), person: 'ada');
+      final year = YearBeat(year: 1996, stories: [other, ada]);
+
+      expect(
+        ThreadFocus.representative(
+          year,
+          previousFocusId: 'other',
+          filter: const ThreadFilter(personIds: {'ada'}),
+        ).id,
+        'ada-story',
+      );
+    },
+  );
 
   test('nearest in time picks the newer on a tie', () {
     final target = DateTime.utc(1990, 6, 1);
@@ -109,12 +128,13 @@ void main() {
   );
 }
 
-Story _story(String id, DateTime start) {
+Story _story(String id, DateTime start, {String? person}) {
   return Story(
     id: id,
     familyId: 'family',
     authorId: 'author',
     status: StoryStatus.published,
     timeframeStart: start,
+    personIds: [?person],
   );
 }
