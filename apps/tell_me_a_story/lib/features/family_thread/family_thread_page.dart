@@ -170,6 +170,12 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     });
   }
 
+  void _nudgeDensity(int delta) {
+    final next = _density.index + delta;
+    if (next < 0 || next >= FamilyThreadDensity.values.length) return;
+    _setDensity(FamilyThreadDensity.values[next]);
+  }
+
   String? get _sessionUserId {
     final currentUserId = widget.currentUserId;
     if (currentUserId != null) return currentUserId();
@@ -272,6 +278,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       density: _density,
       focusStoryId: _focusId,
       onFocusChanged: _onScrollFocus,
+      onDensityDelta: _nudgeDensity,
     );
   }
 }
