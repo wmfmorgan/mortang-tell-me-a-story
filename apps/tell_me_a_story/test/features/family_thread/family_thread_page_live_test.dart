@@ -15,7 +15,7 @@ void main() {
 
   testWidgets('onChange triggers one listPublished reload', (tester) async {
     final stories = ThreadStories([threadStory('a', 2000, 'Before')]);
-    final live = QuietTimelineLive();
+    final live = FakeTimelineLive();
     await tester.pumpWidget(_host(stories, live));
     await tester.pumpAndSettle();
 
@@ -38,7 +38,7 @@ void main() {
       threadStory('mid', 2000, 'Mid'),
       threadStory('new', 2010, 'Newest'),
     ]);
-    final live = QuietTimelineLive();
+    final live = FakeTimelineLive();
     await tester.pumpWidget(_host(stories, live));
     await tester.pumpAndSettle();
 
@@ -60,7 +60,7 @@ void main() {
 
   testWidgets('returning to the route reloads once', (tester) async {
     final stories = ThreadStories([threadStory('a', 2000, 'Before')]);
-    await tester.pumpWidget(_host(stories, QuietTimelineLive()));
+    await tester.pumpWidget(_host(stories, FakeTimelineLive()));
     await tester.pumpAndSettle();
     stories.listCalls = 0;
 
@@ -79,7 +79,7 @@ void main() {
 
   testWidgets('a failed reload keeps the loaded thread', (tester) async {
     final stories = ThreadStories([threadStory('a', 2000, 'Kept')]);
-    final live = QuietTimelineLive();
+    final live = FakeTimelineLive();
     await tester.pumpWidget(_host(stories, live));
     await tester.pumpAndSettle();
 
@@ -102,7 +102,7 @@ void main() {
       threadStory('early', 1990, 'Early'),
       threadStory('focus', 2000, 'Focused'),
     ]);
-    final live = QuietTimelineLive();
+    final live = FakeTimelineLive();
     await tester.pumpWidget(_host(stories, live));
     await tester.pumpAndSettle();
 
@@ -124,7 +124,7 @@ void main() {
       threadStory('early', 1990, 'Early'),
       threadStory('focus', 2000, 'Focused'),
     ]);
-    final live = QuietTimelineLive();
+    final live = FakeTimelineLive();
     await tester.pumpWidget(_host(stories, live));
     await tester.pumpAndSettle();
 
@@ -140,7 +140,7 @@ void main() {
   });
 }
 
-Widget _host(ThreadStories stories, QuietTimelineLive live) {
+Widget _host(ThreadStories stories, FakeTimelineLive live) {
   return MaterialApp(
     theme: albumTheme(),
     home: FamilyThreadPage(
