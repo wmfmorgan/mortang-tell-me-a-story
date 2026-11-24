@@ -21,8 +21,11 @@ class ThreadFocusController {
   ///
   /// [ScrollController.jumpTo] emits a scroll end. Snapping from that end
   /// starts an animate, and that animate leaves the scrollable ignoring
-  /// pointers after the jump replaces the activity.
+  /// pointers after the jump replaces the activity. The generation bump
+  /// drops an in-flight snap or drag so its completion cannot settle.
   void place(double offset) {
+    _generation += 1;
+    _phase = _SnapPhase.idle;
     if (!scroll.hasClients) return;
     _applying = true;
     try {
@@ -173,13 +176,8 @@ class ThreadFocusController {
     }
     _phase = _SnapPhase.snapping;
     if (reducedMotion) {
-      _applying = true;
-      try {
-        scroll.jumpTo(target);
-      } finally {
-        _applying = false;
-      }
-      _settle(storyId, focusId, generation);
+      place(target);
+      _settle(storyId, focusId, _generation);
       return;
     }
     scroll

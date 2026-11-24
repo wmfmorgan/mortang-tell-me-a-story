@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/app.dart';
 import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/router/auth_refresh.dart';
-import 'package:tell_me_a_story/core/theme/album_header.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_page.dart';
 import 'package:tell_me_a_story/features/timeline/timeline_page.dart';
@@ -31,37 +31,35 @@ void main() {
     expect(find.byType(TimelinePage), findsNothing);
   });
 
-  testWidgets('no widget links to /family-thread', (tester) async {
-    final auth = AuthRefresh(initiallySignedIn: true);
-    final router = testAppRouter(authRefresh: auth);
-    addTearDown(auth.dispose);
-
-    await tester.pumpWidget(TellMeAStoryApp(router: router));
-    await tester.pumpAndSettle();
-    router.go(AppRoutes.timeline);
-    await tester.pumpAndSettle();
-
-    expect(_pathHits(tester, find.byType(TimelinePage)), isEmpty);
-    expect(_pathHits(tester, find.byType(AlbumHeader)), isEmpty);
-    expect(find.byType(FamilyThreadPage), findsNothing);
+  test('no widget links to /family-thread', () {
+    final libDir = Directory('lib');
+    expect(
+      libDir.existsSync(),
+      isTrue,
+      reason: 'run from apps/tell_me_a_story',
+    );
+    final hits = <String>[];
+    for (final entity in libDir.listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final relative = _libRelative(entity.path);
+      if (relative == 'core/router/app_router.dart') continue;
+      final source = entity.readAsStringSync();
+      if (source.contains('AppRoutes.familyThread') ||
+          source.contains('/family-thread')) {
+        hits.add(relative);
+      }
+    }
+    expect(hits, isEmpty);
   });
 }
 
-List<String> _pathHits(WidgetTester tester, Finder root) {
-  final hits = <String>[];
-  void visit(Element element) {
-    final widget = element.widget;
-    final text = widget is Text ? widget.data ?? '' : '';
-    final label = widget is Semantics ? widget.properties.label ?? '' : '';
-    final described = widget.toString();
-    if (text.contains('/family-thread') ||
-        label.contains('/family-thread') ||
-        described.contains('/family-thread')) {
-      hits.add('${widget.runtimeType}');
-    }
-    element.visitChildren(visit);
+String _libRelative(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  const marker = 'lib/';
+  final index = normalized.lastIndexOf('/$marker');
+  if (index >= 0) return normalized.substring(index + marker.length + 1);
+  if (normalized.startsWith(marker)) {
+    return normalized.substring(marker.length);
   }
-
-  visit(tester.element(root));
-  return hits;
+  return normalized;
 }

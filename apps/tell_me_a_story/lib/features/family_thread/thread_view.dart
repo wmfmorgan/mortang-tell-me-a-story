@@ -357,6 +357,9 @@ class _ThreadViewState extends State<ThreadView>
   }
 }
 
+/// A [Listener] outside the list loses the pointer-signal race, because the
+/// inner [Scrollable] registers first. The handler has to sit under that
+/// scrollable, which means this list builds the viewport itself.
 class _ThreadList extends ListView {
   _ThreadList({
     required ScrollController super.controller,

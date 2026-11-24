@@ -2,7 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tell_me_a_story/core/router/app_router.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
@@ -45,6 +47,49 @@ void main() {
       PointerScaleEvent(position: center, scale: 2),
     );
     expect(steps, [-1, 1]);
+  });
+
+  testWidgets('wheel gap resets a partial accumulation', (tester) async {
+    final steps = <int>[];
+    var time = Duration.zero;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: ThreadPointerHandler(
+          now: () => time,
+          onDensityDelta: steps.add,
+          child: const SizedBox(width: 200, height: 200),
+        ),
+      ),
+    );
+    final center = tester.getCenter(find.byType(ThreadPointerHandler));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await _wheel(tester, center, const Offset(0, -30));
+    time += const Duration(milliseconds: 121);
+    await _wheel(tester, center, const Offset(0, -30));
+    expect(steps, isEmpty);
+    await _wheel(tester, center, const Offset(0, -30));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(steps, [1]);
+  });
+
+  testWidgets('non positive scale holds the pinch', (tester) async {
+    final steps = <int>[];
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: ThreadPointerHandler(
+          now: () => Duration.zero,
+          onDensityDelta: steps.add,
+          child: const SizedBox(width: 200, height: 200),
+        ),
+      ),
+    );
+    final center = tester.getCenter(find.byType(ThreadPointerHandler));
+    await _scale(tester, center, 0.9);
+    await _scale(tester, center, 0);
+    await _scale(tester, center, 0.9);
+    expect(steps, [-1]);
   });
 
   testWidgets('ctrl wheel over thread steps density once and does not scroll', (
@@ -119,6 +164,38 @@ void main() {
     expect(find.bySemanticsLabel('Showing Browse'), findsOneWidget);
     expect(find.bySemanticsLabel('Showing Read'), findsNothing);
   });
+
+  testWidgets('card tap lands after a density change', (tester) async {
+    final home = _page();
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => home),
+        GoRoute(
+          path: '/stories/:storyId',
+          builder: (_, state) =>
+              Text('opened ${state.pathParameters['storyId']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      MaterialApp.router(theme: albumTheme(), routerConfig: router),
+    );
+    await tester.pumpAndSettle();
+
+    await _key(tester, LogicalKeyboardKey.equal);
+    expect(find.bySemanticsLabel('Showing Read'), findsOneWidget);
+
+    await _pinch(tester, 0.5);
+    await _pinch(tester, 0.5);
+    await tester.pump();
+    expect(find.bySemanticsLabel('Showing Browse'), findsOneWidget);
+
+    await tester.tap(find.text('Newest'));
+    await tester.pumpAndSettle();
+    expect(find.text('opened new'), findsOneWidget);
+    expect(router.state.uri.path, AppRoutes.storyPath('new'));
+  });
 }
 
 Future<void> _pump(WidgetTester tester) async {
@@ -146,6 +223,18 @@ Future<void> _ctrlWheel(
 Future<void> _pinch(WidgetTester tester, double scale) {
   return tester.sendEventToBinding(
     PointerScaleEvent(position: _threadAt(tester), scale: scale),
+  );
+}
+
+Future<void> _wheel(WidgetTester tester, Offset position, Offset delta) {
+  return tester.sendEventToBinding(
+    PointerScrollEvent(position: position, scrollDelta: delta),
+  );
+}
+
+Future<void> _scale(WidgetTester tester, Offset position, double scale) {
+  return tester.sendEventToBinding(
+    PointerScaleEvent(position: position, scale: scale),
   );
 }
 
