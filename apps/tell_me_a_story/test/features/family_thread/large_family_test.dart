@@ -41,7 +41,14 @@ void main() {
       expect(find.text('S599'), findsOneWidget);
       expect(photos.calls, isNot(contains('p/300.jpg')));
       expect(photos.calls, contains('p/599.jpg'));
-      expect(photos.calls.length, lessThan(40));
+      // The test surface is 600pt tall and browse rows are 64pt, so one
+      // screen is 10 beats. The bound covers that screen, the list head
+      // built before centering, the focused neighborhood, and the list
+      // cache, and stays far below the 600-story library.
+      const browseRowPx = 64.0;
+      const surfaceHeightPx = 600.0;
+      final onScreen = (surfaceHeightPx / browseRowPx).ceil();
+      expect(photos.calls.length, lessThan(onScreen * 4));
     },
   );
 }

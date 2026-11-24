@@ -8,6 +8,9 @@ import 'quote_card.dart';
 import 'thread_photo.dart';
 import 'thread_photo_cache.dart';
 
+/// Decode width for the 4:3 cover. A read row is 124pt; 480 covers a 3x screen.
+const _coverDecodePx = 480;
+
 class PhotoCover extends StatelessWidget {
   const PhotoCover({
     super.key,
@@ -15,18 +18,17 @@ class PhotoCover extends StatelessWidget {
     required this.photos,
     required this.cache,
     required this.line,
+    required this.onQuote,
   });
 
   final Story story;
   final PhotosGateway Function() photos;
   final ThreadPhotoCache cache;
   final String line;
+  final ValueChanged<bool> onQuote;
 
   @override
   Widget build(BuildContext context) {
-    final version = story.photoEditVersions.isEmpty
-        ? 0
-        : story.photoEditVersions.first;
     final alt = FamilyThreadCopy.photoAlt(story.title ?? '');
     return Semantics(
       label: alt.isEmpty ? null : alt,
@@ -41,15 +43,49 @@ class PhotoCover extends StatelessWidget {
             photos: photos(),
             cache: cache,
             path: story.photoPaths.first,
-            editVersion: version,
-            displayPx: 480,
-            fallback: (_) => FittedBox(
-              fit: BoxFit.scaleDown,
-              child: QuoteCard(line: line),
-            ),
+            editVersion: threadPhotoVersion(story, 0),
+            displayPx: _coverDecodePx,
+            fallback: (_) => _CoverQuote(line: line, onQuote: onQuote),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CoverQuote extends StatefulWidget {
+  const _CoverQuote({required this.line, required this.onQuote});
+
+  final String line;
+  final ValueChanged<bool> onQuote;
+
+  @override
+  State<_CoverQuote> createState() => _CoverQuoteState();
+}
+
+class _CoverQuoteState extends State<_CoverQuote> {
+  @override
+  void initState() {
+    super.initState();
+    _report(true);
+  }
+
+  @override
+  void dispose() {
+    _report(false);
+    super.dispose();
+  }
+
+  void _report(bool showing) {
+    final report = widget.onQuote;
+    WidgetsBinding.instance.addPostFrameCallback((_) => report(showing));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: QuoteCard(line: widget.line),
     );
   }
 }

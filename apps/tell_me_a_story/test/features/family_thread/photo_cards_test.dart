@@ -8,7 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/photos_api.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/family_thread/photo_cover.dart';
 import 'package:tell_me_a_story/features/family_thread/photo_fan.dart';
+import 'package:tell_me_a_story/features/family_thread/thread_photo.dart';
 import 'package:tell_me_a_story/features/family_thread/story_card.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
@@ -78,6 +80,108 @@ void main() {
     expect(find.text('Only the roof'), findsOneWidget);
   });
 
+  testWidgets('multi-line body keeps lines after the quote', (tester) async {
+    await tester.pumpWidget(
+      _card(
+        _story(
+          's',
+          1996,
+          'Picnic',
+          body: 'Rain on the roof\nThen quiet\nAnd more',
+        ),
+        showBody: true,
+      ),
+    );
+
+    expect(find.text('Rain on the roof'), findsOneWidget);
+    expect(find.text('Then quiet\nAnd more'), findsOneWidget);
+  });
+
+  testWidgets('loaded cover keeps the full body', (tester) async {
+    final photos = _Photos();
+    await tester.pumpWidget(
+      _card(
+        _story(
+          's',
+          1996,
+          'Picnic',
+          body: 'Rain on the roof\nThen quiet',
+          paths: const ['ok.jpg'],
+        ),
+        photos: () => photos,
+        cache: ThreadPhotoCache(),
+        showBody: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.byKey(const Key('quote-card')), findsNothing);
+    expect(find.text('Rain on the roof\nThen quiet'), findsOneWidget);
+  });
+
+  testWidgets('failed cover shows its line once when the body is open', (
+    tester,
+  ) async {
+    final photos = _Photos(fail: {'gone.jpg'});
+    await tester.pumpWidget(
+      _card(
+        _story(
+          's',
+          1996,
+          'Picnic',
+          body: 'The first line',
+          paths: const ['gone.jpg'],
+        ),
+        photos: () => photos,
+        cache: ThreadPhotoCache(),
+        showBody: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('quote-card')), findsOneWidget);
+    expect(find.text('The first line'), findsOneWidget);
+  });
+
+  testWidgets('two photos with a gateway render a fan', (tester) async {
+    final photos = _Photos();
+    await tester.pumpWidget(
+      _card(
+        _story('s', 1996, 'Picnic', paths: const ['a.jpg', 'b.jpg']),
+        photos: () => photos,
+        cache: ThreadPhotoCache(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PhotoFan), findsOneWidget);
+    expect(find.byKey(const Key('quote-card')), findsNothing);
+    expect(find.byType(Image), findsNWidgets(2));
+  });
+
+  testWidgets('photos with a null gateway or cache render the quote card', (
+    tester,
+  ) async {
+    final story = _story(
+      's',
+      1996,
+      'Picnic',
+      body: 'Kept',
+      paths: const ['a.jpg'],
+    );
+
+    await tester.pumpWidget(_card(story, photos: () => _Photos()));
+    expect(find.byKey(const Key('quote-card')), findsOneWidget);
+    expect(find.byType(PhotoFan), findsNothing);
+    expect(find.byType(PhotoCover), findsNothing);
+
+    await tester.pumpWidget(_card(story, cache: ThreadPhotoCache()));
+    expect(find.byKey(const Key('quote-card')), findsOneWidget);
+    expect(find.byType(PhotoFan), findsNothing);
+    expect(find.byType(PhotoCover), findsNothing);
+  });
+
   testWidgets('failed photo falls back to quote card', (tester) async {
     final photos = _Photos(fail: {'gone.jpg'});
     await tester.pumpWidget(
@@ -123,6 +227,20 @@ void main() {
 
     expect(find.bySemanticsLabel('1996, Ada, 3 photos'), findsOneWidget);
     expect(find.bySemanticsLabel('1997, Bea, 1 photo'), findsOneWidget);
+  });
+
+  test('photo version is the edit version at that index, else 0', () {
+    final story = _story(
+      's',
+      1996,
+      'Picnic',
+      paths: const ['a.jpg', 'b.jpg'],
+      versions: const [4, 9],
+    );
+
+    expect(threadPhotoVersion(story, 0), 4);
+    expect(threadPhotoVersion(story, 1), 9);
+    expect(threadPhotoVersion(story, 2), 0);
   });
 }
 
@@ -195,6 +313,7 @@ Story _story(
   String title, {
   String? body,
   List<String> paths = const [],
+  List<int>? versions,
 }) {
   return Story(
     id: id,
@@ -206,7 +325,7 @@ Story _story(
     title: title,
     body: body,
     photoPaths: paths,
-    photoEditVersions: [for (final _ in paths) 0],
+    photoEditVersions: versions ?? [for (final _ in paths) 0],
   );
 }
 

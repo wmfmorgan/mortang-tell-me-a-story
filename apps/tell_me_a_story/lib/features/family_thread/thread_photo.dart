@@ -14,12 +14,15 @@ const threadMosaicTileFontSize = 16.0;
 /// Decode width cap for [Image.memory] cacheWidth.
 const threadPhotoDecodeCap = 4096;
 
+int threadPhotoVersion(Story story, int index) {
+  final versions = story.photoEditVersions;
+  if (index < 0 || index >= versions.length) return 0;
+  return versions[index];
+}
+
 ({String path, int version})? threadLeadPhoto(Story story) {
   if (story.photoPaths.isEmpty) return null;
-  final version = story.photoEditVersions.isEmpty
-      ? 0
-      : story.photoEditVersions.first;
-  return (path: story.photoPaths.first, version: version);
+  return (path: story.photoPaths.first, version: threadPhotoVersion(story, 0));
 }
 
 String threadInitial(Story story) {

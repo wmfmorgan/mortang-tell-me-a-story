@@ -16,6 +16,10 @@ const _shiftX = 12.0;
 const _shiftY = 6.0;
 const _bleed = 8.0;
 
+/// The +n chip sits this far in from the front print's bottom-right.
+const _chipFromRight = 36.0;
+const _chipFromBottom = 20.0;
+
 class PhotoFan extends StatelessWidget {
   const PhotoFan({
     super.key,
@@ -75,8 +79,8 @@ class PhotoFan extends StatelessWidget {
 
   Widget _chip(int extra) {
     return Positioned(
-      left: _bleed + _shiftX + _frontW - 36,
-      top: _bleed + _shiftY + _frontH - 20,
+      left: _bleed + _shiftX + _frontW - _chipFromRight,
+      top: _bleed + _shiftY + _frontH - _chipFromBottom,
       child: _FanChip(extra: extra),
     );
   }
@@ -107,8 +111,6 @@ class _FanPrint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final versions = story.photoEditVersions;
-    final version = index < versions.length ? versions[index] : 0;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: albumParchment,
@@ -120,7 +122,7 @@ class _FanPrint extends StatelessWidget {
           photos: photos(),
           cache: cache,
           path: story.photoPaths[index],
-          editVersion: version,
+          editVersion: threadPhotoVersion(story, index),
           displayPx: _frontW.round(),
           fallback: (_) => const ColoredBox(color: albumParchment),
         ),

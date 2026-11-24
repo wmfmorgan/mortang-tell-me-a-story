@@ -11,7 +11,7 @@ import 'photo_fan.dart';
 import 'quote_card.dart';
 import 'thread_photo_cache.dart';
 
-class StoryCard extends StatelessWidget {
+class StoryCard extends StatefulWidget {
   const StoryCard({
     super.key,
     required this.story,
@@ -40,6 +40,55 @@ class StoryCard extends StatelessWidget {
   final ThreadPhotoCache? cache;
 
   @override
+  State<StoryCard> createState() => _StoryCardState();
+}
+
+enum _CardArt { none, cover, fan }
+
+/// Browse row height when the card is not given a finite height.
+const _fallbackRowHeight = 64.0;
+
+/// Width kept for the date and title when Open story is absent.
+const _copyReserve = 96.0;
+
+/// Width kept for the date line and the Open story button.
+const _openReserve = 200.0;
+
+/// Narrowest slot that still keeps a 4:3 cover readable.
+const _minSlotWidth = 48.0;
+
+class _StoryCardState extends State<StoryCard> {
+  var _coverQuote = false;
+
+  Story get story => widget.story;
+  Color get ink => widget.ink;
+  String get semanticsLabel => widget.semanticsLabel;
+  String? get moreLabel => widget.moreLabel;
+  bool get showBody => widget.showBody;
+  VoidCallback? get onYear => widget.onYear;
+  VoidCallback? get onCard => widget.onCard;
+  VoidCallback? get onMore => widget.onMore;
+  VoidCallback? get onOpen => widget.onOpen;
+  PhotosGateway Function()? get photos => widget.photos;
+  ThreadPhotoCache? get cache => widget.cache;
+
+  void _setCoverQuote(bool showing) {
+    if (!mounted || _coverQuote == showing) return;
+    setState(() => _coverQuote = showing);
+  }
+
+  @override
+  void didUpdateWidget(StoryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.story == widget.story &&
+        oldWidget.photos == widget.photos &&
+        oldWidget.cache == widget.cache) {
+      return;
+    }
+    _coverQuote = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
@@ -59,44 +108,51 @@ class StoryCard extends StatelessWidget {
   }
 
   Size _slot(BoxConstraints constraints) {
-    final full = constraints.maxHeight.isFinite ? constraints.maxHeight : 64.0;
+    final full = constraints.maxHeight.isFinite
+        ? constraints.maxHeight
+        : _fallbackRowHeight;
     final wanted = full * 4 / 3;
     if (!constraints.maxWidth.isFinite) return Size(wanted, full);
-    final reserve = onOpen == null ? 96.0 : 200.0;
+    final reserve = onOpen == null ? _copyReserve : _openReserve;
     final cap = constraints.maxWidth - reserve;
     if (cap >= wanted) return Size(wanted, full);
-    final width = cap < 48 ? 48.0 : cap;
+    final width = cap < _minSlotWidth ? _minSlotWidth : cap;
     return Size(width, width * 3 / 4);
+  }
+
+  _CardArt get _artKind {
+    if (story.photoPaths.isEmpty || photos == null || cache == null) {
+      return _CardArt.none;
+    }
+    if (story.photoPaths.length == 1) return _CardArt.cover;
+    return _CardArt.fan;
   }
 
   Widget _art() {
     final line = QuoteCard.firstLine(story.body);
     final gateway = photos;
     final store = cache;
-    final count = story.photoPaths.length;
-    if (count == 1 && gateway != null && store != null) {
-      return PhotoCover(
+    return switch (_artKind) {
+      _CardArt.cover when gateway != null && store != null => PhotoCover(
         story: story,
         photos: gateway,
         cache: store,
         line: line,
-      );
-    }
-    final child = count < 2 || gateway == null || store == null
-        ? QuoteCard(line: line)
-        : PhotoFan(story: story, photos: gateway, cache: store);
+        onQuote: _setCoverQuote,
+      ),
+      _CardArt.fan when gateway != null && store != null => _fitted(
+        PhotoFan(story: story, photos: gateway, cache: store),
+      ),
+      _ => _fitted(QuoteCard(line: line)),
+    };
+  }
+
+  Widget _fitted(Widget child) {
     return FittedBox(
       fit: BoxFit.contain,
       alignment: Alignment.centerLeft,
       child: child,
     );
-  }
-
-  bool _quoteOwns(String body) {
-    if (story.photoPaths.isNotEmpty && photos != null && cache != null) {
-      return false;
-    }
-    return QuoteCard.firstLine(body) == body;
   }
 
   Widget _copy(BuildContext context) {
@@ -158,12 +214,12 @@ class StoryCard extends StatelessWidget {
   }
 
   Widget _body(BuildContext context) {
-    final body = story.body?.trim() ?? '';
-    if (body.isEmpty || _quoteOwns(body)) return const SizedBox.shrink();
+    final text = _bodyText();
+    if (text.isEmpty) return const SizedBox.shrink();
     return Flexible(
       child: threadTap(
         Text(
-          body,
+          text,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ink),
@@ -171,6 +227,18 @@ class StoryCard extends StatelessWidget {
         onCard,
       ),
     );
+  }
+
+  String _bodyText() {
+    final body = story.body?.trim() ?? '';
+    if (body.isEmpty) return '';
+    final quote = switch (_artKind) {
+      _CardArt.none => true,
+      _CardArt.fan => false,
+      _CardArt.cover => _coverQuote,
+    };
+    if (!quote) return body;
+    return QuoteCard.remainder(body);
   }
 
   Widget _places(BuildContext context) {

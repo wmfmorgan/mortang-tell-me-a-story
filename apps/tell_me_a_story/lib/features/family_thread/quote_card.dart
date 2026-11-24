@@ -10,17 +10,28 @@ class QuoteCard extends StatelessWidget {
 
   static const designHeight = 56.0;
 
+  /// Design width. The story-card slot scales this with [FittedBox].
+  static const designWidth = 200.0;
+
   static String firstLine(String? body) {
     final raw = body?.trim() ?? '';
     if (raw.isEmpty) return '';
     return raw.split('\n').first.trim();
   }
 
+  /// Lines after [firstLine]. Empty when the body is one line.
+  static String remainder(String? body) {
+    final raw = body?.trim() ?? '';
+    final lines = raw.split('\n');
+    if (lines.length < 2) return '';
+    return lines.skip(1).join('\n').trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('quote-card'),
-      width: 200,
+      width: designWidth,
       height: designHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
