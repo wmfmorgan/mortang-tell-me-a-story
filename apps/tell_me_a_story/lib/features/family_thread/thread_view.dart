@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/family_thread_density.dart';
+import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import 'family_thread_copy.dart';
 import 'no_match_card.dart';
@@ -14,6 +15,7 @@ import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 import 'thread_keyboard.dart';
+import 'thread_photo_cache.dart';
 import 'thread_filter.dart';
 import 'thread_pointer_handler.dart';
 
@@ -55,6 +57,8 @@ class ThreadView extends StatefulWidget {
     this.now,
     this.filter = ThreadFilter.cleared,
     this.onClearFilter,
+    this.photos,
+    this.photoCache,
   });
 
   final List<Story> stories;
@@ -78,6 +82,8 @@ class ThreadView extends StatefulWidget {
   final Duration Function()? now;
   final ThreadFilter filter;
   final VoidCallback? onClearFilter;
+  final PhotosGateway Function()? photos;
+  final ThreadPhotoCache? photoCache;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -390,6 +396,8 @@ class _ThreadViewState extends State<ThreadView>
       distance: (index - _focusIndex).abs(),
       ringToken: widget.ringToken,
       filter: widget.filter,
+      photos: widget.photos,
+      cache: widget.photoCache,
       onBeat: onBeat == null
           ? null
           : ({required bool focused}) => onBeat(beat, focused: focused),

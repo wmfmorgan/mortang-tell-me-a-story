@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
+import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../stories/story_date.dart';
+import 'decade_mosaic.dart';
 import 'family_thread_copy.dart';
 import 'hollow_dot.dart';
 import 'stitch_ring.dart';
@@ -10,6 +12,8 @@ import 'story_card.dart';
 import 'thread_beat.dart';
 import 'thread_filter.dart';
 import 'thread_focus.dart';
+import 'thread_photo_cache.dart';
+import 'year_medallion.dart';
 
 class ThreadBeatTile extends StatelessWidget {
   const ThreadBeatTile({
@@ -23,6 +27,8 @@ class ThreadBeatTile extends StatelessWidget {
     this.onOpen,
     this.onMore,
     this.filter = ThreadFilter.cleared,
+    this.photos,
+    this.cache,
   });
 
   final ThreadBeat beat;
@@ -34,6 +40,8 @@ class ThreadBeatTile extends StatelessWidget {
   final VoidCallback? onOpen;
   final VoidCallback? onMore;
   final ThreadFilter filter;
+  final PhotosGateway Function()? photos;
+  final ThreadPhotoCache? cache;
 
   @override
   Widget build(BuildContext context) {
@@ -87,11 +95,13 @@ class ThreadBeatTile extends StatelessWidget {
         beat: decade,
         ink: ink,
         filter: filter,
+        leading: _mosaic(decade),
       ),
       final YearBeat year => _YearContents(
         beat: year,
         focusStoryId: focusStoryId,
         ink: ink,
+        leading: _medallion(year),
       ),
       final StoryBeat story => _ReadContents(beat: story, ink: ink),
     };
@@ -108,6 +118,30 @@ class ThreadBeatTile extends StatelessWidget {
       onCard: onCard,
       onMore: onMore,
       onOpen: onOpen,
+    );
+  }
+
+  Widget _medallion(YearBeat beat) {
+    return _ImageFade(
+      distance: distance,
+      child: YearMedallion(
+        beat: beat,
+        filter: filter,
+        photos: photos,
+        cache: cache,
+      ),
+    );
+  }
+
+  Widget _mosaic(DecadeBeat beat) {
+    return _ImageFade(
+      distance: distance,
+      child: DecadeMosaic(
+        stories: beat.stories,
+        filter: filter,
+        photos: photos,
+        cache: cache,
+      ),
     );
   }
 
@@ -172,11 +206,13 @@ class _DecadeContents extends StatelessWidget {
     required this.beat,
     required this.ink,
     required this.filter,
+    required this.leading,
   });
 
   final DecadeBeat beat;
   final Color ink;
   final ThreadFilter filter;
+  final Widget leading;
 
   @override
   Widget build(BuildContext context) {
@@ -191,9 +227,18 @@ class _DecadeContents extends StatelessWidget {
           ? text
           : FamilyThreadCopy.decadeBeat(beat.decadeStart, total),
       excludeSemantics: true,
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: ink),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: ink),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -204,11 +249,13 @@ class _YearContents extends StatelessWidget {
     required this.beat,
     required this.focusStoryId,
     required this.ink,
+    required this.leading,
   });
 
   final YearBeat beat;
   final String? focusStoryId;
   final Color ink;
+  final Widget leading;
 
   @override
   Widget build(BuildContext context) {
@@ -218,20 +265,30 @@ class _YearContents extends StatelessWidget {
     return Semantics(
       label: _beatLabel(beat.year, title, story),
       excludeSemantics: true,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text('${beat.year}', style: theme.labelLarge?.copyWith(color: ink)),
-          if (title.isNotEmpty)
-            Text(
-              title,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: theme.titleMedium?.copyWith(color: ink),
-            ),
+          leading,
+          const SizedBox(width: 8),
+          Expanded(child: _copy(theme, title)),
         ],
       ),
+    );
+  }
+
+  Widget _copy(TextTheme theme, String title) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${beat.year}', style: theme.labelLarge?.copyWith(color: ink)),
+        if (title.isNotEmpty)
+          Text(
+            title,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: theme.titleMedium?.copyWith(color: ink),
+          ),
+      ],
     );
   }
 }
@@ -282,4 +339,31 @@ String _beatLabel(int year, String title, Story story) {
   ];
   if (names.isNotEmpty) parts.add(names.join(', '));
   return parts.join(', ');
+}
+
+class _ImageFade extends StatelessWidget {
+  const _ImageFade({required this.distance, required this.child});
+
+  final int distance;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    // P3b forbids Opacity. The thread test rejects that widget.
+    return FadeTransition(
+      opacity: AlwaysStoppedAnimation<double>(
+        reduced ? 1 : _imageOpacity(distance),
+      ),
+      child: child,
+    );
+  }
+}
+
+double _imageOpacity(int distance) {
+  return switch (distance) {
+    0 => 1,
+    1 => 0.6,
+    _ => 0.3,
+  };
 }

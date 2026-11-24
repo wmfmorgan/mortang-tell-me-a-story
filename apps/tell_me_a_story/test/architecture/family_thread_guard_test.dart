@@ -63,6 +63,18 @@ void main() {
     }
     expect(hits, isEmpty, reason: hits.join('\n'));
   });
+  test('no signed or public URL calls in family_thread', () {
+    final banned = RegExp(r'\b(createSignedUrl|getPublicUrl)\s*\(');
+    final hits = <String>[];
+    for (final file in _featureFiles()) {
+      final path = _libPath(file.path);
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (banned.hasMatch(lines[i])) hits.add('$path:${i + 1}');
+      }
+    }
+    expect(hits, isEmpty, reason: hits.join('\n'));
+  });
   test('family_thread imports no supabase_flutter or shared_preferences', () {
     final importLine = RegExp(
       r'''^\s*(import|export)\s+['"]package:(supabase_flutter|shared_preferences)/''',
