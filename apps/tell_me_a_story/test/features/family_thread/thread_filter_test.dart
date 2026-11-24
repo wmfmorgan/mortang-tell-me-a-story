@@ -107,6 +107,32 @@ void main() {
     );
   });
 
+  test('copyWith sets search and decade and clear removes them', () {
+    const filter = ThreadFilter(personIds: {'ada'});
+    final ranged = filter.copyWith(
+      search: 'tractor',
+      decadeFrom: 1990,
+      decadeTo: 1990,
+    );
+    expect(ranged.personIds, {'ada'});
+    expect(
+      ranged.matches(_s('1', 1990, title: 'The tractor', people: [_p('ada')])),
+      isTrue,
+    );
+    expect(
+      ranged.matches(_s('2', 1980, title: 'The tractor', people: [_p('ada')])),
+      isFalse,
+    );
+    final cleared = ranged.copyWith(clearSearch: true, clearDecade: true);
+    expect(cleared.search, isEmpty);
+    expect(cleared.decadeFrom, isNull);
+    expect(cleared.decadeTo, isNull);
+    expect(
+      cleared.matches(_s('2', 1980, title: 'Barn', people: [_p('ada')])),
+      isTrue,
+    );
+  });
+
   test('n of N counts matches over all stories', () {
     const filter = ThreadFilter(decadeFrom: 1980, decadeTo: 1980);
     final stories = [
@@ -117,6 +143,15 @@ void main() {
       _s('5', 1980),
     ];
     expect(filter.countStories(stories), (n: 3, total: 5));
+  });
+
+  test('withPerson and withPlace add an id', () {
+    const filter = ThreadFilter.cleared;
+    expect(filter.withPerson('ada').withPerson('ben').personIds, {
+      'ada',
+      'ben',
+    });
+    expect(filter.withPlace('farm').placeIds, {'farm'});
   });
 }
 

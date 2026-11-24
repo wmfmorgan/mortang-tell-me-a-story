@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/album_theme.dart';
 import 'family_thread_copy.dart';
 
-/// F1b wires onPressed.
 class FilterButton extends StatelessWidget {
   const FilterButton({super.key, required this.activeCount, this.onPressed});
 

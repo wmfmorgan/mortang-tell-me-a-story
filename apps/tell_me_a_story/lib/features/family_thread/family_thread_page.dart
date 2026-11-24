@@ -18,6 +18,8 @@ import '../../data/timeline_live.dart';
 import 'density_control.dart';
 import 'family_thread_copy.dart';
 import 'filter_button.dart';
+import 'filter_drawer.dart';
+import 'filter_panel.dart';
 import 'filter_pills.dart';
 import 'insert_published_origin.dart';
 import 'thread_beat.dart';
@@ -25,6 +27,10 @@ import 'thread_filter.dart';
 import 'thread_focus.dart';
 import 'thread_skeleton.dart';
 import 'thread_view.dart';
+
+const _sidebarBreakpoint = 900.0;
+const _sidebarWidth = 280.0;
+const _drawerHeightFactor = 0.75;
 
 class FamilyThreadPage extends StatefulWidget {
   const FamilyThreadPage({
@@ -78,6 +84,8 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   var _focusRequest = 0;
   var _density = FamilyThreadDensity.browse;
   var _filter = ThreadFilter.cleared;
+  var _panelOpen = true;
+  var _drawerOpen = false;
   String? _familyId;
   String? _originId;
   String? _focusId;
@@ -290,9 +298,45 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   Widget _body() {
     if (_failed) return _LoadError(onRetry: _retry);
     if (!_loading && _stories.isEmpty) return const _EmptyFamily();
+    return LayoutBuilder(
+      builder: (context, constraints) => _frame(constraints),
+    );
+  }
+
+  Widget _frame(BoxConstraints constraints) {
+    final sidebar = constraints.maxWidth >= _sidebarBreakpoint;
+    final drawer = !sidebar && _drawerOpen;
+    // Only the LayoutBuilder knows the width, so the reset is scheduled from build.
+    _scheduleDrawerReset(sidebar);
+    return Stack(
+      children: [
+        ExcludeFocus(
+          excluding: drawer,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (sidebar && _panelOpen) _sidebar(),
+              Expanded(child: _loadedColumn(sidebar)),
+            ],
+          ),
+        ),
+        if (drawer) _drawer(constraints.maxWidth),
+      ],
+    );
+  }
+
+  void _scheduleDrawerReset(bool sidebar) {
+    if (!sidebar || !_drawerOpen) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_drawerOpen) return;
+      setState(() => _drawerOpen = false);
+    });
+  }
+
+  Widget _loadedColumn(bool sidebar) {
     return Column(
       children: [
-        _toolbar(),
+        _toolbar(sidebar),
         if (_filter.isActive) _pills(),
         if (_announce) _DensityAnnouncement(density: _density),
         Expanded(child: _thread()),
@@ -302,7 +346,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     );
   }
 
-  Widget _toolbar() {
+  Widget _toolbar(bool sidebar) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= threadPhoneBreakpoint;
@@ -313,8 +357,61 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
           onDensity: _setDensity,
           activeCount: _filter.activeCount,
           countLabel: _countLabel(wide),
+          onFilters: () => _toggleFilters(sidebar),
         );
       },
+    );
+  }
+
+  void _toggleFilters(bool sidebar) {
+    setState(() {
+      if (sidebar) {
+        _panelOpen = !_panelOpen;
+        return;
+      }
+      _drawerOpen = true;
+    });
+  }
+
+  Widget _sidebar() {
+    return SizedBox(
+      key: const Key('filter-panel'),
+      width: _sidebarWidth,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: albumParchment,
+          border: Border(right: BorderSide(color: albumPillBorder)),
+        ),
+        child: _panel(),
+      ),
+    );
+  }
+
+  Widget _drawer(double width) {
+    final count = _filter.countStories(_stories);
+    return FilterDrawer(
+      key: const Key('filter-drawer'),
+      matched: count.n,
+      heightFactor: _drawerHeightFactor,
+      onClose: _closeDrawer,
+      child: _panel(
+        countLabel: width < threadPhoneBreakpoint ? _matchCount(count) : null,
+        onClose: _closeDrawer,
+      ),
+    );
+  }
+
+  void _closeDrawer() => setState(() => _drawerOpen = false);
+
+  FilterPanel _panel({String? countLabel, VoidCallback? onClose}) {
+    return FilterPanel(
+      filter: _filter,
+      stories: _stories,
+      personLabels: _personLabels(_stories),
+      placeLabels: _placeLabels(_stories),
+      countLabel: countLabel,
+      onClose: onClose,
+      onChanged: _setFilter,
     );
   }
 
@@ -331,10 +428,12 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     setState(() => _filter = next);
   }
 
-  String? _countLabel(bool wide) {
-    if (!wide || _loading || _stories.isEmpty) return null;
-    final count = _filter.countStories(_stories);
-    return FamilyThreadCopy.filterCount(count.n, count.total);
+  String? _countLabel(bool wide) => wide ? _matchCount() : null;
+
+  String? _matchCount([({int n, int total})? count]) {
+    if (_loading || _stories.isEmpty) return null;
+    final matched = count ?? _filter.countStories(_stories);
+    return FamilyThreadCopy.filterCount(matched.n, matched.total);
   }
 
   Widget _thread() {
@@ -534,6 +633,7 @@ class _ThreadToolbar extends StatelessWidget {
     required this.onDensity,
     required this.activeCount,
     required this.countLabel,
+    required this.onFilters,
   });
 
   final bool wide;
@@ -542,6 +642,7 @@ class _ThreadToolbar extends StatelessWidget {
   final ValueChanged<FamilyThreadDensity> onDensity;
   final int activeCount;
   final String? countLabel;
+  final VoidCallback onFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +656,7 @@ class _ThreadToolbar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            FilterButton(activeCount: activeCount),
+            FilterButton(activeCount: activeCount, onPressed: onFilters),
             const SizedBox(width: 8),
             densityControl,
           ],
@@ -564,7 +665,7 @@ class _ThreadToolbar extends StatelessWidget {
     }
     return Row(
       children: [
-        FilterButton(activeCount: activeCount),
+        FilterButton(activeCount: activeCount, onPressed: onFilters),
         Expanded(
           child: Center(
             child: FittedBox(fit: BoxFit.scaleDown, child: densityControl),
