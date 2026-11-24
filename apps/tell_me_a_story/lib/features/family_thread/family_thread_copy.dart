@@ -51,6 +51,11 @@ abstract final class FamilyThreadCopy {
 
   static const filters = 'Filters';
   static const clearFilters = 'Clear filters';
+  static const searchHint = 'Search titles, stories and people';
+  static const people = 'People';
+  static const places = 'Places';
+  static const years = 'Years';
+  static const closeFilters = 'Close filters';
 
   static String filtersButton(int activeCount) {
     if (activeCount == 0) return filters;
@@ -65,6 +70,9 @@ abstract final class FamilyThreadCopy {
   static String decadeRange(int from, int to) => '${from}s – ${to}s';
 
   static String removeFilter(String value) => 'Remove filter: $value';
+
+  static String showStories(int count) =>
+      count == 1 ? 'Show 1 story' : 'Show $count stories';
 
   static String _stories(int count) =>
       count == 1 ? '1 story' : '$count stories';
