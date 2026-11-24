@@ -11,6 +11,7 @@ import 'thread_beat_tile.dart';
 import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
+import 'thread_keyboard.dart';
 
 const threadPhoneBreakpoint = 600.0;
 const _browseExtent = 64.0;
@@ -40,6 +41,7 @@ class ThreadView extends StatefulWidget {
     this.density = FamilyThreadDensity.browse,
     this.focusStoryId,
     this.onFocusChanged,
+    this.onDensityDelta,
   });
 
   final List<Story> stories;
@@ -52,6 +54,8 @@ class ThreadView extends StatefulWidget {
 
   /// Reports the story on the focus line when a scroll ends.
   final ValueChanged<String>? onFocusChanged;
+
+  final ValueChanged<int>? onDensityDelta;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -140,6 +144,16 @@ class _ThreadViewState extends State<ThreadView>
 
   @override
   Widget build(BuildContext context) {
+    return ThreadKeyboard(
+      onBeatDelta: _onBeatDelta,
+      onFirst: () => _moveBeat(0),
+      onLast: () => _moveBeat(_beats.length - 1),
+      onDensityDelta: widget.onDensityDelta,
+      child: _scene(),
+    );
+  }
+
+  Widget _scene() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
@@ -198,6 +212,27 @@ class _ThreadViewState extends State<ThreadView>
       if ((_scroll.offset - offset).abs() < 0.5) return;
       _scroll.jumpTo(offset);
     });
+  }
+
+  void _onBeatDelta(int delta) {
+    final current = ThreadCenter.nearestIndex(
+      _scroll.hasClients ? _scroll.offset : 0,
+      _beats.length,
+      _viewport,
+      _extent,
+    );
+    _moveBeat(current + delta);
+  }
+
+  void _moveBeat(int index) {
+    _focus.moveToBeat(
+      index: index,
+      beats: _beats,
+      extent: _extent,
+      viewport: _viewport,
+      focusId: _focusId,
+      reducedMotion: MediaQuery.disableAnimationsOf(context),
+    );
   }
 
   bool _onScroll(ScrollNotification notification) {

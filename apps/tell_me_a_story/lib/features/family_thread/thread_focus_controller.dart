@@ -109,17 +109,37 @@ class ThreadFocusController {
     required String? focusId,
     required bool reducedMotion,
   }) {
-    if (_phase == _SnapPhase.dragging || !scroll.hasClients) return;
-    if (beats.isEmpty || viewport <= 0 || extent <= 0) return;
-    final index = ThreadCenter.nearestIndex(
-      scroll.offset,
-      beats.length,
-      viewport,
-      extent,
+    if (_phase == _SnapPhase.dragging) return;
+    moveToBeat(
+      index: ThreadCenter.nearestIndex(
+        scroll.hasClients ? scroll.offset : 0,
+        beats.length,
+        viewport,
+        extent,
+      ),
+      beats: beats,
+      extent: extent,
+      viewport: viewport,
+      focusId: focusId,
+      reducedMotion: reducedMotion,
     );
+  }
+
+  void moveToBeat({
+    required int index,
+    required List<ThreadBeat> beats,
+    required double extent,
+    required double viewport,
+    required String? focusId,
+    required bool reducedMotion,
+  }) {
+    if (!scroll.hasClients || beats.isEmpty || viewport <= 0 || extent <= 0) {
+      return;
+    }
+    final clamped = index.clamp(0, beats.length - 1).toInt();
     _moveTo(
-      ThreadCenter.centerOffset(index, beats.length, viewport, extent),
-      ThreadFocus.representative(beats[index], previousFocusId: focusId).id,
+      ThreadCenter.centerOffset(clamped, beats.length, viewport, extent),
+      ThreadFocus.representative(beats[clamped], previousFocusId: focusId).id,
       focusId,
       reducedMotion,
     );
