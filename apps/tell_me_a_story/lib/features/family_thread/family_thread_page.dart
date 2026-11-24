@@ -32,7 +32,8 @@ class FamilyThreadPage extends StatefulWidget {
   /// before Supabase starts. Null means [CurrentSession.userId].
   final String? Function()? currentUserId;
 
-  /// Realtime signal. The route passes [SupabaseTimelineLive].
+  /// Realtime signal. This page disposes [live] from [State.dispose] after it
+  /// has subscribed.
   final TimelineLive live;
 
   @override
