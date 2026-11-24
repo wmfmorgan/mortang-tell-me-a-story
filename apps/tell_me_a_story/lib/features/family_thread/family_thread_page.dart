@@ -13,6 +13,7 @@ import '../../data/family_thread_density.dart';
 import '../../data/family_thread_open_state.dart';
 import '../../data/family_thread_open_state_store.dart';
 import '../../data/gateway_read.dart';
+import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import 'density_control.dart';
@@ -25,6 +26,7 @@ import 'insert_published_origin.dart';
 import 'thread_beat.dart';
 import 'thread_filter.dart';
 import 'thread_focus.dart';
+import 'thread_photo_cache.dart';
 import 'thread_skeleton.dart';
 import 'thread_view.dart';
 
@@ -36,6 +38,8 @@ class FamilyThreadPage extends StatefulWidget {
   const FamilyThreadPage({
     super.key,
     this.storiesApi,
+    this.photosApi,
+    this.photoCache,
     this.familiesApi,
     this.currentUserId,
     this.openStateStore,
@@ -45,6 +49,9 @@ class FamilyThreadPage extends StatefulWidget {
   });
 
   final StoriesGateway? storiesApi;
+  final PhotosGateway? photosApi;
+  final ThreadPhotoCache? photoCache;
+
   final FamiliesGateway? familiesApi;
 
   /// Signed-in user. Widget tests pass this because [CurrentSession] is null
@@ -70,6 +77,8 @@ class FamilyThreadPage extends StatefulWidget {
 
 class _FamilyThreadPageState extends State<FamilyThreadPage> {
   StoriesGateway? _ownedStories;
+  PhotosGateway? _ownedPhotos;
+  late final ThreadPhotoCache _photoCache;
   FamiliesGateway? _ownedFamilies;
   FamilyThreadOpenStateStore? _ownedStore;
   TimelineLive? _subscribed;
@@ -97,6 +106,8 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   StoriesGateway get _storiesApi =>
       widget.storiesApi ?? (_ownedStories ??= StoriesApi());
 
+  PhotosGateway _photos() => widget.photosApi ?? (_ownedPhotos ??= PhotosApi());
+
   FamiliesGateway get _familiesApi =>
       widget.familiesApi ?? (_ownedFamilies ??= FamiliesApi());
 
@@ -110,6 +121,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   @override
   void initState() {
     super.initState();
+    _photoCache = widget.photoCache ?? ThreadPhotoCache();
     _filter = widget.initialFilter;
     _load();
   }
@@ -128,6 +140,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
 
   @override
   void dispose() {
+    _photoCache.clear();
     _subscribed?.dispose();
     super.dispose();
   }
@@ -454,6 +467,8 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       onMore: _onMore,
       filter: _filter,
       onClearFilter: () => _setFilter(ThreadFilter.cleared),
+      photos: _photos,
+      photoCache: _photoCache,
     );
   }
 
