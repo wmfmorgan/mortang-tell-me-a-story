@@ -12,6 +12,7 @@ import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family_thread/decade_mosaic.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_filter.dart';
+import 'package:tell_me_a_story/features/family_thread/thread_photo.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_photo_cache.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
 import 'package:tell_me_a_story/features/family_thread/year_medallion.dart';
@@ -188,6 +189,56 @@ void main() {
 
     expect(photos.calls, ['bea.jpg']);
   });
+
+  testWidgets('a second ThreadPhoto hits the shared cache', (tester) async {
+    final photos = _Photos();
+    final cache = ThreadPhotoCache();
+    await tester.pumpWidget(_photo(photos, cache, 'a.jpg', 1));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      _photoHost(
+        Row(
+          children: [
+            _photoChild(photos, cache, 'a.jpg', 1),
+            _photoChild(photos, cache, 'a.jpg', 1),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(photos.calls, ['a.jpg']);
+  });
+
+  testWidgets('a new edit version or path downloads again', (tester) async {
+    final photos = _Photos();
+    final cache = ThreadPhotoCache();
+    await tester.pumpWidget(_photo(photos, cache, 'a.jpg', 1));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(_photo(photos, cache, 'a.jpg', 2));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(_photo(photos, cache, 'b.jpg', 2));
+    await tester.pumpAndSettle();
+
+    expect(photos.calls, ['a.jpg', 'a.jpg', 'b.jpg']);
+  });
+
+  testWidgets('a new photos gateway downloads when the cache misses', (
+    tester,
+  ) async {
+    final first = _Photos();
+    final cache = ThreadPhotoCache();
+    await tester.pumpWidget(_photo(first, cache, 'a.jpg', 1));
+    await tester.pumpAndSettle();
+    cache.clear();
+    final second = _Photos();
+    await tester.pumpWidget(_photo(second, cache, 'a.jpg', 1));
+    await tester.pumpAndSettle();
+
+    expect(first.calls, ['a.jpg']);
+    expect(second.calls, ['a.jpg']);
+  });
 }
 
 Future<void> _pumpMosaic(WidgetTester tester, int count) {
@@ -253,6 +304,42 @@ Finder _blush() {
     of: find.byType(YearMedallion),
     matching: find.byWidgetPredicate(
       (widget) => widget is ColoredBox && widget.color == albumBlush,
+    ),
+  );
+}
+
+Widget _photo(
+  PhotosGateway photos,
+  ThreadPhotoCache cache,
+  String path,
+  int version,
+) {
+  return _photoHost(_photoChild(photos, cache, path, version));
+}
+
+Widget _photoHost(Widget child) {
+  return MaterialApp(
+    theme: albumTheme(),
+    home: Scaffold(body: child),
+  );
+}
+
+Widget _photoChild(
+  PhotosGateway photos,
+  ThreadPhotoCache cache,
+  String path,
+  int version,
+) {
+  return SizedBox(
+    width: 64,
+    height: 64,
+    child: ThreadPhoto(
+      photos: photos,
+      cache: cache,
+      path: path,
+      editVersion: version,
+      displayPx: 64,
+      fallback: (_) => const Text('A'),
     ),
   );
 }

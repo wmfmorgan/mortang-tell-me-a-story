@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
@@ -47,8 +46,8 @@ class YearMedallion extends StatelessWidget {
   }
 
   Widget _art() {
-    final mark = _Mark(
-      letter: _letter(ThreadFocus.representative(beat, filter: filter)),
+    final mark = ThreadInitialMark(
+      letter: threadInitial(ThreadFocus.representative(beat, filter: filter)),
     );
     final lead = _firstLead(beat.stories, filter);
     final photos = this.photos;
@@ -75,34 +74,4 @@ class YearMedallion extends StatelessWidget {
     if (lead != null) return lead;
   }
   return null;
-}
-
-String _letter(Story story) {
-  final title = story.title?.trim() ?? '';
-  if (title.isEmpty) return '';
-  return title[0].toUpperCase();
-}
-
-class _Mark extends StatelessWidget {
-  const _Mark({required this.letter});
-
-  final String letter;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: albumBlush,
-      child: Center(
-        child: Text(
-          letter,
-          style: GoogleFonts.newsreader(
-            color: albumTerracotta,
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            height: 1,
-          ),
-        ),
-      ),
-    );
-  }
 }

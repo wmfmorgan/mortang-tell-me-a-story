@@ -9,6 +9,7 @@ import 'thread_photo.dart';
 import 'thread_photo_cache.dart';
 
 const _diameter = 112.0;
+const _moreFontSize = 13.0;
 
 class DecadeMosaic extends StatelessWidget {
   const DecadeMosaic({
@@ -40,12 +41,16 @@ class DecadeMosaic extends StatelessWidget {
   List<Widget> _cells(List<Story> stories) {
     final shown = stories.length > 4 ? stories.sublist(0, 3) : stories;
     final cells = [for (final story in shown) _tile(story, stories.length)];
+    // P4a acceptance "6 stories with +2": +N is the count past four.
     if (stories.length > 4) cells.add(_more(stories.length - 4));
     return cells;
   }
 
   Widget _tile(Story story, int count) {
-    final mark = _Mark(letter: _letter(story), fontSize: count == 1 ? 28 : 16);
+    final mark = ThreadInitialMark(
+      letter: threadInitial(story),
+      fontSize: count == 1 ? threadInitialFontSize : threadMosaicTileFontSize,
+    );
     final lead = threadLeadPhoto(story);
     final photos = this.photos;
     final cache = this.cache;
@@ -71,7 +76,7 @@ class DecadeMosaic extends StatelessWidget {
           '+$extra',
           style: GoogleFonts.sourceSans3(
             color: albumInk,
-            fontSize: 13,
+            fontSize: _moreFontSize,
             fontWeight: FontWeight.w600,
             height: 1,
           ),
@@ -107,35 +112,4 @@ Widget _stack(Widget top, Widget bottom) {
       Expanded(child: bottom),
     ],
   );
-}
-
-String _letter(Story story) {
-  final title = story.title?.trim() ?? '';
-  if (title.isEmpty) return '';
-  return title[0].toUpperCase();
-}
-
-class _Mark extends StatelessWidget {
-  const _Mark({required this.letter, required this.fontSize});
-
-  final String letter;
-  final double fontSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: albumBlush,
-      child: Center(
-        child: Text(
-          letter,
-          style: GoogleFonts.newsreader(
-            color: albumTerracotta,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w600,
-            height: 1,
-          ),
-        ),
-      ),
-    );
-  }
 }

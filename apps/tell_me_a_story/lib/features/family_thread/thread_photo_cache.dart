@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+/// About one screen of built beats. P4a leaves the capacity unnamed.
 const threadPhotoCacheCapacity = 24;
 
 class ThreadPhotoCache {

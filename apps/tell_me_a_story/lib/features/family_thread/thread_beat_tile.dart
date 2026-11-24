@@ -122,15 +122,13 @@ class ThreadBeatTile extends StatelessWidget {
   }
 
   Widget _medallion(YearBeat beat) {
-    return ExcludeSemantics(
-      child: _ImageFade(
-        distance: distance,
-        child: YearMedallion(
-          beat: beat,
-          filter: filter,
-          photos: photos,
-          cache: cache,
-        ),
+    return _ImageFade(
+      distance: distance,
+      child: YearMedallion(
+        beat: beat,
+        filter: filter,
+        photos: photos,
+        cache: cache,
       ),
     );
   }
@@ -352,6 +350,7 @@ class _ImageFade extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduced = MediaQuery.disableAnimationsOf(context);
+    // P3b forbids Opacity. The thread test rejects that widget.
     return FadeTransition(
       opacity: AlwaysStoppedAnimation<double>(
         reduced ? 1 : _imageOpacity(distance),

@@ -1,10 +1,18 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/album_theme.dart';
 import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import 'thread_photo_cache.dart';
+
+const threadInitialFontSize = 28.0;
+const threadMosaicTileFontSize = 16.0;
+
+/// Decode width cap for [Image.memory] cacheWidth.
+const threadPhotoDecodeCap = 4096;
 
 ({String path, int version})? threadLeadPhoto(Story story) {
   if (story.photoPaths.isEmpty) return null;
@@ -12,6 +20,41 @@ import 'thread_photo_cache.dart';
       ? 0
       : story.photoEditVersions.first;
   return (path: story.photoPaths.first, version: version);
+}
+
+String threadInitial(Story story) {
+  final title = story.title?.trim() ?? '';
+  if (title.isEmpty) return '';
+  return title[0].toUpperCase();
+}
+
+class ThreadInitialMark extends StatelessWidget {
+  const ThreadInitialMark({
+    super.key,
+    required this.letter,
+    this.fontSize = threadInitialFontSize,
+  });
+
+  final String letter;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: albumBlush,
+      child: Center(
+        child: Text(
+          letter,
+          style: GoogleFonts.newsreader(
+            color: albumTerracotta,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ThreadPhoto extends StatefulWidget {
@@ -50,7 +93,9 @@ class _ThreadPhotoState extends State<ThreadPhoto> {
   void didUpdateWidget(ThreadPhoto oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.path == widget.path &&
-        oldWidget.editVersion == widget.editVersion) {
+        oldWidget.editVersion == widget.editVersion &&
+        identical(oldWidget.photos, widget.photos) &&
+        identical(oldWidget.cache, widget.cache)) {
       return;
     }
     _bytes = null;
@@ -81,7 +126,7 @@ class _ThreadPhotoState extends State<ThreadPhoto> {
     if (bytes == null) return widget.fallback(context);
     final px = (widget.displayPx * MediaQuery.devicePixelRatioOf(context))
         .round()
-        .clamp(1, 4096)
+        .clamp(1, threadPhotoDecodeCap)
         .toInt();
     return Image.memory(
       bytes,
