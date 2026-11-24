@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
@@ -64,11 +65,30 @@ void main() {
   testWidgets(
     'storage failure (store read returns null) opens Browse on newest',
     (tester) async {
-      final store = _MemoryStore();
-      await tester.pumpWidget(_host(ThreadStories(_pair()), store: store));
+      var preferenceCalls = 0;
+      final store = FamilyThreadOpenStateStore(
+        currentUserId: () => _failUser,
+        preferences: () {
+          preferenceCalls += 1;
+          throw PlatformException(code: 'failed');
+        },
+      );
+      await tester.pumpWidget(
+        _host(
+          ThreadStories(_pair()),
+          families: TestFamilies([
+            MemberFamily(
+              id: _failFamily,
+              name: 'Ada',
+              createdAt: DateTime.utc(2020),
+            ),
+          ]),
+          store: store,
+        ),
+      );
       await tester.pumpAndSettle();
 
-      expect(store.reads, ['fam-1']);
+      expect(preferenceCalls, 1);
       expectOnFocusLine(tester, 'Newest');
       expect(find.text('Newest letter'), findsNothing);
     },
@@ -217,7 +237,7 @@ Future<void> _drag(WidgetTester tester, Offset delta) async {
 
 Widget _host(
   StoriesGateway stories, {
-  required _MemoryStore store,
+  required FamilyThreadOpenStateStore store,
   FamiliesGateway? families,
 }) {
   return MaterialApp(
@@ -350,6 +370,9 @@ Story _story(
     body: body,
   );
 }
+
+const _failUser = '22222222-2222-4222-8222-222222222222';
+const _failFamily = '11111111-1111-4111-8111-111111111111';
 
 final _oneFamily = TestFamilies([
   MemberFamily(id: 'fam-1', name: 'Ada', createdAt: DateTime.utc(2020)),

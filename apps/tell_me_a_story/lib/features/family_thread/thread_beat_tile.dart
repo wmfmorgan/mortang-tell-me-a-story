@@ -47,7 +47,7 @@ class ThreadBeatTile extends StatelessWidget {
   Widget _main(Color ink) {
     final card = _focusedCard(ink);
     if (card != null) return card;
-    return _tap(
+    return threadTap(
       _plain(ink),
       onBeat == null ? null : () => onBeat!(focused: distance == 0),
     );
@@ -56,16 +56,7 @@ class ThreadBeatTile extends StatelessWidget {
   Widget? _focusedCard(Color ink) {
     final beat = this.beat;
     return switch (beat) {
-      final YearBeat year when distance == 0 => StoryCard(
-        story: ThreadFocus.browseCardStory(year, focusId: focusStoryId),
-        ink: ink,
-        semanticsLabel: _label(),
-        moreLabel: onMore == null ? null : _yearMore(year, focusStoryId),
-        onYear: onBeat == null ? null : () => onBeat!(focused: true),
-        onCard: onCard,
-        onMore: onMore,
-        onOpen: onOpen,
-      ),
+      final YearBeat year when distance == 0 => _yearCard(year, ink),
       StoryBeat(:final story) when distance == 0 => StoryCard(
         story: story,
         ink: ink,
@@ -91,6 +82,20 @@ class ThreadBeatTile extends StatelessWidget {
     };
   }
 
+  Widget _yearCard(YearBeat year, Color ink) {
+    final card = ThreadFocus.browseCardStory(year, focusId: focusStoryId);
+    return StoryCard(
+      story: card,
+      ink: ink,
+      semanticsLabel: _storyLabel(year.year, card),
+      moreLabel: onMore == null ? null : _yearMore(year, card),
+      onYear: onBeat == null ? null : () => onBeat!(focused: true),
+      onCard: onCard,
+      onMore: onMore,
+      onOpen: onOpen,
+    );
+  }
+
   String _label() {
     final beat = this.beat;
     return switch (beat) {
@@ -107,23 +112,11 @@ class ThreadBeatTile extends StatelessWidget {
   }
 }
 
-Widget _tap(Widget child, VoidCallback? onTap) {
-  if (onTap == null) return child;
-  return GestureDetector(
-    onTap: onTap,
-    behavior: HitTestBehavior.opaque,
-    child: child,
-  );
-}
-
 String _storyLabel(int year, Story story) {
   return _beatLabel(year, story.title?.trim() ?? '', story);
 }
 
-String? _yearMore(YearBeat beat, String? focusId) {
-  final card = ThreadFocus.browseCardStory(beat, focusId: focusId);
-  final next = ThreadFocus.moreTarget(beat, card);
-  if (next == null) return null;
+String? _yearMore(YearBeat beat, Story card) {
   final index = beat.stories.indexWhere((story) => story.id == card.id);
   final extra = beat.stories.length - index - 1;
   if (extra <= 0) return null;

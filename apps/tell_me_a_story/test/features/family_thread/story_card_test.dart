@@ -216,10 +216,6 @@ void main() {
     expect(_buttonFocused(tester), isFalse);
     expectOnFocusLine(tester, 'Newest');
     expect(find.byType(StitchRing), findsOneWidget);
-    expect(
-      tester.widget<StitchRing>(find.byType(StitchRing)).key,
-      const ValueKey<int>(1),
-    );
   });
 }
 

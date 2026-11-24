@@ -103,9 +103,6 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     _focusRequest += 1;
     _ringToken += 1;
     _reloadStories();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
@@ -119,14 +116,15 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     try {
       final opened = await guardRead(_opened);
       if (!mounted || ticket != _ticket) return;
+      final member = _inMine(opened.mine, opened.id);
       final storiesFuture = guardRead(
         () => _storiesFor(opened.id, opened.originId),
       );
-      final savedFuture = _saved(opened);
+      final savedFuture = _savedOrForget(opened.id, member);
       final stories = await storiesFuture;
       final saved = await savedFuture;
       if (!mounted || ticket != _ticket) return;
-      _show(opened, stories, saved);
+      _show(opened, stories, saved, member);
       _watch(opened.id);
     } on GatewayReadException {
       if (!mounted || ticket != _ticket) return;
@@ -151,8 +149,9 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     _Opened opened,
     List<Story> stories,
     FamilyThreadOpenState? saved,
+    bool member,
   ) {
-    final restored = _restored(saved, stories);
+    final focus = _focusOf(stories, saved?.storyId, null);
     setState(() {
       _familyId = opened.id;
       _originId = opened.originId;
@@ -161,11 +160,11 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       _loading = false;
       _failed = false;
       _ready = true;
-      _member = _inMine(opened.mine, opened.id);
-      _density = restored.density;
+      _member = member;
+      _density = saved?.density ?? FamilyThreadDensity.browse;
       _stories = stories;
-      _focusId = restored.storyId;
-      _focusStart = _startOf(stories, restored.storyId);
+      _focusId = focus.id;
+      _focusStart = focus.start;
       _announce = false;
     });
   }
@@ -175,16 +174,6 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     final focus = _focusOf(stories, _focusId, _focusStart);
     _focusId = focus.id;
     _focusStart = focus.start;
-  }
-
-  void _onScrollFocus(String storyId) {
-    final focus = _focusOf(_stories, storyId, null);
-    if (focus.id == null || focus.id == _focusId) return;
-    setState(() {
-      _focusId = focus.id;
-      _focusStart = focus.start;
-    });
-    _persist();
   }
 
   void _watch(String? familyId) {
@@ -322,7 +311,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       stories: _stories,
       density: _density,
       focusStoryId: _focusId,
-      onFocusChanged: _onScrollFocus,
+      onFocusChanged: _focusStory,
       onDensityDelta: _nudgeDensity,
       ringToken: _ringToken,
       focusRequest: _focusRequest,
@@ -403,9 +392,8 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     );
   }
 
-  Future<FamilyThreadOpenState?> _saved(_Opened opened) async {
-    final id = opened.id;
-    if (id == null || !_inMine(opened.mine, id)) {
+  Future<FamilyThreadOpenState?> _savedOrForget(String? id, bool member) async {
+    if (id == null || !member) {
       if (id != null) await _store.remove(familyId: id);
       return null;
     }
@@ -457,35 +445,12 @@ String? _originOf(List<TreeFamily> tree, String? id) {
   return null;
 }
 
-({FamilyThreadDensity density, String? storyId}) _restored(
-  FamilyThreadOpenState? saved,
-  List<Story> stories,
-) {
-  final newest = stories.isEmpty ? null : stories.last.id;
-  if (saved == null || newest == null) {
-    return (density: FamilyThreadDensity.browse, storyId: newest);
-  }
-  for (final story in stories) {
-    if (story.id == saved.storyId) {
-      return (density: saved.density, storyId: saved.storyId);
-    }
-  }
-  return (density: saved.density, storyId: newest);
-}
-
 bool _inMine(List<MemberFamily> mine, String? id) {
   if (id == null) return false;
   for (final row in mine) {
     if (row.id == id) return true;
   }
   return false;
-}
-
-DateTime? _startOf(List<Story> stories, String? id) {
-  for (final story in stories) {
-    if (story.id == id) return story.publishedStart;
-  }
-  return null;
 }
 
 Story _cardStory(ThreadBeat beat, String? focusId) {

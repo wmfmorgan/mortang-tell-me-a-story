@@ -75,7 +75,7 @@ class StoryCard extends StatelessWidget {
     final detail = _detail(story);
     final date = storyDateLabelFor(story);
     final line = !showBody && detail != null ? '$date · $detail' : date;
-    return _tap(
+    return threadTap(
       Text(
         line,
         key: const Key('thread-year'),
@@ -90,7 +90,7 @@ class StoryCard extends StatelessWidget {
   Widget _title(BuildContext context) {
     final title = story.title?.trim() ?? '';
     if (title.isEmpty) return const SizedBox.shrink();
-    return _tap(
+    return threadTap(
       Text(
         title,
         maxLines: showBody ? 3 : 1,
@@ -105,7 +105,7 @@ class StoryCard extends StatelessWidget {
     final body = story.body?.trim() ?? '';
     if (body.isEmpty) return const SizedBox.shrink();
     return Flexible(
-      child: _tap(
+      child: threadTap(
         Text(
           body,
           maxLines: 3,
@@ -120,7 +120,7 @@ class StoryCard extends StatelessWidget {
   Widget _places(BuildContext context) {
     final detail = _detail(story);
     if (detail == null) return const SizedBox.shrink();
-    return _tap(
+    return threadTap(
       Text(
         detail,
         maxLines: 1,
@@ -132,7 +132,7 @@ class StoryCard extends StatelessWidget {
   }
 
   Widget _more(BuildContext context) {
-    return _tap(
+    return threadTap(
       Text(
         moreLabel!,
         key: const Key('thread-more'),
@@ -146,7 +146,7 @@ class StoryCard extends StatelessWidget {
   }
 }
 
-Widget _tap(Widget child, VoidCallback? onTap) {
+Widget threadTap(Widget child, VoidCallback? onTap) {
   if (onTap == null) return child;
   return GestureDetector(
     onTap: onTap,
