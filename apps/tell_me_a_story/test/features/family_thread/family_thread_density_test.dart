@@ -112,7 +112,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    await tester.drag(find.bySubtype<ListView>(), const Offset(0, 2000));
     await tester.pumpAndSettle();
     expectOnFocusLine(tester, 'Old');
 

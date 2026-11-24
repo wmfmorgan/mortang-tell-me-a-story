@@ -91,8 +91,9 @@ _Applied _apply(
 
 _Applied _pinch(_Zoom zoom, PointerScaleEvent event) {
   final scale = event.scale;
-  if (!(scale > 0))
+  if (!(scale > 0)) {
     return _Applied(zoom: _hold(zoom, event.timeStamp), claim: true);
+  }
   return _advance(zoom, event.timeStamp, wheel: 0, scale: scale, pinch: true);
 }
 
