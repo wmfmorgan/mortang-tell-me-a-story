@@ -9,12 +9,16 @@ class ThreadKeyboard extends StatefulWidget {
     required this.onLast,
     required this.child,
     this.onDensityDelta,
+    this.onDrill,
+    this.focusRequest = 0,
   });
 
   final ValueChanged<int> onBeatDelta;
   final VoidCallback onFirst;
   final VoidCallback onLast;
   final ValueChanged<int>? onDensityDelta;
+  final VoidCallback? onDrill;
+  final int focusRequest;
   final Widget child;
 
   @override
@@ -23,6 +27,16 @@ class ThreadKeyboard extends StatefulWidget {
 
 class _ThreadKeyboardState extends State<ThreadKeyboard> {
   final _focus = FocusNode();
+
+  @override
+  void didUpdateWidget(ThreadKeyboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusRequest == oldWidget.focusRequest) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focus.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
@@ -34,6 +48,7 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (!node.hasPrimaryFocus) return KeyEventResult.ignored;
     final keys = HardwareKeyboard.instance;
     final action = _keyAction(
       key: event.logicalKey,
@@ -63,6 +78,11 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
         if (onDensity == null) return false;
         onDensity(action == _KeyAction.finer ? 1 : -1);
         return true;
+      case _KeyAction.drill:
+        final onDrill = widget.onDrill;
+        if (onDrill == null) return false;
+        onDrill();
+        return true;
     }
   }
 
@@ -71,7 +91,6 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
     return Focus(
       focusNode: _focus,
       autofocus: true,
-      descendantsAreFocusable: false,
       onKeyEvent: _onKey,
       child: Listener(
         onPointerDown: (_) => _focus.requestFocus(),
@@ -81,7 +100,7 @@ class _ThreadKeyboardState extends State<ThreadKeyboard> {
   }
 }
 
-enum _KeyAction { previous, next, first, last, finer, coarser }
+enum _KeyAction { previous, next, first, last, finer, coarser, drill }
 
 final _zoomKeys = <LogicalKeyboardKey>{
   LogicalKeyboardKey.add,
@@ -104,6 +123,9 @@ final _actions = <LogicalKeyboardKey, _KeyAction>{
   LogicalKeyboardKey.numpadAdd: _KeyAction.finer,
   LogicalKeyboardKey.minus: _KeyAction.coarser,
   LogicalKeyboardKey.numpadSubtract: _KeyAction.coarser,
+  LogicalKeyboardKey.enter: _KeyAction.drill,
+  LogicalKeyboardKey.numpadEnter: _KeyAction.drill,
+  LogicalKeyboardKey.space: _KeyAction.drill,
 };
 
 _KeyAction? _keyAction({

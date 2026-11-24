@@ -42,6 +42,12 @@ class ThreadView extends StatefulWidget {
     this.focusStoryId,
     this.onFocusChanged,
     this.onDensityDelta,
+    this.onBeat,
+    this.onCard,
+    this.onOpen,
+    this.onMore,
+    this.ringToken = 0,
+    this.focusRequest = 0,
   });
 
   final List<Story> stories;
@@ -56,6 +62,12 @@ class ThreadView extends StatefulWidget {
   final ValueChanged<String>? onFocusChanged;
 
   final ValueChanged<int>? onDensityDelta;
+  final void Function(ThreadBeat beat, {required bool focused})? onBeat;
+  final ValueChanged<ThreadBeat>? onCard;
+  final VoidCallback? onOpen;
+  final ValueChanged<ThreadBeat>? onMore;
+  final int ringToken;
+  final int focusRequest;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -149,8 +161,15 @@ class _ThreadViewState extends State<ThreadView>
       onFirst: () => _moveBeat(0),
       onLast: () => _moveBeat(_beats.length - 1),
       onDensityDelta: widget.onDensityDelta,
+      onDrill: widget.onBeat == null ? null : _drill,
+      focusRequest: widget.focusRequest,
       child: _scene(),
     );
+  }
+
+  void _drill() {
+    if (_beats.isEmpty) return;
+    widget.onBeat?.call(_beats[_focusIndex], focused: true);
   }
 
   Widget _scene() {
@@ -291,11 +310,7 @@ class _ThreadViewState extends State<ThreadView>
     return _BeatRow(
       phone: phone,
       index: index,
-      tile: ThreadBeatTile(
-        beat: beat,
-        focusStoryId: _focusId,
-        distance: (index - _focusIndex).abs(),
-      ),
+      tile: _tile(beat, index),
       mark: _markFor(beat, index),
       band: ThreadBand(
         bandWidth: phone ? _phoneBandWidth : _wideBandWidth,
@@ -303,6 +318,25 @@ class _ThreadViewState extends State<ThreadView>
         roundBottom: index == _beats.length - 1,
         knot: index == 0,
       ),
+    );
+  }
+
+  Widget _tile(ThreadBeat beat, int index) {
+    final focused = index == _focusIndex;
+    final onBeat = widget.onBeat;
+    return ThreadBeatTile(
+      beat: beat,
+      focusStoryId: _focusId,
+      distance: (index - _focusIndex).abs(),
+      ringToken: widget.ringToken,
+      onBeat: onBeat == null
+          ? null
+          : ({required bool focused}) => onBeat(beat, focused: focused),
+      onCard: widget.onCard == null ? null : () => widget.onCard!(beat),
+      onOpen: focused ? widget.onOpen : null,
+      onMore: focused && widget.onMore != null
+          ? () => widget.onMore!(beat)
+          : null,
     );
   }
 
