@@ -87,6 +87,18 @@ abstract final class FamilyThreadCopy {
   static String showStories(int count) =>
       count == 1 ? 'Show 1 story' : 'Show $count stories';
 
+  static String photoCount(int count) =>
+      count == 1 ? '1 photo' : '$count photos';
+
+  static String photoAlt(String title) => title.trim();
+
+  static String fanAlt(String title, int count) {
+    final trimmed = title.trim();
+    final label = photoCount(count);
+    if (trimmed.isEmpty) return label;
+    return '$trimmed, $label';
+  }
+
   static String _stories(int count) =>
       count == 1 ? '1 story' : '$count stories';
 }

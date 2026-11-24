@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/album_theme.dart';
+import '../../data/photos_api.dart';
 import '../../data/stories_api.dart';
 import '../stories/story_date.dart';
 import 'family_thread_copy.dart';
+import 'photo_cover.dart';
+import 'photo_fan.dart';
+import 'quote_card.dart';
+import 'thread_photo_cache.dart';
 
 class StoryCard extends StatelessWidget {
   const StoryCard({
@@ -18,6 +23,8 @@ class StoryCard extends StatelessWidget {
     this.onCard,
     this.onMore,
     this.onOpen,
+    this.photos,
+    this.cache,
   });
 
   final Story story;
@@ -29,18 +36,67 @@ class StoryCard extends StatelessWidget {
   final VoidCallback? onCard;
   final VoidCallback? onMore;
   final VoidCallback? onOpen;
+  final PhotosGateway Function()? photos;
+  final ThreadPhotoCache? cache;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: Row(
-        children: [
-          Expanded(child: _copy(context)),
-          if (onOpen != null) _OpenStoryButton(onPressed: onOpen!),
-        ],
-      ),
+      child: LayoutBuilder(builder: _row),
     );
+  }
+
+  Widget _row(BuildContext context, BoxConstraints constraints) {
+    final slot = _slot(constraints);
+    return Row(
+      children: [
+        SizedBox(width: slot.width, height: slot.height, child: _art()),
+        Expanded(child: _copy(context)),
+        if (onOpen != null) _OpenStoryButton(onPressed: onOpen!),
+      ],
+    );
+  }
+
+  Size _slot(BoxConstraints constraints) {
+    final full = constraints.maxHeight.isFinite ? constraints.maxHeight : 64.0;
+    final wanted = full * 4 / 3;
+    if (!constraints.maxWidth.isFinite) return Size(wanted, full);
+    final reserve = onOpen == null ? 96.0 : 200.0;
+    final cap = constraints.maxWidth - reserve;
+    if (cap >= wanted) return Size(wanted, full);
+    final width = cap < 48 ? 48.0 : cap;
+    return Size(width, width * 3 / 4);
+  }
+
+  Widget _art() {
+    final line = QuoteCard.firstLine(story.body);
+    final gateway = photos;
+    final store = cache;
+    final count = story.photoPaths.length;
+    if (count == 1 && gateway != null && store != null) {
+      return PhotoCover(
+        story: story,
+        photos: gateway,
+        cache: store,
+        line: line,
+      );
+    }
+    final child = count < 2 || gateway == null || store == null
+        ? QuoteCard(line: line)
+        : PhotoFan(story: story, photos: gateway, cache: store);
+    return FittedBox(
+      fit: BoxFit.contain,
+      alignment: Alignment.centerLeft,
+      child: child,
+    );
+  }
+
+  bool _quoteOwns(String body) {
+    if (story.photoPaths.isNotEmpty && photos != null && cache != null) {
+      return false;
+    }
+    return QuoteCard.firstLine(body) == body;
   }
 
   Widget _copy(BuildContext context) {
@@ -66,7 +122,7 @@ class StoryCard extends StatelessWidget {
       children: [
         Flexible(child: _date(context)),
         const SizedBox(width: 8),
-        _more(context),
+        Flexible(child: _more(context)),
       ],
     );
   }
@@ -103,7 +159,7 @@ class StoryCard extends StatelessWidget {
 
   Widget _body(BuildContext context) {
     final body = story.body?.trim() ?? '';
-    if (body.isEmpty) return const SizedBox.shrink();
+    if (body.isEmpty || _quoteOwns(body)) return const SizedBox.shrink();
     return Flexible(
       child: threadTap(
         Text(
