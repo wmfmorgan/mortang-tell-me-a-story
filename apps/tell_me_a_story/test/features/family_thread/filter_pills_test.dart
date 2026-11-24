@@ -57,7 +57,9 @@ void main() {
   testWidgets('switching family clears the active filter', (tester) async {
     await tester.pumpWidget(
       _host(
-        ThreadStories([_story('only', 1975, 'Only')]),
+        ThreadStories([
+          _story('only', 1975, 'Only', people: [_person('ada', 'Ada')]),
+        ]),
         filter: const ThreadFilter(personIds: {'ada'}),
         families: TestFamilies([
           MemberFamily(id: 'fam-1', name: 'Ada', createdAt: DateTime.utc(2020)),
@@ -138,7 +140,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         ThreadStories([
-          _story('older', 1990, 'Older'),
+          _story('older', 1990, 'Older', people: [_person('ada', 'Ada')]),
           _story('newer', 2004, 'Newest'),
         ]),
         filter: const ThreadFilter(personIds: {'ada'}),

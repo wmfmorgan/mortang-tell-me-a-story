@@ -1,5 +1,6 @@
 import '../../data/stories_api.dart';
 import '../all_stories/all_stories_logic.dart';
+import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 
 class ThreadFilter {
@@ -53,6 +54,15 @@ class ThreadFilter {
     final range = decadeFrom != null || decadeTo != null ? 1 : 0;
     final query = search.trim().isEmpty ? 0 : 1;
     return personIds.length + placeIds.length + range + query;
+  }
+
+  bool matchesBeat(ThreadBeat beat) {
+    if (!isActive) return true;
+    return switch (beat) {
+      StoryBeat(:final story) => matches(story),
+      DecadeBeat(:final stories) ||
+      YearBeat(:final stories) => stories.any(matches),
+    };
   }
 
   bool matches(Story story) {

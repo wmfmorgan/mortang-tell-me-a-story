@@ -4,9 +4,11 @@ import '../../core/theme/album_theme.dart';
 import '../../data/stories_api.dart';
 import '../stories/story_date.dart';
 import 'family_thread_copy.dart';
+import 'hollow_dot.dart';
 import 'stitch_ring.dart';
 import 'story_card.dart';
 import 'thread_beat.dart';
+import 'thread_filter.dart';
 import 'thread_focus.dart';
 
 class ThreadBeatTile extends StatelessWidget {
@@ -20,6 +22,7 @@ class ThreadBeatTile extends StatelessWidget {
     this.onCard,
     this.onOpen,
     this.onMore,
+    this.filter = ThreadFilter.cleared,
   });
 
   final ThreadBeat beat;
@@ -30,9 +33,13 @@ class ThreadBeatTile extends StatelessWidget {
   final VoidCallback? onCard;
   final VoidCallback? onOpen;
   final VoidCallback? onMore;
+  final ThreadFilter filter;
 
   @override
   Widget build(BuildContext context) {
+    if (!filter.matchesBeat(beat)) {
+      return _HollowBeat(beat: beat, focusStoryId: focusStoryId);
+    }
     final ink = distance >= 2 ? albumInkDim : albumInk;
     return Stack(
       fit: StackFit.expand,
@@ -72,7 +79,11 @@ class ThreadBeatTile extends StatelessWidget {
   Widget _plain(Color ink) {
     final beat = this.beat;
     return switch (beat) {
-      final DecadeBeat decade => _DecadeContents(beat: decade, ink: ink),
+      final DecadeBeat decade => _DecadeContents(
+        beat: decade,
+        ink: ink,
+        filter: filter,
+      ),
       final YearBeat year => _YearContents(
         beat: year,
         focusStoryId: focusStoryId,
@@ -123,20 +134,63 @@ String? _yearMore(YearBeat beat, Story card) {
   return FamilyThreadCopy.moreInYear(extra, beat.year);
 }
 
-class _DecadeContents extends StatelessWidget {
-  const _DecadeContents({required this.beat, required this.ink});
+class _HollowBeat extends StatelessWidget {
+  const _HollowBeat({required this.beat, required this.focusStoryId});
 
-  final DecadeBeat beat;
-  final Color ink;
+  final ThreadBeat beat;
+  final String? focusStoryId;
 
   @override
   Widget build(BuildContext context) {
-    final count = beat.stories.length;
+    final story = _hollowStory(beat, focusStoryId);
     return Semantics(
-      label: FamilyThreadCopy.decadeBeat(beat.decadeStart, count),
+      label: FamilyThreadCopy.nonMatch(
+        story.title ?? '',
+        story.publishedStart.year,
+      ),
+      excludeSemantics: true,
+      child: const Center(child: HollowDot()),
+    );
+  }
+}
+
+Story _hollowStory(ThreadBeat beat, String? focusStoryId) {
+  return switch (beat) {
+    StoryBeat(:final story) => story,
+    YearBeat() => ThreadFocus.browseCardStory(beat, focusId: focusStoryId),
+    DecadeBeat() => ThreadFocus.representative(
+      beat,
+      previousFocusId: focusStoryId,
+    ),
+  };
+}
+
+class _DecadeContents extends StatelessWidget {
+  const _DecadeContents({
+    required this.beat,
+    required this.ink,
+    required this.filter,
+  });
+
+  final DecadeBeat beat;
+  final Color ink;
+  final ThreadFilter filter;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = beat.stories.length;
+    final active = filter.isActive;
+    final matched = active ? filter.countStories(beat.stories).n : total;
+    final text = active
+        ? FamilyThreadCopy.decadeFiltered(beat.decadeStart, matched, total)
+        : FamilyThreadCopy.decadeLabel(beat.decadeStart, total);
+    return Semantics(
+      label: active
+          ? text
+          : FamilyThreadCopy.decadeBeat(beat.decadeStart, total),
       excludeSemantics: true,
       child: Text(
-        FamilyThreadCopy.decadeLabel(beat.decadeStart, count),
+        text,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(color: ink),
       ),
     );

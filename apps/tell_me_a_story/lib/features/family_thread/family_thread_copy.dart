@@ -51,6 +51,19 @@ abstract final class FamilyThreadCopy {
 
   static const filters = 'Filters';
   static const clearFilters = 'Clear filters';
+  static const noMatch = 'No stories match these filters.';
+
+  static String nonMatch(String title, int year) {
+    final trimmed = title.trim();
+    final tail = "doesn't match filters";
+    if (trimmed.isEmpty) return '$year, $tail';
+    return '$trimmed, $year, $tail';
+  }
+
+  static String decadeFiltered(int decade, int matched, int total) {
+    return '${decade}s · ${filterCount(matched, total)}';
+  }
+
   static const searchHint = 'Search titles, stories and people';
   static const people = 'People';
   static const places = 'Places';
