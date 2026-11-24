@@ -1,17 +1,24 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/router/app_router.dart';
 import '../../core/theme/album_header.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/current_session.dart';
 import '../../data/families_api.dart';
 import '../../data/family_selection.dart';
 import '../../data/family_thread_density.dart';
+import '../../data/family_thread_open_state.dart';
+import '../../data/family_thread_open_state_store.dart';
 import '../../data/gateway_read.dart';
 import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import 'density_control.dart';
 import 'family_thread_copy.dart';
 import 'insert_published_origin.dart';
+import 'thread_beat.dart';
 import 'thread_focus.dart';
 import 'thread_skeleton.dart';
 import 'thread_view.dart';
@@ -22,6 +29,7 @@ class FamilyThreadPage extends StatefulWidget {
     this.storiesApi,
     this.familiesApi,
     this.currentUserId,
+    this.openStateStore,
     required this.live,
   });
 
@@ -31,6 +39,9 @@ class FamilyThreadPage extends StatefulWidget {
   /// Signed-in user. Widget tests pass this because [CurrentSession] is null
   /// before Supabase starts. Null means [CurrentSession.userId].
   final String? Function()? currentUserId;
+
+  /// Last density and story for this family. Null uses the device store.
+  final FamilyThreadOpenStateStore? openStateStore;
 
   /// Realtime signal. This page disposes [live] from [State.dispose] after it
   /// has subscribed.
@@ -43,13 +54,17 @@ class FamilyThreadPage extends StatefulWidget {
 class _FamilyThreadPageState extends State<FamilyThreadPage> {
   StoriesGateway? _ownedStories;
   FamiliesGateway? _ownedFamilies;
+  FamilyThreadOpenStateStore? _ownedStore;
   TimelineLive? _subscribed;
   var _loading = true;
   var _failed = false;
   var _ready = false;
   var _onRoute = false;
   var _announce = false;
+  var _member = false;
   var _ticket = 0;
+  var _ringToken = 0;
+  var _focusRequest = 0;
   var _density = FamilyThreadDensity.browse;
   String? _familyId;
   String? _originId;
@@ -65,6 +80,13 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   FamiliesGateway get _familiesApi =>
       widget.familiesApi ?? (_ownedFamilies ??= FamiliesApi());
 
+  FamilyThreadOpenStateStore get _store {
+    return widget.openStateStore ??
+        (_ownedStore ??= FamilyThreadOpenStateStore(
+          currentUserId: () => _sessionUserId,
+        ));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -77,7 +99,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     final current = ModalRoute.of(context)?.isCurrent ?? false;
     final returned = _ready && current && !_onRoute;
     _onRoute = current;
-    if (returned) _reloadStories();
+    if (!returned) return;
+    _focusRequest += 1;
+    _ringToken += 1;
+    _reloadStories();
   }
 
   @override
@@ -90,11 +115,16 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     final ticket = ++_ticket;
     try {
       final opened = await guardRead(_opened);
-      final stories = await guardRead(
+      if (!mounted || ticket != _ticket) return;
+      final member = _inMine(opened.mine, opened.id);
+      final storiesFuture = guardRead(
         () => _storiesFor(opened.id, opened.originId),
       );
+      final savedFuture = _savedOrForget(opened.id, member);
+      final stories = await storiesFuture;
+      final saved = await savedFuture;
       if (!mounted || ticket != _ticket) return;
-      _show(opened, stories);
+      _show(opened, stories, saved, member);
       _watch(opened.id);
     } on GatewayReadException {
       if (!mounted || ticket != _ticket) return;
@@ -115,7 +145,13 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     }
   }
 
-  void _show(_Opened opened, List<Story> stories) {
+  void _show(
+    _Opened opened,
+    List<Story> stories,
+    FamilyThreadOpenState? saved,
+    bool member,
+  ) {
+    final focus = _focusOf(stories, saved?.storyId, null);
     setState(() {
       _familyId = opened.id;
       _originId = opened.originId;
@@ -124,7 +160,12 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       _loading = false;
       _failed = false;
       _ready = true;
-      _applyStories(stories);
+      _member = member;
+      _density = saved?.density ?? FamilyThreadDensity.browse;
+      _stories = stories;
+      _focusId = focus.id;
+      _focusStart = focus.start;
+      _announce = false;
     });
   }
 
@@ -133,15 +174,6 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     final focus = _focusOf(stories, _focusId, _focusStart);
     _focusId = focus.id;
     _focusStart = focus.start;
-  }
-
-  void _onScrollFocus(String storyId) {
-    final focus = _focusOf(_stories, storyId, null);
-    if (focus.id == null || focus.id == _focusId) return;
-    setState(() {
-      _focusId = focus.id;
-      _focusStart = focus.start;
-    });
   }
 
   void _watch(String? familyId) {
@@ -168,6 +200,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       _density = density;
       _announce = true;
     });
+    _persist();
   }
 
   void _nudgeDensity(int delta) {
@@ -234,6 +267,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
           familyName: _familyName,
           families: _families,
           familyId: _familyId,
+          onFamilySelected: _selectFamily,
         ),
         body: _body(),
       ),
@@ -277,9 +311,93 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       stories: _stories,
       density: _density,
       focusStoryId: _focusId,
-      onFocusChanged: _onScrollFocus,
+      onFocusChanged: _focusStory,
       onDensityDelta: _nudgeDensity,
+      ringToken: _ringToken,
+      focusRequest: _focusRequest,
+      onBeat: _onBeat,
+      onCard: _onCard,
+      onOpen: () => _openReader(_focusId),
+      onMore: _onMore,
     );
+  }
+
+  void _selectFamily(String id) {
+    FamilySelection.remember(id);
+    if (id == _familyId) return;
+    setState(() {
+      _loading = true;
+      _failed = false;
+      _ready = false;
+    });
+    _load();
+  }
+
+  void _onBeat(ThreadBeat beat, {required bool focused}) {
+    if (!focused) {
+      _focusStory(
+        ThreadFocus.representative(beat, previousFocusId: _focusId).id,
+      );
+      return;
+    }
+    switch (_density) {
+      case FamilyThreadDensity.overview:
+        _setDensity(FamilyThreadDensity.browse);
+      case FamilyThreadDensity.browse:
+        _setDensity(FamilyThreadDensity.read);
+      case FamilyThreadDensity.read:
+        _openReader(_focusId);
+    }
+  }
+
+  void _onCard(ThreadBeat beat) => _openReader(_cardStory(beat, _focusId).id);
+
+  void _onMore(ThreadBeat beat) {
+    switch (beat) {
+      case final YearBeat year:
+        final card = ThreadFocus.browseCardStory(year, focusId: _focusId);
+        final next = ThreadFocus.moreTarget(year, card);
+        if (next == null) return;
+        _focusStory(next.id);
+        _setDensity(FamilyThreadDensity.read);
+      case DecadeBeat() || StoryBeat():
+        return;
+    }
+  }
+
+  void _focusStory(String? storyId) {
+    final focus = _focusOf(_stories, storyId, null);
+    if (focus.id == null || focus.id == _focusId) return;
+    setState(() {
+      _focusId = focus.id;
+      _focusStart = focus.start;
+    });
+    _persist();
+  }
+
+  void _openReader(String? storyId) {
+    if (storyId == null) return;
+    unawaited(context.push(AppRoutes.storyPath(storyId)));
+  }
+
+  void _persist() {
+    final familyId = _familyId;
+    final storyId = _focusId;
+    if (!_member || familyId == null || storyId == null) return;
+    unawaited(
+      _store.write(
+        familyId: familyId,
+        state: FamilyThreadOpenState(density: _density, storyId: storyId),
+      ),
+    );
+  }
+
+  Future<FamilyThreadOpenState?> _savedOrForget(String? id, bool member) async {
+    if (id == null || !member) {
+      if (id != null) await _store.remove(familyId: id);
+      return null;
+    }
+    return _store.read(familyId: id);
   }
 }
 
@@ -325,6 +443,22 @@ String? _originOf(List<TreeFamily> tree, String? id) {
     if (row.id == id) return row.originStoryId;
   }
   return null;
+}
+
+bool _inMine(List<MemberFamily> mine, String? id) {
+  if (id == null) return false;
+  for (final row in mine) {
+    if (row.id == id) return true;
+  }
+  return false;
+}
+
+Story _cardStory(ThreadBeat beat, String? focusId) {
+  return switch (beat) {
+    StoryBeat(:final story) => story,
+    YearBeat() => ThreadFocus.browseCardStory(beat, focusId: focusId),
+    DecadeBeat() => ThreadFocus.representative(beat, previousFocusId: focusId),
+  };
 }
 
 List<Story> _published(Iterable<Story> stories) {
@@ -373,11 +507,13 @@ class _ThreadBar extends StatelessWidget implements PreferredSizeWidget {
     required this.familyName,
     required this.families,
     required this.familyId,
+    required this.onFamilySelected,
   });
 
   final String familyName;
   final List<MemberFamily> families;
   final String? familyId;
+  final ValueChanged<String> onFamilySelected;
 
   @override
   Size get preferredSize => const Size.fromHeight(AlbumHeader.height);
@@ -394,7 +530,7 @@ class _ThreadBar extends StatelessWidget implements PreferredSizeWidget {
         familyName: familyName,
         families: families,
         currentFamilyId: familyId,
-        onFamilySelected: FamilySelection.remember,
+        onFamilySelected: onFamilySelected,
       ),
     );
   }

@@ -42,6 +42,10 @@ abstract final class FamilyThreadCopy {
   static String focusedDecade(int decadeStart, int count) =>
       'Focused ${decadeStart}s, ${_stories(count)}';
 
+  static const openStory = 'Open story';
+
+  static String moreInYear(int count, int year) => '$count more in $year';
+
   static String overviewCaption(String familyName) =>
       '$familyName · stories carried down the years';
 
