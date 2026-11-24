@@ -38,24 +38,16 @@ void main() {
     await tester.pump();
     expect(find.bySemanticsLabel('Showing Read'), findsOneWidget);
 
+    await tester.pump(const Duration(milliseconds: 200));
     final held = _threadOffset(tester);
-    await _ctrlWheel(
-      tester,
-      _threadAt(tester),
-      const Offset(0, 80),
-      at: const Duration(milliseconds: 200),
-    );
+    await _ctrlWheel(tester, _threadAt(tester), const Offset(0, 80));
     expect(_threadOffset(tester), held);
     await tester.pump();
     expect(find.bySemanticsLabel('Showing Read'), findsOneWidget);
     expect(find.bySemanticsLabel('Showing Browse'), findsNothing);
 
-    await _ctrlWheel(
-      tester,
-      _threadAt(tester),
-      const Offset(0, 80),
-      at: const Duration(milliseconds: 400),
-    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await _ctrlWheel(tester, _threadAt(tester), const Offset(0, 80));
     await tester.pump();
     expect(find.bySemanticsLabel('Showing Browse'), findsOneWidget);
   });
@@ -80,17 +72,18 @@ void main() {
     await _key(tester, LogicalKeyboardKey.equal);
     expect(find.bySemanticsLabel('Showing Read'), findsOneWidget);
 
-    await _pinch(tester, 0.5, Duration.zero);
-    await _pinch(tester, 0.5, const Duration(milliseconds: 16));
+    await _pinch(tester, 0.5);
+    await _pinch(tester, 0.5);
     await tester.pump();
     expect(find.bySemanticsLabel('Showing Browse'), findsOneWidget);
     expect(find.bySemanticsLabel('Showing Overview'), findsNothing);
 
     await _key(tester, LogicalKeyboardKey.minus);
     expect(find.bySemanticsLabel('Showing Overview'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
 
-    await _pinch(tester, 2, const Duration(milliseconds: 400));
-    await _pinch(tester, 2, const Duration(milliseconds: 416));
+    await _pinch(tester, 2);
+    await _pinch(tester, 2);
     await tester.pump();
     expect(find.bySemanticsLabel('Showing Browse'), findsOneWidget);
     expect(find.bySemanticsLabel('Showing Read'), findsNothing);
@@ -110,19 +103,18 @@ Future<void> _key(WidgetTester tester, LogicalKeyboardKey key) async {
 Future<void> _ctrlWheel(
   WidgetTester tester,
   Offset position,
-  Offset delta, {
-  Duration at = Duration.zero,
-}) async {
+  Offset delta,
+) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
   await tester.sendEventToBinding(
-    PointerScrollEvent(position: position, scrollDelta: delta, timeStamp: at),
+    PointerScrollEvent(position: position, scrollDelta: delta),
   );
   await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
 }
 
-Future<void> _pinch(WidgetTester tester, double scale, Duration at) {
+Future<void> _pinch(WidgetTester tester, double scale) {
   return tester.sendEventToBinding(
-    PointerScaleEvent(position: _threadAt(tester), scale: scale, timeStamp: at),
+    PointerScaleEvent(position: _threadAt(tester), scale: scale),
   );
 }
 

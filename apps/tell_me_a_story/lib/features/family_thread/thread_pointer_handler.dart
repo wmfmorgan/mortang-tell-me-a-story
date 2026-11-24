@@ -14,12 +14,16 @@ class ThreadPointerHandler extends StatefulWidget {
     super.key,
     required this.child,
     this.onDensityDelta,
+    this.now,
   });
 
   final Widget child;
 
   /// Positive is finer, negative is coarser. Null still claims the gesture.
   final ValueChanged<int>? onDensityDelta;
+
+  /// Gap and cooldown clock. Defaults to the last scheduler time stamp.
+  final Duration Function()? now;
 
   @override
   State<ThreadPointerHandler> createState() => _ThreadPointerHandlerState();
@@ -28,11 +32,18 @@ class ThreadPointerHandler extends StatefulWidget {
 class _ThreadPointerHandlerState extends State<ThreadPointerHandler> {
   var _zoom = const _Zoom();
 
+  Duration _now() {
+    final clock = widget.now;
+    if (clock != null) return clock();
+    return WidgetsBinding.instance.currentSystemFrameTimeStamp;
+  }
+
   void _onSignal(PointerSignalEvent event) {
     final keys = HardwareKeyboard.instance;
     final applied = _apply(
       _zoom,
       event,
+      at: _now(),
       controlOrMeta: keys.isControlPressed || keys.isMetaPressed,
     );
     _zoom = applied.zoom;
@@ -82,25 +93,27 @@ class _Applied {
 _Applied _apply(
   _Zoom zoom,
   PointerSignalEvent event, {
+  required Duration at,
   required bool controlOrMeta,
 }) {
-  if (event is PointerScaleEvent) return _pinch(zoom, event);
-  if (event is PointerScrollEvent && controlOrMeta) return _wheel(zoom, event);
+  if (event is PointerScaleEvent) return _pinch(zoom, event, at);
+  if (event is PointerScrollEvent && controlOrMeta)
+    return _wheel(zoom, event, at);
   return _Applied(zoom: zoom);
 }
 
-_Applied _pinch(_Zoom zoom, PointerScaleEvent event) {
+_Applied _pinch(_Zoom zoom, PointerScaleEvent event, Duration at) {
   final scale = event.scale;
   if (!(scale > 0)) {
-    return _Applied(zoom: _hold(zoom, event.timeStamp), claim: true);
+    return _Applied(zoom: _hold(zoom, at), claim: true);
   }
-  return _advance(zoom, event.timeStamp, wheel: 0, scale: scale, pinch: true);
+  return _advance(zoom, at, wheel: 0, scale: scale, pinch: true);
 }
 
-_Applied _wheel(_Zoom zoom, PointerScrollEvent event) {
+_Applied _wheel(_Zoom zoom, PointerScrollEvent event, Duration at) {
   final dy = event.scrollDelta.dy;
   if (dy == 0) return _Applied(zoom: zoom);
-  return _advance(zoom, event.timeStamp, wheel: -dy, scale: 1, pinch: false);
+  return _advance(zoom, at, wheel: -dy, scale: 1, pinch: false);
 }
 
 _Zoom _hold(_Zoom zoom, Duration at) {
