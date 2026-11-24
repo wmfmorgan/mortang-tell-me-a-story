@@ -7,7 +7,6 @@ import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_copy.dart';
 import 'package:tell_me_a_story/features/family_thread/hollow_dot.dart';
-import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_filter.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
 
@@ -74,14 +73,15 @@ void main() {
     await tester.pumpAndSettle();
     expectOnFocusLine(tester, 'Newest');
 
-    await _drag(tester, const Offset(0, 90));
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pumpAndSettle();
+    expectOnFocusLine(tester, 'Kept');
+
+    await _drag(tester, const Offset(0, -64));
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Focused 1996, Skipped'), findsNothing);
-    expect(
-      _onFocusLine(tester, 'Kept') || _onFocusLine(tester, 'Newest'),
-      isTrue,
-    );
+    expectOnFocusLine(tester, 'Newest');
   });
 
   testWidgets(
@@ -92,17 +92,37 @@ void main() {
         _story('near', 2002, 'Near', person: 'ada'),
         _story('now', 2004, 'Now'),
       ];
-      await tester.pumpWidget(_host(stories));
+      final reported = <String>[];
+      await tester.pumpWidget(_host(stories, onFocusChanged: reported.add));
       await tester.pumpAndSettle();
       expectOnFocusLine(tester, 'Now');
 
-      await tester.pumpWidget(_host(stories, filter: _ada));
+      await tester.pumpWidget(
+        _host(stories, filter: _ada, onFocusChanged: reported.add),
+      );
       await tester.pumpAndSettle();
 
+      expect(reported, ['near']);
       expectOnFocusLine(tester, 'Near');
       expect(find.bySemanticsLabel('Focused 2004, Now'), findsNothing);
     },
   );
+
+  testWidgets('no match hides Clear filters when clear is not wired', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        _gap(),
+        filter: const ThreadFilter(personIds: {'nobody'}),
+        wireClear: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(FamilyThreadCopy.noMatch), findsOneWidget);
+    expect(find.text(FamilyThreadCopy.clearFilters), findsNothing);
+  });
 
   testWidgets(
     'no match shows card with No stories match these filters. and Clear filters',
@@ -151,8 +171,16 @@ Widget _host(
   List<Story> stories, {
   ThreadFilter filter = ThreadFilter.cleared,
   FamilyThreadDensity density = FamilyThreadDensity.browse,
+  ValueChanged<String>? onFocusChanged,
+  bool wireClear = true,
 }) {
-  return _Harness(stories: stories, filter: filter, density: density);
+  return _Harness(
+    stories: stories,
+    filter: filter,
+    density: density,
+    onFocusChanged: onFocusChanged,
+    wireClear: wireClear,
+  );
 }
 
 class _Harness extends StatefulWidget {
@@ -160,11 +188,15 @@ class _Harness extends StatefulWidget {
     required this.stories,
     required this.filter,
     required this.density,
+    this.onFocusChanged,
+    this.wireClear = true,
   });
 
   final List<Story> stories;
   final ThreadFilter filter;
   final FamilyThreadDensity density;
+  final ValueChanged<String>? onFocusChanged;
+  final bool wireClear;
 
   @override
   State<_Harness> createState() => _HarnessState();
@@ -191,9 +223,12 @@ class _HarnessState extends State<_Harness> {
               stories: widget.stories,
               density: widget.density,
               filter: _filter,
-              onClearFilter: () {
-                setState(() => _filter = ThreadFilter.cleared);
-              },
+              onClearFilter: widget.wireClear
+                  ? () {
+                      setState(() => _filter = ThreadFilter.cleared);
+                    }
+                  : null,
+              onFocusChanged: widget.onFocusChanged,
               onBeat: (_, {required bool focused}) {
                 setState(() => _opened = true);
               },
@@ -228,14 +263,6 @@ Story _story(String id, int year, String title, {String? person}) {
     title: title,
     personIds: [?person],
   );
-}
-
-bool _onFocusLine(WidgetTester tester, String text) {
-  final finder = find.widgetWithText(ThreadBeatTile, text);
-  if (finder.evaluate().isEmpty) return false;
-  final tile = tester.getRect(finder);
-  final view = tester.getRect(find.byType(ThreadView));
-  return (tile.center.dy - view.center.dy).abs() <= 1;
 }
 
 Future<void> _drag(WidgetTester tester, Offset delta) async {

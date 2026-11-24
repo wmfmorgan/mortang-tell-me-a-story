@@ -145,6 +145,15 @@ void main() {
     expect(filter.countStories(stories), (n: 3, total: 5));
   });
 
+  test('equal content compares equal', () {
+    const named = ThreadFilter(personIds: {'ada'}, placeIds: {'farm'});
+    final copy = ThreadFilter(personIds: {'ada'}, placeIds: {'farm'});
+
+    expect(named, copy);
+    expect(named.hashCode, copy.hashCode);
+    expect(named, isNot(copy.withoutPerson('ada')));
+  });
+
   test('withPerson and withPlace add an id', () {
     const filter = ThreadFilter.cleared;
     expect(filter.withPerson('ada').withPerson('ben').personIds, {

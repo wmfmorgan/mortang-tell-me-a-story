@@ -96,6 +96,7 @@ class _ThreadViewState extends State<ThreadView>
   var _extent = _browseExtent;
   var _viewport = -1.0;
   var _centrePending = true;
+  var _noneMatch = false;
 
   @override
   void initState() {
@@ -142,6 +143,7 @@ class _ThreadViewState extends State<ThreadView>
     if (regroup) _beats = _model.beatsFor(widget.density);
     _extent = _extentFor(widget.density);
     _focusId = widget.focusStoryId ?? _newestId(widget.stories);
+    _noneMatch = _noStoriesMatch();
     _retargetFocus();
     _focusIndex = _indexOfFocus();
   }
@@ -156,7 +158,7 @@ class _ThreadViewState extends State<ThreadView>
     if (matched.isEmpty) return;
     final anchor = current.publishedStart;
     final nearest = ThreadFocus.nearestInTime(matched, anchor);
-    if (nearest == null || nearest.id == _focusId) return;
+    if (nearest == null) return;
     _focusId = nearest.id;
     final id = nearest.id;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -198,7 +200,7 @@ class _ThreadViewState extends State<ThreadView>
   @override
   Widget build(BuildContext context) {
     if (_noneMatch) {
-      return NoMatchCard(onClear: widget.onClearFilter ?? _noop);
+      return NoMatchCard(onClear: widget.onClearFilter);
     }
     return ThreadKeyboard(
       onBeat: _moveBeat,
@@ -212,7 +214,7 @@ class _ThreadViewState extends State<ThreadView>
     );
   }
 
-  bool get _noneMatch {
+  bool _noStoriesMatch() {
     if (!widget.filter.isActive) return false;
     return widget.filter.countStories(widget.stories).n == 0;
   }
@@ -490,8 +492,6 @@ class _BeatRow extends StatelessWidget {
     return Row(children: [leading, band, trailing]);
   }
 }
-
-void _noop() {}
 
 String? _newestId(List<Story> stories) {
   if (stories.isEmpty) return null;

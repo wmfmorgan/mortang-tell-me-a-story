@@ -4,12 +4,13 @@ import '../../core/theme/album_theme.dart';
 import 'family_thread_copy.dart';
 
 class NoMatchCard extends StatelessWidget {
-  const NoMatchCard({super.key, required this.onClear});
+  const NoMatchCard({super.key, this.onClear});
 
-  final VoidCallback onClear;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
+    final clear = onClear;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -21,14 +22,15 @@ class NoMatchCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            TextButton(
-              onPressed: onClear,
-              style: TextButton.styleFrom(
-                foregroundColor: albumTerracotta,
-                minimumSize: const Size(44, 44),
+            if (clear != null)
+              TextButton(
+                onPressed: clear,
+                style: TextButton.styleFrom(
+                  foregroundColor: albumTerracotta,
+                  minimumSize: const Size(44, 44),
+                ),
+                child: const Text(FamilyThreadCopy.clearFilters),
               ),
-              child: const Text(FamilyThreadCopy.clearFilters),
-            ),
           ],
         ),
       ),

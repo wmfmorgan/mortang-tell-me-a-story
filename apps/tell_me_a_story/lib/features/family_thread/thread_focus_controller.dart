@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../../data/stories_api.dart';
 import 'thread_beat.dart';
 import 'thread_center.dart';
 import 'thread_filter.dart';
+import 'thread_focus.dart';
 
 enum _SnapPhase { idle, dragging, snapping }
 
@@ -17,7 +17,6 @@ class ThreadFocusController {
   var _phase = _SnapPhase.idle;
   var _generation = 0;
   var _applying = false;
-  var _filter = ThreadFilter.cleared;
 
   /// Jumps the list without treating the scroll-end as a user release.
   ///
@@ -46,7 +45,6 @@ class ThreadFocusController {
     required bool reducedMotion,
     ThreadFilter filter = ThreadFilter.cleared,
   }) {
-    _filter = filter;
     if (_applying || notification.depth != 0) return;
     final drag = switch (notification) {
       ScrollStartNotification(:final dragDetails) => dragDetails,
@@ -74,18 +72,18 @@ class ThreadFocusController {
         viewport: viewport,
         focusId: focusId,
         reducedMotion: reducedMotion,
+        filter: filter,
       );
       return;
     }
-    if (_phase == _SnapPhase.dragging || _phase == _SnapPhase.snapping) {
-      return;
-    }
+    if (_phase == _SnapPhase.dragging || _phase == _SnapPhase.snapping) return;
     _snap(
       beats: beats,
       extent: extent,
       viewport: viewport,
       focusId: focusId,
       reducedMotion: reducedMotion,
+      filter: filter,
     );
   }
 
@@ -95,6 +93,7 @@ class ThreadFocusController {
     required double viewport,
     required String? focusId,
     required bool reducedMotion,
+    required ThreadFilter filter,
   }) {
     _phase = _SnapPhase.idle;
     if (reducedMotion) {
@@ -104,6 +103,7 @@ class ThreadFocusController {
         viewport: viewport,
         focusId: focusId,
         reducedMotion: reducedMotion,
+        filter: filter,
       );
       return;
     }
@@ -120,6 +120,7 @@ class ThreadFocusController {
         viewport: viewport,
         focusId: focusId,
         reducedMotion: reducedMotion,
+        filter: filter,
       );
     });
   }
@@ -130,6 +131,7 @@ class ThreadFocusController {
     required double viewport,
     required String? focusId,
     required bool reducedMotion,
+    required ThreadFilter filter,
   }) {
     if (_phase == _SnapPhase.dragging) return;
     moveToBeat(
@@ -144,7 +146,7 @@ class ThreadFocusController {
       viewport: viewport,
       focusId: focusId,
       reducedMotion: reducedMotion,
-      filter: _filter,
+      filter: filter,
     );
   }
 
@@ -157,47 +159,34 @@ class ThreadFocusController {
     required bool reducedMotion,
     ThreadFilter filter = ThreadFilter.cleared,
   }) {
-    _filter = filter;
     if (!scroll.hasClients || beats.isEmpty || viewport <= 0 || extent <= 0) {
       return;
     }
-    final landed = _landOn(index, beats);
+    final landed = _landOn(index, beats, filter);
     _moveTo(
       ThreadCenter.centerOffset(landed, beats.length, viewport, extent),
-      _matchedStory(beats[landed], focusId, _filter).id,
+      ThreadFocus.representative(
+        beats[landed],
+        previousFocusId: focusId,
+        filter: filter,
+      ).id,
       focusId,
       reducedMotion,
     );
   }
 
-  int _landOn(int index, List<ThreadBeat> beats) {
+  int _landOn(int index, List<ThreadBeat> beats, ThreadFilter filter) {
     final clamped = index.clamp(0, beats.length - 1).toInt();
-    if (_filter.matchesBeat(beats[clamped])) return clamped;
+    if (filter.matchesBeat(beats[clamped])) return clamped;
     for (var distance = 1; distance < beats.length; distance++) {
       final later = clamped + distance;
       final earlier = clamped - distance;
-      if (later < beats.length && _filter.matchesBeat(beats[later])) {
+      if (later < beats.length && filter.matchesBeat(beats[later])) {
         return later;
       }
-      if (earlier >= 0 && _filter.matchesBeat(beats[earlier])) return earlier;
+      if (earlier >= 0 && filter.matchesBeat(beats[earlier])) return earlier;
     }
     return clamped;
-  }
-
-  Story _matchedStory(ThreadBeat beat, String? focusId, ThreadFilter filter) {
-    final stories = switch (beat) {
-      StoryBeat(:final story) => <Story>[story],
-      DecadeBeat(:final stories) || YearBeat(:final stories) => stories,
-    };
-    if (focusId != null) {
-      for (final story in stories) {
-        if (story.id == focusId && filter.matches(story)) return story;
-      }
-    }
-    for (final story in stories) {
-      if (filter.matches(story)) return story;
-    }
-    return stories.first;
   }
 
   void _moveTo(

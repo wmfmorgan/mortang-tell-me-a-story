@@ -97,4 +97,27 @@ class ThreadFilter {
     if (to != null && decade > to) return false;
     return true;
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ThreadFilter &&
+        search == other.search &&
+        decadeFrom == other.decadeFrom &&
+        decadeTo == other.decadeTo &&
+        _sameIds(personIds, other.personIds) &&
+        _sameIds(placeIds, other.placeIds);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    search,
+    decadeFrom,
+    decadeTo,
+    Object.hashAllUnordered(personIds),
+    Object.hashAllUnordered(placeIds),
+  );
+}
+
+bool _sameIds(Set<String> left, Set<String> right) {
+  return left.length == right.length && left.containsAll(right);
 }

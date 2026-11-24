@@ -38,7 +38,11 @@ class ThreadBeatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!filter.matchesBeat(beat)) {
-      return _HollowBeat(beat: beat, focusStoryId: focusStoryId);
+      return _HollowBeat(
+        beat: beat,
+        focusStoryId: focusStoryId,
+        filter: filter,
+      );
     }
     final ink = distance >= 2 ? albumInkDim : albumInk;
     return Stack(
@@ -135,14 +139,23 @@ String? _yearMore(YearBeat beat, Story card) {
 }
 
 class _HollowBeat extends StatelessWidget {
-  const _HollowBeat({required this.beat, required this.focusStoryId});
+  const _HollowBeat({
+    required this.beat,
+    required this.focusStoryId,
+    required this.filter,
+  });
 
   final ThreadBeat beat;
   final String? focusStoryId;
+  final ThreadFilter filter;
 
   @override
   Widget build(BuildContext context) {
-    final story = _hollowStory(beat, focusStoryId);
+    final story = ThreadFocus.representative(
+      beat,
+      previousFocusId: focusStoryId,
+      filter: filter,
+    );
     return Semantics(
       label: FamilyThreadCopy.nonMatch(
         story.title ?? '',
@@ -152,17 +165,6 @@ class _HollowBeat extends StatelessWidget {
       child: const Center(child: HollowDot()),
     );
   }
-}
-
-Story _hollowStory(ThreadBeat beat, String? focusStoryId) {
-  return switch (beat) {
-    StoryBeat(:final story) => story,
-    YearBeat() => ThreadFocus.browseCardStory(beat, focusId: focusStoryId),
-    DecadeBeat() => ThreadFocus.representative(
-      beat,
-      previousFocusId: focusStoryId,
-    ),
-  };
 }
 
 class _DecadeContents extends StatelessWidget {
