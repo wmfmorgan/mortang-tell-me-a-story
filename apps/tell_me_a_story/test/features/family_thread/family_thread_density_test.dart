@@ -6,10 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/families_api.dart';
+import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/data/family_selection.dart';
 import 'package:tell_me_a_story/data/family_thread_density.dart';
-import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/data/timeline_live.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_page.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
 
@@ -23,7 +22,9 @@ void main() {
   testWidgets(
     'density radio group labelled Density with three selectable stops',
     (tester) async {
-      await tester.pumpWidget(_host(_rows([threadStory('a', 2004, 'Kept')])));
+      await tester.pumpWidget(
+        _host(ThreadStories([threadStory('a', 2004, 'Kept')])),
+      );
       await tester.pumpAndSettle();
 
       expect(find.bySemanticsLabel('Density'), findsOneWidget);
@@ -50,7 +51,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _host(
-        _rows([
+        ThreadStories([
           threadStory('old', 1980, 'Old'),
           threadStory('mid', 2001, 'Mid'),
           threadStory('new', 2004, 'Newest'),
@@ -74,7 +75,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _host(
-        _rows([
+        ThreadStories([
           threadStory('old', 1980, 'Old'),
           threadStory('new', 2004, 'Newest'),
         ]),
@@ -102,7 +103,7 @@ void main() {
   testWidgets('a density change anchors on the scrolled focus', (tester) async {
     await tester.pumpWidget(
       _host(
-        _rows([
+        ThreadStories([
           threadStory('old', 1980, 'Old'),
           threadStory('mid', 2000, 'Mid'),
           threadStory('new', 2010, 'Newest'),
@@ -140,7 +141,9 @@ void main() {
   });
 
   testWidgets('announces Showing Overview', (tester) async {
-    await tester.pumpWidget(_host(_rows([threadStory('a', 2004, 'Kept')])));
+    await tester.pumpWidget(
+      _host(ThreadStories([threadStory('a', 2004, 'Kept')])),
+    );
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Showing Overview'), findsNothing);
@@ -151,7 +154,7 @@ void main() {
 
   testWidgets('reduced motion swaps instantly', (tester) async {
     await tester.pumpWidget(
-      _host(_rows([threadStory('a', 2004, 'Kept')]), animations: false),
+      _host(ThreadStories([threadStory('a', 2004, 'Kept')]), animations: false),
     );
     await tester.pumpAndSettle();
 
@@ -165,7 +168,9 @@ void main() {
   testWidgets(
     'overview caption reads {Family name} · stories carried down the years',
     (tester) async {
-      await tester.pumpWidget(_host(_rows([threadStory('a', 2004, 'Kept')])));
+      await tester.pumpWidget(
+        _host(ThreadStories([threadStory('a', 2004, 'Kept')])),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Overview'));
       await tester.pumpAndSettle();
@@ -206,22 +211,6 @@ double _opacity(WidgetTester tester, Finder finder) {
   return opacity;
 }
 
-ThreadStories _rows(List<Story> rows) => ThreadStories(rows);
-
-class _QuietThreadLive implements TimelineLive {
-  @override
-  void watch({required String familyId, required void Function() onChange}) {}
-
-  @override
-  void watchStory({
-    required String storyId,
-    required void Function() onChange,
-  }) {}
-
-  @override
-  void dispose() {}
-}
-
 Widget _host(ThreadStories stories, {bool animations = true}) {
   return _frame(
     animations: animations,
@@ -229,7 +218,7 @@ Widget _host(ThreadStories stories, {bool animations = true}) {
       storiesApi: stories,
       familiesApi: _families,
       currentUserId: () => 'user-1',
-      live: _QuietThreadLive(),
+      live: QuietTimelineLive(),
     ),
   );
 }

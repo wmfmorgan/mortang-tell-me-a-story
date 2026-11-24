@@ -16,7 +16,7 @@ const threadPhoneBreakpoint = 600.0;
 const _browseExtent = 64.0;
 const _overviewExtent = 112.0;
 
-/// Three title lines plus the date. A 64px row overflows that stack.
+/// Read row height for three title lines plus the date.
 const _readExtent = 124.0;
 const _phoneBandWidth = 16.0;
 const _wideBandWidth = 24.0;
@@ -141,7 +141,7 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   Widget _list(double height, double width) {
-    final pad = math.max(0.0, (height - _extent) / 2);
+    final pad = _padFor(height, _extent);
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -179,7 +179,7 @@ class _ThreadViewState extends State<ThreadView>
 
   void _reportFocus() {
     if (!_scroll.hasClients || _beats.isEmpty || _viewport <= 0) return;
-    final pad = math.max(0.0, (_viewport - _extent) / 2);
+    final pad = _padFor(_viewport, _extent);
     final center = _scroll.offset + _viewport / 2;
     var index = ((center - pad - _extent / 2) / _extent).round();
     if (index < 0) index = 0;
@@ -278,9 +278,13 @@ String? _newestId(List<Story> stories) {
   return stories.last.id;
 }
 
+double _padFor(double viewport, double extent) {
+  return ((viewport - extent) / 2).clamp(0.0, double.infinity);
+}
+
 double _centerOffset(int index, int count, double viewport, double extent) {
   if (count == 0) return 0;
-  final pad = math.max(0.0, (viewport - extent) / 2);
+  final pad = _padFor(viewport, extent);
   final raw = pad + index * extent + extent / 2 - viewport / 2;
   final maxScroll = math.max(0.0, pad * 2 + count * extent - viewport);
   return raw.clamp(0.0, maxScroll);
