@@ -235,7 +235,7 @@ class _ThreadViewState extends State<ThreadView>
         return;
       }
       if ((_scroll.offset - offset).abs() < 0.5) return;
-      _scroll.jumpTo(offset);
+      _focus.place(offset);
     });
   }
 

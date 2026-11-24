@@ -99,8 +99,9 @@ _Applied _apply(
   required bool controlOrMeta,
 }) {
   if (event is PointerScaleEvent) return _pinch(zoom, event, at);
-  if (event is PointerScrollEvent && controlOrMeta)
+  if (event is PointerScrollEvent && controlOrMeta) {
     return _wheel(zoom, event, at);
+  }
   return _Applied(zoom: zoom);
 }
 

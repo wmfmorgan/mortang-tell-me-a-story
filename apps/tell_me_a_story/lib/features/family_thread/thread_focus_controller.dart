@@ -17,6 +17,21 @@ class ThreadFocusController {
   var _generation = 0;
   var _applying = false;
 
+  /// Jumps the list without treating the scroll-end as a user release.
+  ///
+  /// [ScrollController.jumpTo] emits a scroll end. Snapping from that end
+  /// starts an animate, and that animate leaves the scrollable ignoring
+  /// pointers after the jump replaces the activity.
+  void place(double offset) {
+    if (!scroll.hasClients) return;
+    _applying = true;
+    try {
+      scroll.jumpTo(offset);
+    } finally {
+      _applying = false;
+    }
+  }
+
   void onNotification({
     required ScrollNotification notification,
     required List<ThreadBeat> beats,
