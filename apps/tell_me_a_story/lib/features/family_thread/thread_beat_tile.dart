@@ -36,30 +36,9 @@ class ThreadBeatTile extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _FadedImage(distance: distance),
         contents,
         if (distance == 0) const Positioned.fill(child: StitchRing()),
       ],
-    );
-  }
-}
-
-class _FadedImage extends StatelessWidget {
-  const _FadedImage({required this.distance});
-
-  final int distance;
-
-  @override
-  Widget build(BuildContext context) {
-    final reduced = MediaQuery.disableAnimationsOf(context);
-    final opacity = reduced || distance == 0
-        ? 1.0
-        : distance == 1
-        ? 0.6
-        : 0.3;
-    return FadeTransition(
-      opacity: AlwaysStoppedAnimation(opacity),
-      child: const SizedBox.shrink(),
     );
   }
 }

@@ -32,7 +32,7 @@ class ThreadStories extends QuietStories {
   }
 }
 
-class QuietTimelineLive implements TimelineLive {
+class FakeTimelineLive implements TimelineLive {
   void Function()? onChange;
   String? familyId;
   var watchCount = 0;

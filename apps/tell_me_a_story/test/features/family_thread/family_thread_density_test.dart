@@ -218,7 +218,7 @@ Widget _host(ThreadStories stories, {bool animations = true}) {
       storiesApi: stories,
       familiesApi: _families,
       currentUserId: () => 'user-1',
-      live: QuietTimelineLive(),
+      live: FakeTimelineLive(),
     ),
   );
 }

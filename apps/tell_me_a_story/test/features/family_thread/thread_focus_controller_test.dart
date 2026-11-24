@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
@@ -103,21 +102,29 @@ void main() {
     expectOnFocusLine(tester, '1990s · 3 stories');
   });
 
-  testWidgets('no fade with reduced motion', (tester) async {
-    final stories = [
-      threadStory('far', 2002, 'Far'),
-      threadStory('near', 2003, 'Near'),
-      threadStory('focus', 2004, 'Focus'),
-    ];
-    await tester.pumpWidget(_host(stories, animations: false));
+  testWidgets('snaps onto the beat with reduced motion', (tester) async {
+    await tester.pumpWidget(
+      _host([
+        threadStory('old', 1980, 'Old'),
+        threadStory('mid', 1996, 'Mid'),
+        threadStory('new', 2004, 'Newest'),
+      ], animations: false),
+    );
     await tester.pumpAndSettle();
-    final reduced = _imageOpacity(tester, 'Far');
-    expect(reduced == null || reduced == 1, isTrue);
+    expectOnFocusLine(tester, 'Newest');
 
-    await tester.pumpWidget(_host(stories));
-    await tester.pumpAndSettle();
-    expect(_imageOpacity(tester, 'Far'), 0.3);
-    expect(_imageOpacity(tester, 'Near'), 0.6);
+    final gesture = await tester.startGesture(_listCenter(tester));
+    await gesture.moveBy(const Offset(0, 80));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 1));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expectOnFocusLine(tester, 'Mid');
+    final landed = _offset(tester);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(_offset(tester), closeTo(landed, 0.5));
   });
 
   testWidgets('beats two away use albumInkDim text', (tester) async {
@@ -152,6 +159,12 @@ void main() {
       _host([threadStory('a', 1996, 'Tractor')], animations: false),
     );
     await tester.pump();
+    expect(find.byType(StitchRing), findsOneWidget);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+
+    await tester.pumpWidget(_host([threadStory('a', 1996, 'Tractor')]));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
     expect(find.byType(StitchRing), findsOneWidget);
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
@@ -272,15 +285,6 @@ double _offset(WidgetTester tester) {
 double _lesser(double a, double b) => a < b ? a : b;
 
 double _greater(double a, double b) => a > b ? a : b;
-
-double? _imageOpacity(WidgetTester tester, String title) {
-  final fades = find.descendant(
-    of: find.widgetWithText(ThreadBeatTile, title),
-    matching: find.byType(FadeTransition),
-  );
-  if (fades.evaluate().isEmpty) return null;
-  return tester.renderObject<RenderAnimatedOpacity>(fades).opacity.value;
-}
 
 Color? _color(WidgetTester tester, String title) {
   final tile = find.widgetWithText(ThreadBeatTile, title);

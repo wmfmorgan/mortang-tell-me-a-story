@@ -11,54 +11,43 @@ class StitchRing extends StatefulWidget {
 
 class _StitchRingState extends State<StitchRing>
     with SingleTickerProviderStateMixin {
-  AnimationController? _motion;
+  late final AnimationController _motion;
+
+  @override
+  void initState() {
+    super.initState();
+    _motion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (MediaQuery.disableAnimationsOf(context)) {
-      _motion?.dispose();
-      _motion = null;
+      if (_motion.value != 1) _motion.value = 1;
       return;
     }
-    if (_motion != null) return;
-    final motion = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _motion = motion;
-    motion.forward();
+    if (_motion.status == AnimationStatus.dismissed) _motion.forward();
   }
 
   @override
   void dispose() {
-    _motion?.dispose();
+    _motion.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final motion = _motion;
-    if (motion == null) return const _StillRing();
     return IgnorePointer(
       child: AnimatedBuilder(
-        animation: motion,
+        animation: _motion,
         builder: (context, _) => CustomPaint(
-          painter: _StitchPainter(motion.value),
+          painter: _StitchPainter(_motion.value),
           child: const SizedBox.expand(),
         ),
       ),
-    );
-  }
-}
-
-class _StillRing extends StatelessWidget {
-  const _StillRing();
-
-  @override
-  Widget build(BuildContext context) {
-    return const IgnorePointer(
-      child: CustomPaint(painter: _StitchPainter(1), child: SizedBox.expand()),
     );
   }
 }

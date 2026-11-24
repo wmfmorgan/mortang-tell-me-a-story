@@ -159,7 +159,7 @@ Widget _host({required ThreadStories stories, required _Families families}) {
       storiesApi: stories,
       familiesApi: families,
       currentUserId: () => 'user-1',
-      live: QuietTimelineLive(),
+      live: FakeTimelineLive(),
     ),
   );
 }

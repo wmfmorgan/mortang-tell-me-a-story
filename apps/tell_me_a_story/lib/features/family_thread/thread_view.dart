@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../core/theme/album_theme.dart';
@@ -10,6 +8,7 @@ import 'thread_band.dart';
 import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 import 'thread_beat_tile.dart';
+import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 
@@ -166,7 +165,7 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   Widget _list(double height, double width) {
-    final pad = _padFor(height, _extent);
+    final pad = ThreadCenter.pad(height, _extent);
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -184,7 +183,7 @@ class _ThreadViewState extends State<ThreadView>
 
   void _scheduleCentre() {
     if (!_centrePending || _viewport <= 0) return;
-    final offset = _centerOffset(
+    final offset = ThreadCenter.centerOffset(
       _focusIndex,
       _beats.length,
       _viewport,
@@ -196,9 +195,8 @@ class _ThreadViewState extends State<ThreadView>
         _centrePending = true;
         return;
       }
-      final target = offset.clamp(0.0, _scroll.position.maxScrollExtent);
-      if ((_scroll.offset - target).abs() < 0.5) return;
-      _scroll.jumpTo(target);
+      if ((_scroll.offset - offset).abs() < 0.5) return;
+      _scroll.jumpTo(offset);
     });
   }
 
@@ -218,7 +216,12 @@ class _ThreadViewState extends State<ThreadView>
     if (!mounted || storyId == _focusId) return;
     setState(() {
       _focusId = storyId;
-      _focusIndex = _indexOfFocus();
+      _focusIndex = ThreadCenter.nearestIndex(
+        _scroll.offset,
+        _beats.length,
+        _viewport,
+        _extent,
+      );
       _announcement = _settledLabel();
     });
     widget.onFocusChanged?.call(storyId);
@@ -226,15 +229,19 @@ class _ThreadViewState extends State<ThreadView>
 
   String _settledLabel() {
     final beat = _beats[_focusIndex];
-    final story = ThreadFocus.representative(beat, previousFocusId: _focusId);
-    return switch (beat) {
-      DecadeBeat(:final decadeStart, :final stories) =>
-        FamilyThreadCopy.focusedDecade(decadeStart, stories.length),
-      YearBeat() || StoryBeat() => FamilyThreadCopy.focusedStory(
-        story.publishedStart.year,
-        story.title ?? '',
-      ),
-    };
+    switch (beat) {
+      case DecadeBeat(:final decadeStart, :final stories):
+        return FamilyThreadCopy.focusedDecade(decadeStart, stories.length);
+      case YearBeat() || StoryBeat():
+        final story = ThreadFocus.representative(
+          beat,
+          previousFocusId: _focusId,
+        );
+        return FamilyThreadCopy.focusedStory(
+          story.publishedStart.year,
+          story.title ?? '',
+        );
+    }
   }
 
   int _indexOfFocus() {
@@ -327,18 +334,6 @@ class _BeatRow extends StatelessWidget {
 String? _newestId(List<Story> stories) {
   if (stories.isEmpty) return null;
   return stories.last.id;
-}
-
-double _padFor(double viewport, double extent) {
-  return ((viewport - extent) / 2).clamp(0.0, double.infinity);
-}
-
-double _centerOffset(int index, int count, double viewport, double extent) {
-  if (count == 0) return 0;
-  final pad = _padFor(viewport, extent);
-  final raw = pad + index * extent + extent / 2 - viewport / 2;
-  final maxScroll = math.max(0.0, pad * 2 + count * extent - viewport);
-  return raw.clamp(0.0, maxScroll);
 }
 
 Widget _decadeMark(int decade) {
