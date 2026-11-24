@@ -78,17 +78,6 @@ class _StoryCardState extends State<StoryCard> {
   }
 
   @override
-  void didUpdateWidget(StoryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.story == widget.story &&
-        oldWidget.photos == widget.photos &&
-        oldWidget.cache == widget.cache) {
-      return;
-    }
-    _coverQuote = false;
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
@@ -132,18 +121,21 @@ class _StoryCardState extends State<StoryCard> {
     final line = QuoteCard.firstLine(story.body);
     final gateway = photos;
     final store = cache;
+    if (gateway == null || store == null) {
+      return _fitted(QuoteCard(line: line));
+    }
     return switch (_artKind) {
-      _CardArt.cover when gateway != null && store != null => PhotoCover(
+      _CardArt.none => _fitted(QuoteCard(line: line)),
+      _CardArt.cover => PhotoCover(
         story: story,
         photos: gateway,
         cache: store,
         line: line,
         onQuote: _setCoverQuote,
       ),
-      _CardArt.fan when gateway != null && store != null => _fitted(
+      _CardArt.fan => _fitted(
         PhotoFan(story: story, photos: gateway, cache: store),
       ),
-      _ => _fitted(QuoteCard(line: line)),
     };
   }
 

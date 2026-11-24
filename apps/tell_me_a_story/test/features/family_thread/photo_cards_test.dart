@@ -144,6 +144,48 @@ void main() {
     expect(find.text('The first line'), findsOneWidget);
   });
 
+  testWidgets('failed cover stays one line when the story is replaced', (
+    tester,
+  ) async {
+    final photos = _Photos(fail: {'gone.jpg'});
+    final cache = ThreadPhotoCache();
+    await tester.pumpWidget(
+      _card(
+        _story(
+          's',
+          1996,
+          'Picnic',
+          body: 'The first line',
+          paths: const ['gone.jpg'],
+        ),
+        photos: () => photos,
+        cache: cache,
+        showBody: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      _card(
+        _story(
+          's',
+          1996,
+          'Supper',
+          body: 'The first line',
+          paths: const ['gone.jpg'],
+        ),
+        photos: () => photos,
+        cache: cache,
+        showBody: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Supper'), findsOneWidget);
+    expect(find.byKey(const Key('quote-card')), findsOneWidget);
+    expect(find.text('The first line'), findsOneWidget);
+  });
+
   testWidgets('two photos with a gateway render a fan', (tester) async {
     final photos = _Photos();
     await tester.pumpWidget(
