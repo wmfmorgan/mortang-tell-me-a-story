@@ -34,11 +34,11 @@ class ThreadFilter {
     );
   }
 
-  ThreadFilter withoutPeople(Set<String> personIds) =>
-      copyWith(personIds: personIds);
+  ThreadFilter withoutPerson(String id) =>
+      copyWith(personIds: {...personIds}..remove(id));
 
-  ThreadFilter withoutPlaces(Set<String> placeIds) =>
-      copyWith(placeIds: placeIds);
+  ThreadFilter withoutPlace(String id) =>
+      copyWith(placeIds: {...placeIds}..remove(id));
 
   bool get isActive => activeCount > 0;
 

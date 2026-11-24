@@ -100,13 +100,13 @@ List<_Pill> _pillsOf(
       filter,
       filter.personIds,
       personLabels,
-      (current, ids) => current.withoutPeople(ids),
+      (current, id) => current.withoutPerson(id),
     ),
     ..._idPills(
       filter,
       filter.placeIds,
       placeLabels,
-      (current, ids) => current.withoutPlaces(ids),
+      (current, id) => current.withoutPlace(id),
     ),
     ..._decadePills(filter),
   ];
@@ -136,7 +136,7 @@ List<_Pill> _idPills(
   ThreadFilter filter,
   Set<String> ids,
   Map<String, String> labels,
-  ThreadFilter Function(ThreadFilter filter, Set<String> remaining) next,
+  ThreadFilter Function(ThreadFilter filter, String id) next,
 ) {
   final ordered = [...ids]
     ..sort((a, b) {
@@ -146,7 +146,7 @@ List<_Pill> _idPills(
     });
   return [
     for (final id in ordered)
-      (label: _label(labels, id), next: next(filter, {...ids}..remove(id))),
+      (label: _label(labels, id), next: next(filter, id)),
   ];
 }
 
