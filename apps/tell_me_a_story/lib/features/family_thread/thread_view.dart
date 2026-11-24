@@ -50,6 +50,7 @@ class ThreadView extends StatefulWidget {
     this.onMore,
     this.ringToken = 0,
     this.focusRequest = 0,
+    this.now,
   });
 
   final List<Story> stories;
@@ -70,6 +71,7 @@ class ThreadView extends StatefulWidget {
   final ValueChanged<ThreadBeat>? onMore;
   final int ringToken;
   final int focusRequest;
+  final Duration Function()? now;
 
   @override
   State<ThreadView> createState() => _ThreadViewState();
@@ -211,6 +213,7 @@ class _ThreadViewState extends State<ThreadView>
         padding: EdgeInsets.symmetric(vertical: pad),
         itemCount: _beats.length,
         onDensityDelta: widget.onDensityDelta,
+        now: widget.now,
         itemBuilder: (context, index) =>
             _row(index, phone: width < threadPhoneBreakpoint),
       ),
@@ -362,9 +365,11 @@ class _ThreadList extends ListView {
     required int super.itemCount,
     required super.itemBuilder,
     required this.onDensityDelta,
+    required this.now,
   }) : super.builder();
 
   final ValueChanged<int>? onDensityDelta;
+  final Duration Function()? now;
 
   @override
   Widget buildViewport(
@@ -375,6 +380,7 @@ class _ThreadList extends ListView {
   ) {
     return ThreadPointerHandler(
       onDensityDelta: onDensityDelta,
+      now: now,
       child: super.buildViewport(context, offset, axisDirection, slivers),
     );
   }

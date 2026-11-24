@@ -22,7 +22,8 @@ class ThreadPointerHandler extends StatefulWidget {
   /// Positive is finer, negative is coarser. Null still claims the gesture.
   final ValueChanged<int>? onDensityDelta;
 
-  /// Gap and cooldown clock. Defaults to the last scheduler time stamp.
+  /// Gap and cooldown clock. Defaults to a stopwatch, which keeps moving
+  /// between frames. Pointer signals are handled before the next frame.
   final Duration Function()? now;
 
   @override
@@ -31,11 +32,12 @@ class ThreadPointerHandler extends StatefulWidget {
 
 class _ThreadPointerHandlerState extends State<ThreadPointerHandler> {
   var _zoom = const _Zoom();
+  final _watch = Stopwatch()..start();
 
   Duration _now() {
     final clock = widget.now;
     if (clock != null) return clock();
-    return WidgetsBinding.instance.currentSystemFrameTimeStamp;
+    return _watch.elapsed;
   }
 
   void _onSignal(PointerSignalEvent event) {

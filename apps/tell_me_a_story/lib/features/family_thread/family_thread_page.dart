@@ -30,6 +30,7 @@ class FamilyThreadPage extends StatefulWidget {
     this.familiesApi,
     this.currentUserId,
     this.openStateStore,
+    this.now,
     required this.live,
   });
 
@@ -42,6 +43,9 @@ class FamilyThreadPage extends StatefulWidget {
 
   /// Last density and story for this family. Null uses the device store.
   final FamilyThreadOpenStateStore? openStateStore;
+
+  /// Gap and cooldown clock. Null uses a stopwatch inside the thread.
+  final Duration Function()? now;
 
   /// Realtime signal. This page disposes [live] from [State.dispose] after it
   /// has subscribed.
@@ -313,6 +317,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       focusStoryId: _focusId,
       onFocusChanged: _focusStory,
       onDensityDelta: _nudgeDensity,
+      now: widget.now,
       ringToken: _ringToken,
       focusRequest: _focusRequest,
       onBeat: _onBeat,
