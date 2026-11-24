@@ -226,7 +226,7 @@ Story _story(String id, int year, String title, {String? person}) {
     timeframeStart: DateTime.utc(year, 6, 1),
     datePrecision: StoryDatePrecision.year,
     title: title,
-    personIds: [if (person != null) person],
+    personIds: [?person],
   );
 }
 
