@@ -17,8 +17,11 @@ import '../../data/stories_api.dart';
 import '../../data/timeline_live.dart';
 import 'density_control.dart';
 import 'family_thread_copy.dart';
+import 'filter_button.dart';
+import 'filter_pills.dart';
 import 'insert_published_origin.dart';
 import 'thread_beat.dart';
+import 'thread_filter.dart';
 import 'thread_focus.dart';
 import 'thread_skeleton.dart';
 import 'thread_view.dart';
@@ -31,6 +34,7 @@ class FamilyThreadPage extends StatefulWidget {
     this.currentUserId,
     this.openStateStore,
     this.now,
+    this.initialFilter = ThreadFilter.cleared,
     required this.live,
   });
 
@@ -46,6 +50,9 @@ class FamilyThreadPage extends StatefulWidget {
 
   /// Gap and cooldown clock. Null uses a stopwatch inside the thread.
   final Duration Function()? now;
+
+  /// Filters shown on open. Defaults to cleared. Storage does not restore them.
+  final ThreadFilter initialFilter;
 
   /// Realtime signal. This page disposes [live] from [State.dispose] after it
   /// has subscribed.
@@ -70,6 +77,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   var _ringToken = 0;
   var _focusRequest = 0;
   var _density = FamilyThreadDensity.browse;
+  var _filter = ThreadFilter.cleared;
   String? _familyId;
   String? _originId;
   String? _focusId;
@@ -94,6 +102,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   @override
   void initState() {
     super.initState();
+    _filter = widget.initialFilter;
     _load();
   }
 
@@ -284,6 +293,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     return Column(
       children: [
         _toolbar(),
+        if (_filter.isActive) _pills(),
         if (_announce) _DensityAnnouncement(density: _density),
         Expanded(child: _thread()),
         if (!_loading && _density == FamilyThreadDensity.overview)
@@ -295,17 +305,36 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   Widget _toolbar() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final phone = constraints.maxWidth < threadPhoneBreakpoint;
-        return Align(
-          alignment: phone ? Alignment.centerRight : Alignment.center,
-          child: DensityControl(
-            density: _density,
-            enabled: !_loading,
-            onChanged: _setDensity,
-          ),
+        final wide = constraints.maxWidth >= threadPhoneBreakpoint;
+        return _ThreadToolbar(
+          wide: wide,
+          density: _density,
+          enabled: !_loading,
+          onDensity: _setDensity,
+          activeCount: _filter.activeCount,
+          countLabel: _countLabel(wide),
         );
       },
     );
+  }
+
+  Widget _pills() {
+    return FilterPills(
+      filter: _filter,
+      personLabels: _personLabels(_stories),
+      placeLabels: _placeLabels(_stories),
+      onChanged: _setFilter,
+    );
+  }
+
+  void _setFilter(ThreadFilter next) {
+    setState(() => _filter = next);
+  }
+
+  String? _countLabel(bool wide) {
+    if (!wide || _loading || _stories.isEmpty) return null;
+    final count = _filter.countStories(_stories);
+    return FamilyThreadCopy.filterCount(count.n, count.total);
   }
 
   Widget _thread() {
@@ -334,6 +363,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       _loading = true;
       _failed = false;
       _ready = false;
+      _filter = ThreadFilter.cleared;
     });
     _load();
   }
@@ -466,11 +496,85 @@ Story _cardStory(ThreadBeat beat, String? focusId) {
   };
 }
 
+Map<String, String> _personLabels(List<Story> stories) {
+  final labels = <String, String>{};
+  for (final story in stories) {
+    for (final person in story.people) {
+      final name = person.name.trim();
+      if (name.isEmpty) continue;
+      labels.putIfAbsent(person.id, () => name);
+    }
+  }
+  return labels;
+}
+
+Map<String, String> _placeLabels(List<Story> stories) {
+  final labels = <String, String>{};
+  for (final story in stories) {
+    final id = story.placeId;
+    final label = story.placeLabel?.trim();
+    if (id == null || label == null || label.isEmpty) continue;
+    labels.putIfAbsent(id, () => label);
+  }
+  return labels;
+}
+
 List<Story> _published(Iterable<Story> stories) {
   return [
     for (final story in stories)
       if (story.status == StoryStatus.published) story,
   ];
+}
+
+class _ThreadToolbar extends StatelessWidget {
+  const _ThreadToolbar({
+    required this.wide,
+    required this.density,
+    required this.enabled,
+    required this.onDensity,
+    required this.activeCount,
+    required this.countLabel,
+  });
+
+  final bool wide;
+  final FamilyThreadDensity density;
+  final bool enabled;
+  final ValueChanged<FamilyThreadDensity> onDensity;
+  final int activeCount;
+  final String? countLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final densityControl = DensityControl(
+      density: density,
+      enabled: enabled,
+      onChanged: onDensity,
+    );
+    if (!wide) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            FilterButton(activeCount: activeCount),
+            const SizedBox(width: 8),
+            densityControl,
+          ],
+        ),
+      );
+    }
+    return Row(
+      children: [
+        FilterButton(activeCount: activeCount),
+        Expanded(
+          child: Center(
+            child: FittedBox(fit: BoxFit.scaleDown, child: densityControl),
+          ),
+        ),
+        if (countLabel != null)
+          Text(countLabel!, style: Theme.of(context).textTheme.labelLarge),
+      ],
+    );
+  }
 }
 
 class _DensityAnnouncement extends StatelessWidget {

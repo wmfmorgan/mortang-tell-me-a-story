@@ -49,6 +49,23 @@ abstract final class FamilyThreadCopy {
   static String overviewCaption(String familyName) =>
       '$familyName · stories carried down the years';
 
+  static const filters = 'Filters';
+  static const clearFilters = 'Clear filters';
+
+  static String filtersButton(int activeCount) {
+    if (activeCount == 0) return filters;
+    return '$filters · $activeCount';
+  }
+
+  static String filterCount(int matched, int total) {
+    final noun = total == 1 ? 'story' : 'stories';
+    return '$matched of $total $noun';
+  }
+
+  static String decadeRange(int from, int to) => '${from}s – ${to}s';
+
+  static String removeFilter(String value) => 'Remove filter: $value';
+
   static String _stories(int count) =>
       count == 1 ? '1 story' : '$count stories';
 }
