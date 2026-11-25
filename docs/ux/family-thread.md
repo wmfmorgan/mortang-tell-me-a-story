@@ -1,10 +1,10 @@
 # Family Thread (timeline rebuild): UX
 
-**Status: APPROVED rev 1.0. Bill approved it as written on 2026-11-22 at 6:33 AM CT.** Locked by Mugatu (UXD) from the approved milestone scope rev 4, Bill's density decisions (6:14 PM CT), mockups R1–R8 and the draft PR #249 learnings. Jared stamps the copy strings FT-01 to FT-37, and the doc then goes to Gilfoyle (SAD).
+**Status: LOCKED rev 1.3 (2026-11-25, 4:57 PM CT). Rev 1.0 was approved by Bill as written on 2026-11-22 at 6:33 AM CT. Rev 1.1 and 1.2 are lane 2 deltas to the time scrubber only ([§6.1](#61-dial-scrubber-rev-11)), from Bill's 4:50 PM CT ask via Erlich: "the scrubber should look like this, and it should move smoothly like a dial."** Locked by Mugatu (UXD) from the approved milestone scope rev 4, Bill's density decisions (6:14 PM CT), mockups R1–R8 and the draft PR #249 learnings. Jared stamps the copy strings FT-01 to FT-37, and the doc then goes to Gilfoyle (SAD).
 
 - **Scope source:** PRD, section **"Family Thread — milestone scope"**, rev 4, APPROVED 2026-11-21 8:31 PM CT by Bill and stamped by Jared: https://app.notion.com/p/3e0c4bcef238813e843af14d12c9a4b2. It supersedes the "Timeline page concepts — scope note" rev 1.
 - **Stitch:** project `13933817203770823979`, screens R1–R8. See [Stitch screens](#stitch-screens). The contact sheet is `family-thread-contact.jpg`.
-- **Open UI questions:** none. Q1 is closed: on 2026-11-22 at 6:33 AM CT Bill decided the nav and the button stay "Timeline". See [§20](#20-open-ui-questions).
+- **Open UI questions:** none. Q2 is closed: on 2026-11-25 at 4:55 PM CT Bill approved the new token albumMossInk #4A6A2F for the scrubber's matching-decade labels only ([§20](#20-open-ui-questions)). Q1 is closed: on 2026-11-22 at 6:33 AM CT Bill decided the nav and the button stay "Timeline".
 - **This doc overrides the mockups.** R1–R8 are exploration renders and contain known slips plus sample data. Where a mockup and this text differ, follow the text. [§15](#15-mockup-corrections) lists every known slip.
 
 ## Sources
@@ -121,19 +121,117 @@ The scope sets three fixed stops with nothing in between. The page is one screen
 
 ## 6. Time scrubber and Jump to year
 
-- **What it shows:** a minimap of the whole thread, oldest to newest.
-  - **Decade ticks**, labelled in short form ('50s, '60s, … '00s, '10s, '20s). Each decade label appears **once**.
-  - **Density bumps** per decade, sized by story count. Filled albumInkDim for matching stories. With filters on, non-matching stories show as an outline only.
-  - A **viewport window**: a 2px albumTerracotta outline, radius 8, over the part of the thread on screen.
-  - A **handle**: the window's grab point, with a 44×44 target.
-- **Label under the handle:** the focused decade, in short form. If you're focused in the 1990s, it reads **'90s**.
-- **Interaction:** drag the window or handle, or tap anywhere on the scrubber. While you drag, the thread follows live and focus settles when you let go. A tap jumps straight to the nearest matching story in that decade, with no scroll animation under reduced motion. The scrubber never changes density.
+- **Rev 1.1:** what the scrubber shows, how it looks and how it moves are now defined in [§6.1](#61-dial-scrubber-rev-11). The rev 1.0 density bumps, viewport window, separate handle and short '90s labels are retired. Position and Jump to year below are unchanged.
 - **Position:** on ≥600pt it runs top to bottom in the right-edge column, with **Jump to year** as a 44×44 icon-plus-label button at its foot. On phone it runs left to right in the bottom strip, with **Jump to year** at its right end.
 - **Jump to year** opens a small dialog: radius 16, albumParchment, 1px albumModalBorder.
   - Contents: field **Year** (numeric keypad), a helper showing the family's range ("1952–2024"), **Go** (primary, terracotta) and **Cancel**.
   - Enter submits. Go focuses the nearest *matching* story in time at the current density.
   - An out-of-range year clamps to the oldest or newest story. Non-numeric input shows the inline error "Enter a year like 1975." and the dialog stays open.
   - Focus returns to the Jump to year button when the dialog closes.
+
+## 6.1 Dial scrubber (rev 1.1)
+
+Built from Bill's reference screenshot (`/workspace/family-thread/refs/bill-scrubber-reference.png`; rev 1.2 matched against the image itself): a vertical cream pill with full decade labels, small dots between decades, the focused decade in a filled brown chip with white text, matching decades in green and the rest in grey. This section replaces the look and motion in [§6](#6-time-scrubber-and-jump-to-year). Scope is the scrubber only. The thread, density, filters, Jump to year and every other section are unchanged. No schema change and no new data. Code today: `lib/features/family_thread/time_scrubber.dart` (S1a, PR #275 at `9e22776`).
+
+### 6.1a Decades on the dial
+
+- **Every decade from the oldest story's decade to the newest story's decade gets one slot**, evenly spaced, including decades with no stories. Slots are no longer sized by story count.
+- A decade is **eligible** when it has at least one story that matches the current filters. With no filters, any decade with a story is eligible.
+- Ineligible decades (empty, or no matches) are shown in grey and are skipped by snapping, taps, keys and wheel, the same way non-matching beats are skipped in [§8](#8-filters-190-rules-248-panel).
+- Story counts are no longer drawn on the scrubber. They stay on decade beats and mosaic labels (FT-23, FT-32).
+
+### 6.1b Labels: full years
+
+- Every label is the **full decade**: **1950s, 1960s, … 2000s, 2010s, 2020s**. There is no short form anywhere on the scrubber, so '20s can never be read as the 1920s or the 2020s. A family spanning 1920s to 2020s reads 1920s … 2020s.
+- FT-27 changes from '{yy}s to **{yyyy}s** (copy delta for Jared's stamp, [§19](#19-copy-strings)). The rev 1.0 "label under the handle" is gone: the focused chip is the label.
+- Labels never truncate, wrap or scale down. At 200% text the pitch rule in 6.1c switches the scrubber to the centred dial.
+
+### 6.1c Visual, ≥600pt (right-edge column)
+
+All existing tokens. Measurements in pt.
+
+| Part | Spec |
+|---|---|
+| Column | 56 wide (unchanged, [§2](#2-layout)) |
+| Pill | 48 wide, centred in the column; 12 from the column top; 12 above the Jump to year button. Fill **albumPillFill** #F6F1EB, 1px **albumPillBorder**, **fully round ends** (stadium: radius = half the width, the same shape rule as the thread band's round ends in [§2](#2-layout); no new radius value). No shadow, gradient or glow. |
+| Inner padding | 8 at each end of the pill |
+| Slot pitch | inner length ÷ number of decades, **minimum 44**. Each label is centred in its slot. |
+| Label, eligible | Source Sans 3, 12pt, weight 600, **albumMossInk #4A6A2F** (new token, Bill approved 2026-11-25 4:55 PM CT; ≈5.5:1 on the pill) |
+| Label, ineligible | Source Sans 3, 12pt, weight 400, **albumInkDim** (≈5.4:1 on the pill) |
+| Dots | between each pair of adjacent labels, **one** 4pt filled circle, **albumInkFaint**, centred in the gap. Decorative, hidden from screen readers. |
+| Focused chip | 44 wide × 28 tall, **fully round ends** (stadium), fill **albumTerracotta**, label Source Sans 3 **13pt weight 700** in **albumWhite** (5.5:1). The chip label is one step larger and bolder than the other labels. It sits on top of the pill and fully covers the label of the decade it's on. |
+| Keyboard focus | the 2px albumTerracotta ring with 2px offset goes around the **whole pill** ([§13](#13-accessibility)) |
+| Pointer (web) | `grab` cursor over the pill, `grabbing` while dragging |
+
+**Fallback, too many decades:** if the pitch would drop below 44 (many decades, a short window, or large text), the ≥600pt pill uses the **centred dial** from 6.1e turned vertical: the chip stays fixed at the pill's vertical centre and the labels slide under it at a 44 pitch, clipped by the pill shape.
+
+**Contrast check:** albumInk on albumPillFill ≈13.5:1, albumInkDim ≈5.4:1, albumWhite on albumTerracotta ≈5.5:1. albumMossInk ≈5.5:1. branchMoss text on the pill is only ≈4.1:1 and fails AA for 12pt text, so it is **not** used for labels (Q2).
+
+### 6.1d Motion: "move smoothly like a dial" (≥600pt)
+
+The chip is the thing you hold. Oldest is at the top, as in the thread.
+
+1. **Press and drag** anywhere on the pill. The chip jumps under the pointer and then follows it **continuously, 1:1**, with no stepping. It's clamped between the first and last eligible decade centres. The chip's label always shows the nearest eligible decade.
+2. **Detents while dragging:** each time the nearest eligible decade changes, the thread previews that decade's nearest matching story (the existing `onPreview` path) and iOS plays `HapticFeedback.selectionClick()`. Web has no haptic. Previews fire per detent, not per pixel.
+3. **Release with momentum:** take the release velocity *v* (pt/s).
+   - If |v| < 50: snap to the nearest eligible decade.
+   - Otherwise: projected point = release position + v × 0.25s, clamped to the ends. Snap to the nearest eligible decade to that point.
+   - The glide uses `Curves.easeOutCubic`. Duration = 250ms + 25ms per decade travelled, at most 450ms. No overshoot and no bounce at either end.
+   - Detent previews and haptics keep firing as the chip passes decades during the glide.
+4. **Commit:** when the chip comes to rest, focus settles on that decade's nearest matching story (the existing `onCommit`). That's one commit per gesture.
+5. **Catch:** a new press during a glide stops the chip where it is and starts a new drag from there. No commit happens for the interrupted glide.
+6. **Pointer cancel** (existing S1a behaviour): the chip returns to the committed decade in 200ms easeOutCubic, the preview is cleared, nothing commits.
+7. **Tap** on a slot: the chip slides to the tapped decade over **250ms easeInOutCubic**, and the thread runs its 250ms scroll in sync ([§12](#12-motion-and-reduced-motion)). This is the 250ms that S1a deferred. Tapping an ineligible decade goes to the nearest eligible decade in time, matching today's `tapPick`.
+8. **Keys** (focus on the scrubber): ↑/↓ and ←/→ step one eligible decade; Page Up/Page Down step two; **Home/End** go to the oldest/newest eligible decade. Each step animates like a tap (250ms). A step that arrives mid-animation retargets from the chip's current position. Steps don't queue, so a held arrow never runs ahead of the chip.
+9. **Wheel and trackpad over the pill** (web, no modifier): scrolling moves the chip continuously, 1pt of chip per 1pt of scroll delta. 150ms after the last wheel event it snaps as in step 3 with v = 0, then commits. The event is consumed, so the thread doesn't also scroll. Ctrl/⌘ + wheel over the scrubber still goes to the browser for page zoom ([§10](#10-input-gestures-keys-pointer)).
+10. Nothing loops and nothing moves on its own.
+
+**Reduced motion:**
+- Drag still follows the pointer 1:1, because that's direct manipulation, not animation.
+- No momentum: release snaps **instantly** to the nearest eligible decade to the release point, with no projection.
+- Tap, keys, wheel snap and pointer cancel cut straight to the target, and so does the thread (existing §12 row).
+- Haptics stay. They aren't motion, and iOS has its own system haptics switch.
+
+### 6.1e Phone bottom strip (<600pt): the centred dial
+
+Labels at full width don't fit side by side on a phone (8 decades × 44 > ~280pt), so on phone the **dial turns and the chip stays put**.
+
+| Part | Spec |
+|---|---|
+| Strip | 56 tall, above the safe area (unchanged) |
+| Pill | 44 tall, horizontal, from 16 off the left edge to 8 before the Jump to year button (44×44, right end, 16 from the right edge). Same fill, border and fully round ends as 6.1c. |
+| Chip | fixed at the pill's horizontal centre, 56 wide × 28 tall, fully round ends, terracotta with albumWhite 13pt weight 700 label |
+| Labels | the same full labels and colours as 6.1c, laid out at a fixed **64 pitch**, one 4pt albumInkFaint dot in each gap. The row is padded by half the pill width at each end so the oldest and the newest decade can both sit under the chip. Hard clip at the pill shape, with no fade gradient. |
+
+Motion is the same as 6.1d, except that **the row is the thing you hold**:
+- Dragging left brings newer decades to the chip and dragging right brings older ones. The row follows the finger 1:1.
+- Release uses the same momentum, snap, durations, detent previews, haptics, catch, commit and reduced-motion rules.
+- A tap on a visible label slides that label to the chip over 250ms, with the thread in sync.
+- A horizontal swipe on the strip never scrolls the thread or the page.
+
+### 6.1f States
+
+- **Loading:** the pill renders empty (fill and border only, no labels, no chip), per [§11](#11-loading-empty-error).
+- **Empty family:** hidden, as before.
+- **One decade:** one label with the chip on it. Drag and keys do nothing, and it's still exposed as a slider.
+- **Filters change:** labels recolour to the new eligibility. If the focused decade becomes ineligible, the chip follows the thread's new focus (250ms, or a cut under reduced motion). It never picks a decade by itself.
+- **Focus moves in the thread** (scroll, ↑/↓, drill-down, Back): the chip follows to the focused decade with the 200ms snap, and there's no commit loop back into the thread.
+
+### 6.1g Screen readers
+
+Unchanged from [§13](#13-accessibility): one slider, FT-34 "Timeline scrubber, 1950s to 2020s, showing 1990s", value text "1990s". Increase/decrease step one eligible decade. Labels, dots and chip are excluded from semantics, as today. The focused decade is announced politely when it settles, not on each detent during a drag.
+
+### 6.1h Acceptance checks for the build
+
+1. Full labels 1950s…2020s, each once, in order, evenly spaced; no '90s form anywhere on the scrubber.
+2. Pill albumPillFill + 1px albumPillBorder, fully round ends; chip albumTerracotta, fully round ends, albumWhite 13pt w700 text; eligible labels albumMossInk #4A6A2F w600 12pt; ineligible albumInkDim w400 12pt; one 4pt albumInkFaint dot per gap. No colour outside `album_theme.dart`; albumMossInk is added there as `Color(0xFF4A6A2F)` and used only for eligible scrubber labels.
+3. Drag moves the chip continuously (golden or widget test at a mid-slot position shows the chip between two slots).
+4. A fling ends on an eligible decade with one `onCommit`; previews fire once per detent.
+5. A tap animates 250ms; under reduced motion, a tap and a fling end with no animation frames.
+6. Home/End/Page keys work; ineligible decades are skipped by every input.
+7. Phone: fixed centre chip, row drags, oldest and newest can both reach the chip.
+8. ≥600pt with a pitch below 44 switches to the vertical centred dial.
+9. Tab from the focused card's Open story reaches the scrubber, and Shift+Tab goes back ([§13](#13-accessibility), the open note from #268).
 
 ## 7. Photo cards and medallions
 
@@ -229,6 +327,8 @@ This section describes behaviour only. The storage mechanism is Gilfoyle's call.
 | Fade by distance | 100 / 60 / 30% on images | none, all at 100% |
 | Stitch ring on focus | draws once over 400ms, then stays still | static ring, no animation |
 | Scrubber tap jump | 250ms scroll | cut, no animation |
+| Scrubber chip on tap / key step (rev 1.1) | 250ms easeInOutCubic, in sync with the thread | cut |
+| Scrubber release glide (rev 1.1) | easeOutCubic, 250ms + 25ms per decade, max 450ms, no overshoot | none: instant snap to nearest decade |
 | Drawer | platform sheet motion | no slide; appears in place |
 | Skeleton | gentle opacity pulse | static |
 
@@ -251,7 +351,7 @@ WCAG 2.2 AA throughout.
     - Year: "1996, The new tractor, The farm, Tom, 3 photos".
     - Decade: "1990s, 3 stories".
     - Non-match: "{title}, {year}, doesn't match filters".
-  - The scrubber is a slider: "Timeline scrubber, 1950s to 2020s, showing 1990s", with year values. Arrow keys step one decade and Page Up/Down step two.
+  - The scrubber is a slider: "Timeline scrubber, 1950s to 2020s, showing 1990s", with year values. Arrow keys step one eligible decade, Page Up/Down step two and Home/End go to the oldest/newest (rev 1.1, [§6.1](#61-dial-scrubber-rev-11)).
   - Focus, density and filter-count changes are announced politely.
 - **Keyboard and tab order:** header → toolbar (Filters, Density, Jump to year on ≥600pt) → filter sidebar when open → thread (**one tab stop**, roving focus with ↑/↓) → the focused card's Open story → scrubber.
   - The keyboard focus ring is a 2px albumTerracotta outline with a 2px offset. It's never hidden behind the sticky header (WCAG 2.4.11).
@@ -260,8 +360,8 @@ WCAG 2.2 AA throughout.
 
 ## 14. Tokens
 
-**No new tokens.** Only existing `album_theme` tokens are used:
-- Colours: albumParchment #FBF7F2, albumInk #2C2416, albumInkDim (ink 70%), albumTerracotta #8B5E4B, albumSage #7A8B74 (non-text only), branchMoss #5B7F3A (unused here), albumBlush #F5DED6, albumPaleRose #F5ECE9, albumPillBorder, albumModalBorder.
+**One new token (rev 1.3):** **albumMossInk #4A6A2F**, approved by Bill on 2026-11-25 at 4:55 PM CT, for the scrubber's matching-decade labels only ([§6.1c](#61-dial-scrubber-rev-11)). It isn't used anywhere else. Every other colour is an existing `album_theme` token:
+- Colours: albumParchment #FBF7F2, albumInk #2C2416, albumInkDim (ink 70%), albumTerracotta #8B5E4B, albumSage #7A8B74 (non-text only), branchMoss #5B7F3A (unused here), albumBlush #F5DED6, albumPaleRose #F5ECE9, albumPillFill #F6F1EB, albumPillBorder, albumModalBorder, albumInkFaint (ink 20%), albumWhite #FFFFFF.
 - **sageTint**, approved by Bill: albumSage at about 18%, rendered #E1E5DD. It's used for the selected filter chips (approved 5:11 PM CT) and for the **thread band** (Bill, 6:14 PM CT).
 - Type: Newsreader for headings, landmarks, card titles and initials. Literata for story body and excerpts. Source Sans 3 for labels, chips, counts and the scrubber.
 - Radii: 12 for cards, 8 for chips and pills, 16 for dialogs. No glow anywhere, and no drop shadows on the thread.
@@ -270,8 +370,8 @@ WCAG 2.2 AA throughout.
 ## 15. Mockup corrections
 
 The text in this doc is authoritative. These slips in R1–R8 are **not** to be built:
-1. **R5 and R8, bottom scrubber:** the '50s label appears twice. Each decade label appears once, in order ('50s, '60s, '70s, '80s, '90s, '00s, …).
-2. **R5 and R8, the label under the scrubber handle** reads '70s while the thread is focused in the 1990s. The handle label is the focused decade, here **'90s** ([§6](#6-time-scrubber-and-jump-to-year)).
+1. **R2, R5 and R8, scrubber:** superseded by rev 1.1. Build the scrubber from [§6.1](#61-dial-scrubber-rev-11), not from any R screen. (Rev 1.0 note: each decade label appears once, in order.)
+2. **R5 and R8, the label under the scrubber handle:** superseded by rev 1.1. The focused chip shows the focused decade, for example **1990s**.
 3. **R3, Read:** a 1995 marker sits out of chronological order, and the 1988 landmark doesn't match the 1989 date on its card. Beats are strictly chronological ([§2](#2-layout)). A landmark is the decade label at the first beat of its decade. Cards show their own date line, and nothing contradicts it.
 4. **R6, phone Read:** the photo fan is too subtle to read as several photos. Build the fan per [§7b](#7-photo-cards-and-medallions) (−6° / +5°, 12pt offset, at least 8pt visible).
 5. **R1** shows a 40-story sample while the other screens show about 12. Every count is live data. Neither number is a design target.
@@ -353,7 +453,7 @@ These are for **Jared's stamp** after Bill's review. {braces} are values. String
 | FT-24 | Year card link to Read | {k} more in {year} |
 | FT-25 | Card action | Open story |
 | FT-26 | Overview caption | {Family name} · stories carried down the years |
-| FT-27 | Scrubber tick label | '{yy}s (e.g. '90s) |
+| FT-27 | Scrubber decade label | {yyyy}s (e.g. 1990s) *(changed in rev 1.1 from '{yy}s; needs Jared's stamp)* |
 | FT-28 | Load error + action | Couldn't load stories. · Retry *(existing)* |
 | FT-29 | Loading (screen reader) | Loading stories |
 | FT-30 | Thread list (screen reader) | Family Thread, {N} stories |
@@ -371,6 +471,8 @@ These are for **Jared's stamp** after Bill's review. {braces} are values. String
 
 **None blocking.**
 - **Q1 (CLOSED 2026-11-22, 6:33 AM CT). Bill: "Keep the nav and button as 'Timeline'". Both keep their current locked copy, and the route stays `/timeline`.** The original question: at cutover, should the header nav item "Timeline" and the Family Landing CTA be renamed to "Family Thread"? **Default if unanswered:** both keep their current locked copy, the route stays `/timeline`, and the screen itself is titled **Family Thread** (FT-01). A rename would be a small copy delta for Jared to stamp, not a UX change.
+
+- **Q2 (CLOSED 2026-11-25, 4:55 PM CT). Bill: "Approve the new albumMossInk green for the scrubber labels". Answer (a): albumMossInk #4A6A2F, scrubber matching-decade labels only.** The original question, green labels for matching decades: Bill's reference shows matching decades in green. The existing greens fail AA as 12pt text on the pill (branchMoss ≈4.1:1; albumSage is non-text only). **Options:** (a) approve one new token, **albumMossInk #4A6A2F** (≈5.5:1 on albumPillFill, ≈5.8:1 on parchment), used only for eligible scrubber labels; (b) keep albumInk. **Mugatu's pick: (a).** **Default until answered: (b) albumInk.** Either way it's a one-constant swap in the scrubber and changes nothing else.
 
 ## Handoff notes for Gilfoyle (SAD)
 
@@ -401,4 +503,7 @@ Contact sheet: `family-thread-contact.jpg` (R1–R8, reference only).
 
 ## Changelog
 
+- **rev 1.3 (2026-11-25, 4:57 PM CT):** closed Q2 as (a). Bill approved albumMossInk #4A6A2F at 4:55 PM CT for the scrubber's matching-decade labels only. Updated §6.1c, §6.1h check 2, §14 and §20.
+- **rev 1.2 (2026-11-25, 4:55 PM CT):** matched §6.1 against Bill's actual screenshot. Pill and chip now have fully round ends, there is one 4pt albumInkFaint dot per gap instead of three, and the chip label is 13pt weight 700. Nothing else changed.
+- **rev 1.1 (2026-11-25, 4:52 PM CT):** lane 2 delta from Bill's 4:50 PM CT ask via Erlich. Added [§6.1](#61-dial-scrubber-rev-11), the dial scrubber: cream pill, full decade labels, dots, terracotta focus chip, continuous drag with momentum and snap, the 250ms tap animation, reduced motion, and the phone centred dial. §6 bullets were retired in place, §12 gained two rows, §13 gained Home/End, FT-27 changed to {yyyy}s, §15 items 1–2 were superseded, and Q2 was opened. No new tokens are used; Q2 proposes one.
 - **rev 1.0 (2026-11-21, approved 2026-11-22 at 6:33 AM CT):** first lock, which Bill approved as written. He also closed Q1: the nav and the button stay "Timeline". Built from scope rev 4, Bill's 6:14 PM CT decisions, R1–R8 and the #249 learnings. Renamed to Family Thread and thread band throughout.
