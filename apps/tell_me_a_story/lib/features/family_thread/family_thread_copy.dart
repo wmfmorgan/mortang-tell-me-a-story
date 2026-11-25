@@ -99,6 +99,19 @@ abstract final class FamilyThreadCopy {
     return '$trimmed, $label';
   }
 
+  static String scrubberTick(int decade) {
+    final yy = (decade.abs() % 100).toString().padLeft(2, '0');
+    return "'${yy}s";
+  }
+
+  static String scrubberSlider({
+    required int oldest,
+    required int newest,
+    required int showing,
+  }) {
+    return 'Timeline scrubber, ${oldest}s to ${newest}s, showing ${showing}s';
+  }
+
   static String _stories(int count) =>
       count == 1 ? '1 story' : '$count stories';
 }
