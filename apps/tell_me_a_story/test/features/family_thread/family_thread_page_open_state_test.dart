@@ -18,6 +18,14 @@ import '../../fakes/quiet_stories.dart';
 import '../../support/family_thread_surface.dart';
 import '../../support/quiet_gateways.dart';
 
+FamilyThreadDensity _density(WidgetTester tester) {
+  return tester
+      .widget<RadioGroup<FamilyThreadDensity>>(
+        find.byType(RadioGroup<FamilyThreadDensity>),
+      )
+      .groupValue!;
+}
+
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   tearDown(FamilySelection.clear);
@@ -58,7 +66,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expectOnFocusLine(tester, 'Newest');
-    expect(find.text('Newest letter'), findsNothing);
+    expect(_density(tester), FamilyThreadDensity.browse);
+    expect(find.text('Newest letter'), findsOneWidget);
     expect(find.text('Older'), findsOneWidget);
   });
 
@@ -90,7 +99,8 @@ void main() {
 
       expect(preferenceCalls, 1);
       expectOnFocusLine(tester, 'Newest');
-      expect(find.text('Newest letter'), findsNothing);
+      expect(_density(tester), FamilyThreadDensity.browse);
+      expect(find.text('Newest letter'), findsOneWidget);
     },
   );
 
@@ -191,7 +201,8 @@ void main() {
       expect(stories.listed, ['fam-1']);
       expect(stories.getPublishedIds, isNot(contains('stored-missing')));
       expectOnFocusLine(tester, 'Newest');
-      expect(find.text('Newest letter'), findsNothing);
+      expect(_density(tester), FamilyThreadDensity.browse);
+      expect(find.text('Newest letter'), findsOneWidget);
     },
   );
 

@@ -83,6 +83,8 @@ class ThreadBeatTile extends StatelessWidget {
         showBody: true,
         onCard: onCard,
         onOpen: onOpen,
+        photos: photos,
+        cache: cache,
       ),
       DecadeBeat() || YearBeat() || StoryBeat() => null,
     };
@@ -118,6 +120,8 @@ class ThreadBeatTile extends StatelessWidget {
       onCard: onCard,
       onMore: onMore,
       onOpen: onOpen,
+      photos: photos,
+      cache: cache,
     );
   }
 
@@ -338,6 +342,8 @@ String _beatLabel(int year, String title, Story story) {
       if (person.name.trim().isNotEmpty) person.name.trim(),
   ];
   if (names.isNotEmpty) parts.add(names.join(', '));
+  final photos = story.photoPaths.length;
+  if (photos > 0) parts.add(FamilyThreadCopy.photoCount(photos));
   return parts.join(', ');
 }
 

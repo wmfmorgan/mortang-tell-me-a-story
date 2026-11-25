@@ -30,7 +30,8 @@ void main() {
 
     expectOnFocusLine(tester, 'Newest');
     expect(find.text('2000s · 1 story'), findsNothing);
-    expect(find.text('Kept the letter'), findsNothing);
+    expect(find.bySemanticsLabel('Showing Read'), findsNothing);
+    expect(find.text('Kept the letter'), findsOneWidget);
   });
 
   testWidgets('unfocused year snaps and opens its card', (tester) async {
@@ -41,7 +42,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expectOnFocusLine(tester, 'Barn');
-    expect(find.text('Barn letter'), findsNothing);
+    expect(find.bySemanticsLabel('Showing Read'), findsNothing);
+    expect(find.text('Barn letter'), findsOneWidget);
     expect(find.text('Open story'), findsOneWidget);
   });
 
