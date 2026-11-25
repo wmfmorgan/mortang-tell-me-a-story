@@ -4,11 +4,8 @@ import 'package:flutter/services.dart';
 import '../../core/theme/album_theme.dart';
 import '../../data/stories_api.dart';
 import 'family_thread_copy.dart';
-import 'thread_beat_model.dart';
 import 'thread_filter.dart';
-import 'thread_focus.dart';
-
-const _handleExtent = 44.0;
+import 'time_scrubber_model.dart';
 
 class TimeScrubber extends StatefulWidget {
   const TimeScrubber({
@@ -25,7 +22,7 @@ class TimeScrubber extends StatefulWidget {
   final ThreadFilter filter;
   final String? focusStoryId;
   final bool vertical;
-  final ValueChanged<String> onPreview;
+  final ValueChanged<String?> onPreview;
   final ValueChanged<String> onCommit;
 
   @override
@@ -35,40 +32,51 @@ class TimeScrubber extends StatefulWidget {
 class _TimeScrubberState extends State<TimeScrubber> {
   final _focus = FocusNode(debugLabel: 'time-scrubber');
   String? _dragId;
+  var _pointerCancelled = false;
+
+  TimeScrubberModel get _model =>
+      TimeScrubberModel.build(widget.stories, widget.filter);
 
   @override
   void dispose() {
+    final preview = widget.onPreview;
+    final pending = _dragId != null;
+    _dragId = null;
     _focus.dispose();
     super.dispose();
+    if (!pending) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => preview(null));
   }
-
-  List<_Tick> _ticks() => _ticksOf(widget.stories, widget.filter);
 
   @override
   Widget build(BuildContext context) {
-    final ticks = _ticks();
-    if (ticks.isEmpty) return const SizedBox.shrink();
-    final showing = _decadeOf(ticks, widget.focusStoryId);
+    final model = _model;
+    if (model.isEmpty) return const SizedBox.shrink();
+    final showing = model.showingDecade(widget.focusStoryId);
     return Semantics(
       container: true,
       slider: true,
       label: FamilyThreadCopy.scrubberSlider(
-        oldest: ticks.first.decade,
-        newest: ticks.last.decade,
+        oldest: model.decadeAt(0),
+        newest: model.decadeAt(model.tickCount - 1),
         showing: showing,
       ),
+      onIncrease: () => _commitStep(1),
+      onDecrease: () => _commitStep(-1),
       child: Focus(
         focusNode: _focus,
         onKeyEvent: _onKey,
         child: Listener(
           onPointerDown: (_) => _focus.requestFocus(),
           child: _Track(
-            ticks: ticks,
+            model: model,
             vertical: widget.vertical,
             showing: showing,
             onTap: _tap,
             onDrag: _drag,
-            onRelease: _release,
+            onFinish: _finishDrag,
+            onCancel: _cancelDrag,
+            onPointerCancel: () => _pointerCancelled = true,
           ),
         ),
       ),
@@ -79,54 +87,69 @@ class _TimeScrubberState extends State<TimeScrubber> {
     if (event is! KeyDownEvent || !node.hasPrimaryFocus) {
       return KeyEventResult.ignored;
     }
-    final delta = _keyDelta(event.logicalKey);
+    final delta = TimeScrubberModel.keyDelta(event.logicalKey);
     if (delta == null) return KeyEventResult.ignored;
-    final id = _stepId(_ticks(), widget.focusStoryId, delta, widget.filter);
-    if (id != null) widget.onCommit(id);
+    _commitStep(delta);
     return KeyEventResult.handled;
   }
 
+  void _commitStep(int delta) {
+    final id = _model.stepId(widget.focusStoryId, delta);
+    if (id != null) widget.onCommit(id);
+  }
+
   void _tap(double t) {
-    final ticks = _ticks();
-    final id = _tapPick(
-      ticks,
-      t,
-      widget.filter,
-      _anchorOf(ticks, widget.focusStoryId),
-    )?.id;
+    final id = _model.tapPick(t, widget.focusStoryId)?.id;
     if (id != null) widget.onCommit(id);
   }
 
   void _drag(double t) {
-    final id = _dragPick(_ticks(), t, widget.filter)?.id;
+    final id = _model.dragPick(t)?.id;
     if (id == null) return;
     _dragId = id;
     widget.onPreview(id);
   }
 
-  void _release() {
+  void _finishDrag() {
     final id = _dragId;
+    final cancelled = _pointerCancelled;
     _dragId = null;
+    _pointerCancelled = false;
+    if (cancelled) {
+      widget.onPreview(null);
+      return;
+    }
     if (id != null) widget.onCommit(id);
+  }
+
+  void _cancelDrag() {
+    if (_dragId == null) return;
+    _dragId = null;
+    _pointerCancelled = false;
+    widget.onPreview(null);
   }
 }
 
 class _Track extends StatelessWidget {
   const _Track({
-    required this.ticks,
+    required this.model,
     required this.vertical,
     required this.showing,
     required this.onTap,
     required this.onDrag,
-    required this.onRelease,
+    required this.onFinish,
+    required this.onCancel,
+    required this.onPointerCancel,
   });
 
-  final List<_Tick> ticks;
+  final TimeScrubberModel model;
   final bool vertical;
   final int showing;
   final ValueChanged<double> onTap;
   final ValueChanged<double> onDrag;
-  final VoidCallback onRelease;
+  final VoidCallback onFinish;
+  final VoidCallback onCancel;
+  final VoidCallback onPointerCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -140,13 +163,17 @@ class _Track extends StatelessWidget {
               onDrag(_fraction(details.localPosition, size)),
           onPanUpdate: (details) =>
               onDrag(_fraction(details.localPosition, size)),
-          onPanEnd: (_) => onRelease(),
-          child: ExcludeSemantics(
-            child: Stack(
-              children: [
-                Positioned.fill(child: _lane()),
-                _handle(size),
-              ],
+          onPanEnd: (_) => onFinish(),
+          onPanCancel: onCancel,
+          child: Listener(
+            onPointerCancel: (_) => onPointerCancel(),
+            child: ExcludeSemantics(
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _lane()),
+                  _handle(size),
+                ],
+              ),
             ),
           ),
         );
@@ -159,15 +186,15 @@ class _Track extends StatelessWidget {
       key: const Key('scrubber-ticks'),
       direction: vertical ? Axis.vertical : Axis.horizontal,
       children: [
-        for (final tick in ticks)
+        for (var i = 0; i < model.tickCount; i++)
           Expanded(
-            flex: tick.total,
+            flex: model.totalAt(i),
             child: _Bump(
-              label: FamilyThreadCopy.scrubberTick(tick.decade),
-              total: tick.total,
-              matched: tick.matched,
+              label: FamilyThreadCopy.scrubberTick(model.decadeAt(i)),
+              total: model.totalAt(i),
+              matched: model.matchedAt(i),
               vertical: vertical,
-              focused: tick.decade == showing,
+              focused: model.decadeAt(i) == showing,
             ),
           ),
       ],
@@ -177,7 +204,10 @@ class _Track extends StatelessWidget {
   Widget _handle(Size size) {
     final along = vertical ? size.height : size.width;
     final cross = vertical ? size.width : size.height;
-    final start = _handleStart(along, _centerFraction(ticks, showing));
+    final start = TimeScrubberModel.handleStart(
+      along,
+      model.centerFraction(showing),
+    );
     final crossStart = ((cross - _handleExtent) / 2).clamp(0.0, cross);
     return Positioned(
       left: vertical ? crossStart : start,
@@ -299,159 +329,8 @@ class _Handle extends StatelessWidget {
   }
 }
 
-class _Tick {
-  _Tick(this.decade, this.stories, ThreadFilter filter)
-    : matched = stories.where(filter.matches).length;
-
-  final int decade;
-  final List<Story> stories;
-  final int matched;
-
-  int get total => stories.length;
-}
+const _handleExtent = 44.0;
 
 TextStyle? _tickStyle(BuildContext context) {
   return Theme.of(context).textTheme.labelSmall?.copyWith(color: albumInkDim);
-}
-
-List<_Tick> _ticksOf(List<Story> stories, ThreadFilter filter) {
-  final grouped = <int, List<Story>>{};
-  for (final story in stories) {
-    (grouped[threadDecadeOf(story)] ??= <Story>[]).add(story);
-  }
-  return [
-    for (final entry in grouped.entries) _Tick(entry.key, entry.value, filter),
-  ];
-}
-
-int _decadeOf(List<_Tick> ticks, String? focusId) {
-  for (final tick in ticks) {
-    if (tick.stories.any((story) => story.id == focusId)) return tick.decade;
-  }
-  return ticks.last.decade;
-}
-
-DateTime _anchorOf(List<_Tick> ticks, String? focusId) {
-  for (final tick in ticks) {
-    for (final story in tick.stories) {
-      if (story.id == focusId) return story.publishedStart;
-    }
-  }
-  return ticks.last.stories.last.publishedStart;
-}
-
-Story? _nearest(List<Story> stories, ThreadFilter filter, DateTime anchor) {
-  final matched = [
-    for (final story in stories)
-      if (filter.matches(story)) story,
-  ];
-  return ThreadFocus.nearestInTime(matched, anchor);
-}
-
-Story? _tapPick(
-  List<_Tick> ticks,
-  double t,
-  ThreadFilter filter,
-  DateTime anchor,
-) {
-  if (ticks.isEmpty) return null;
-  final tick = ticks[_tickSpot(t, ticks)];
-  final inside = _nearest(tick.stories, filter, anchor);
-  if (inside != null) return inside;
-  final matched = [
-    for (final item in ticks)
-      for (final story in item.stories)
-        if (filter.matches(story)) story,
-  ];
-  return ThreadFocus.nearestInTime(matched, DateTime.utc(tick.decade + 5));
-}
-
-Story? _dragPick(List<_Tick> ticks, double t, ThreadFilter filter) {
-  final stories = [for (final tick in ticks) ...tick.stories];
-  if (stories.isEmpty) return null;
-  final story = stories[_spot(t, stories.length)];
-  if (filter.matches(story)) return story;
-  return ThreadFocus.nearestInTime([
-    for (final item in stories)
-      if (filter.matches(item)) item,
-  ], story.publishedStart);
-}
-
-String? _stepId(
-  List<_Tick> ticks,
-  String? focusId,
-  int delta,
-  ThreadFilter filter,
-) {
-  if (ticks.isEmpty || delta == 0) return null;
-  var index = _decadeIndex(ticks, focusId);
-  final toward = delta < 0 ? -1 : 1;
-  var left = delta.abs();
-  while (left > 0) {
-    final next = _matchingStep(ticks, index, toward);
-    if (next == null) break;
-    index = next;
-    left -= 1;
-  }
-  return _nearest(ticks[index].stories, filter, _anchorOf(ticks, focusId))?.id;
-}
-
-int _decadeIndex(List<_Tick> ticks, String? focusId) {
-  for (var i = 0; i < ticks.length; i++) {
-    if (ticks[i].stories.any((story) => story.id == focusId)) return i;
-  }
-  return ticks.length - 1;
-}
-
-int? _matchingStep(List<_Tick> ticks, int index, int toward) {
-  var next = index + toward;
-  while (next >= 0 && next < ticks.length && ticks[next].matched == 0) {
-    next += toward;
-  }
-  if (next < 0 || next >= ticks.length) return null;
-  return next;
-}
-
-int _tickSpot(double t, List<_Tick> ticks) {
-  final total = ticks.fold<int>(0, (sum, tick) => sum + tick.total);
-  if (total <= 1) return 0;
-  var cursor = 0;
-  final target = t.clamp(0.0, 1.0) * total;
-  for (var i = 0; i < ticks.length; i++) {
-    cursor += ticks[i].total;
-    if (target < cursor || i == ticks.length - 1) return i;
-  }
-  return 0;
-}
-
-int _spot(double t, int count) {
-  if (count <= 1) return 0;
-  return (t.clamp(0.0, 1.0) * (count - 1)).round().clamp(0, count - 1);
-}
-
-double _centerFraction(List<_Tick> ticks, int decade) {
-  final total = ticks.fold<int>(0, (sum, tick) => sum + tick.total);
-  if (total == 0) return 0;
-  var before = 0;
-  for (final tick in ticks) {
-    if (tick.decade == decade) return (before + tick.total / 2) / total;
-    before += tick.total;
-  }
-  return 1;
-}
-
-double _handleStart(double span, double fraction) {
-  final room = span - _handleExtent;
-  if (room <= 0) return 0;
-  return (span * fraction - _handleExtent / 2).clamp(0.0, room);
-}
-
-int? _keyDelta(LogicalKeyboardKey key) {
-  return switch (key) {
-    LogicalKeyboardKey.arrowUp || LogicalKeyboardKey.arrowLeft => -1,
-    LogicalKeyboardKey.arrowDown || LogicalKeyboardKey.arrowRight => 1,
-    LogicalKeyboardKey.pageUp => -2,
-    LogicalKeyboardKey.pageDown => 2,
-    _ => null,
-  };
 }

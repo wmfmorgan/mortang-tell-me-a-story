@@ -211,6 +211,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     final focus = _focusOf(stories, _focusId, _focusStart);
     _focusId = focus.id;
     _focusStart = focus.start;
+    _scrubId = _presentStory(_scrubId, stories);
   }
 
   void _watch(String? familyId) {
@@ -390,7 +391,13 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     );
   }
 
-  void _previewScrub(String storyId) {
+  void _previewScrub(String? storyId) {
+    if (!mounted) return;
+    if (storyId == null) {
+      if (_scrubId == null) return;
+      setState(() => _scrubId = null);
+      return;
+    }
     if (storyId == (_scrubId ?? _focusId)) return;
     setState(() => _scrubId = storyId);
   }
@@ -603,6 +610,14 @@ typedef _Opened = ({
   List<MemberFamily> mine,
   String? originId,
 });
+
+String? _presentStory(String? storyId, List<Story> stories) {
+  if (storyId == null) return null;
+  for (final story in stories) {
+    if (story.id == storyId) return storyId;
+  }
+  return null;
+}
 
 ({String? id, DateTime? start}) _focusOf(
   List<Story> stories,
