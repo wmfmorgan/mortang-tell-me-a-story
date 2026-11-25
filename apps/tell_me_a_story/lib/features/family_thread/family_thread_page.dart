@@ -29,10 +29,12 @@ import 'thread_focus.dart';
 import 'thread_photo_cache.dart';
 import 'thread_skeleton.dart';
 import 'thread_view.dart';
+import 'time_scrubber.dart';
 
 const _sidebarBreakpoint = 900.0;
 const _sidebarWidth = 280.0;
 const _drawerHeightFactor = 0.75;
+const _scrubberExtent = 56.0;
 
 class FamilyThreadPage extends StatefulWidget {
   const FamilyThreadPage({
@@ -98,6 +100,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   String? _familyId;
   String? _originId;
   String? _focusId;
+  String? _scrubId;
   DateTime? _focusStart;
   var _familyName = FamilyThreadCopy.fallbackFamily;
   List<MemberFamily> _families = const [];
@@ -317,6 +320,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   }
 
   Widget _frame(BoxConstraints constraints) {
+    final wide = constraints.maxWidth >= threadPhoneBreakpoint;
     final sidebar = constraints.maxWidth >= _sidebarBreakpoint;
     final drawer = !sidebar && _drawerOpen;
     // Only the LayoutBuilder knows the width, so the reset is scheduled from build.
@@ -329,7 +333,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (sidebar && _panelOpen) _sidebar(),
-              Expanded(child: _loadedColumn(sidebar)),
+              Expanded(child: _loadedColumn(sidebar, wide: wide)),
             ],
           ),
         ),
@@ -346,8 +350,8 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
     });
   }
 
-  Widget _loadedColumn(bool sidebar) {
-    return Column(
+  Widget _loadedColumn(bool sidebar, {required bool wide}) {
+    final column = Column(
       children: [
         _toolbar(sidebar),
         if (_filter.isActive) _pills(),
@@ -355,8 +359,45 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
         Expanded(child: _thread()),
         if (!_loading && _density == FamilyThreadDensity.overview)
           _OverviewCaption(familyName: _familyName),
+        if (!wide) _scrubber(vertical: false),
       ],
     );
+    if (!wide) return column;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: column),
+        _scrubber(vertical: true),
+      ],
+    );
+  }
+
+  Widget _scrubber({required bool vertical}) {
+    if (_loading || _stories.isEmpty) return const SizedBox.shrink();
+    final scrubber = TimeScrubber(
+      key: const Key('time-scrubber'),
+      stories: _stories,
+      filter: _filter,
+      focusStoryId: _scrubId ?? _focusId,
+      vertical: vertical,
+      onPreview: _previewScrub,
+      onCommit: _commitScrub,
+    );
+    if (vertical) return SizedBox(width: _scrubberExtent, child: scrubber);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      child: SizedBox(height: _scrubberExtent, child: scrubber),
+    );
+  }
+
+  void _previewScrub(String storyId) {
+    if (storyId == (_scrubId ?? _focusId)) return;
+    setState(() => _scrubId = storyId);
+  }
+
+  void _commitScrub(String storyId) {
+    setState(() => _scrubId = null);
+    _focusStory(storyId);
   }
 
   Widget _toolbar(bool sidebar) {
@@ -438,7 +479,10 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
   }
 
   void _setFilter(ThreadFilter next) {
-    setState(() => _filter = next);
+    setState(() {
+      _filter = next;
+      _scrubId = null;
+    });
   }
 
   String? _countLabel(bool wide) => wide ? _matchCount() : null;
@@ -455,7 +499,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       key: const Key('family-thread-loaded'),
       stories: _stories,
       density: _density,
-      focusStoryId: _focusId,
+      focusStoryId: _scrubId ?? _focusId,
       onFocusChanged: _focusStory,
       onDensityDelta: _nudgeDensity,
       now: widget.now,
@@ -480,6 +524,7 @@ class _FamilyThreadPageState extends State<FamilyThreadPage> {
       _failed = false;
       _ready = false;
       _filter = ThreadFilter.cleared;
+      _scrubId = null;
     });
     _load();
   }
