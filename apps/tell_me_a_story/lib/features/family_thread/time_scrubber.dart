@@ -32,6 +32,8 @@ class TimeScrubber extends StatefulWidget {
 class _TimeScrubberState extends State<TimeScrubber> {
   final _focus = FocusNode(debugLabel: 'time-scrubber');
   String? _dragId;
+
+  // An accepted pan reports pointer cancel as onPanEnd, not onPanCancel.
   var _pointerCancelled = false;
 
   TimeScrubberModel get _model =>
@@ -67,7 +69,10 @@ class _TimeScrubberState extends State<TimeScrubber> {
         focusNode: _focus,
         onKeyEvent: _onKey,
         child: Listener(
-          onPointerDown: (_) => _focus.requestFocus(),
+          onPointerDown: (_) {
+            _pointerCancelled = false;
+            _focus.requestFocus();
+          },
           child: _Track(
             model: model,
             vertical: widget.vertical,
@@ -123,9 +128,9 @@ class _TimeScrubberState extends State<TimeScrubber> {
   }
 
   void _cancelDrag() {
+    _pointerCancelled = false;
     if (_dragId == null) return;
     _dragId = null;
-    _pointerCancelled = false;
     widget.onPreview(null);
   }
 }

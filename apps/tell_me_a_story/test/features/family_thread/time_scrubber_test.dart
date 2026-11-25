@@ -134,6 +134,33 @@ void main() {
     expectOnFocusLine(tester, 'Now');
   });
 
+  testWidgets('a cancel inside the slop still lets the next drag commit', (
+    tester,
+  ) async {
+    final store = _MemoryStore();
+    await tester.pumpWidget(
+      _page([
+        threadStory('early', 1952, 'Early'),
+        threadStory('middle', 1994, 'Middle'),
+        threadStory('now', 2022, 'Now'),
+      ], store: store),
+    );
+    await tester.pumpAndSettle();
+
+    final scrubber = tester.getRect(find.byKey(const Key('time-scrubber')));
+    final gesture = await tester.startGesture(scrubber.center);
+    await gesture.moveBy(const Offset(0, 2));
+    await gesture.cancel();
+    await tester.pump();
+
+    final commit = await _dragToTop(tester);
+    await commit.up();
+    await tester.pumpAndSettle();
+
+    expect(store.writes, ['early']);
+    expectOnFocusLine(tester, 'Early');
+  });
+
   testWidgets('preview resets on a filter change', (tester) async {
     final store = _MemoryStore();
     await tester.pumpWidget(

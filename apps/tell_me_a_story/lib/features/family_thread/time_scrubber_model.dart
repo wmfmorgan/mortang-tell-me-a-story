@@ -14,6 +14,7 @@ class TimeScrubberModel {
     required this._ticks,
     required this._ordered,
     required this._matched,
+    required this._matchedIds,
     required this.span,
   });
 
@@ -38,6 +39,7 @@ class TimeScrubberModel {
       ticks: ticks,
       ordered: ordered,
       matched: matched,
+      matchedIds: {for (final story in matched) story.id},
       span: span,
     );
   }
@@ -45,6 +47,7 @@ class TimeScrubberModel {
   final List<_Tick> _ticks;
   final List<Story> _ordered;
   final List<Story> _matched;
+  final Set<String> _matchedIds;
   final int span;
 
   int get tickCount => _ticks.length;
@@ -77,9 +80,7 @@ class TimeScrubberModel {
   Story? dragPick(double t) {
     if (_ordered.isEmpty) return null;
     final story = _ordered[_spot(t, _ordered.length)];
-    for (final match in _matched) {
-      if (match.id == story.id) return story;
-    }
+    if (_matchedIds.contains(story.id)) return story;
     return ThreadFocus.nearestInTime(_matched, story.publishedStart);
   }
 
