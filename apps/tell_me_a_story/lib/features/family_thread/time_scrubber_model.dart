@@ -11,13 +11,11 @@ import 'thread_focus.dart';
 /// order. Stories inside one decade keep the order they arrived in.
 class TimeScrubberModel {
   TimeScrubberModel._({
-    required List<_Tick> ticks,
-    required List<Story> ordered,
-    required List<Story> matched,
+    required this._ticks,
+    required this._ordered,
+    required this._matched,
     required this.span,
-  }) : _ticks = ticks,
-       _ordered = ordered,
-       _matched = matched;
+  });
 
   factory TimeScrubberModel.build(List<Story> stories, ThreadFilter filter) {
     final grouped = <int, List<Story>>{};
