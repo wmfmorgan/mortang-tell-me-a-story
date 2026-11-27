@@ -12,7 +12,8 @@ Copy this into the agent prompt. Fill every heading. Erlich sends one brief per 
 
 ## Base branch & branch name
 
-- Base branch: `main`
+- Repo: `<owner/name>`
+- Base branch: `main` (or active feature branch)
 - Branch name: `<lane>/<milestone>-<slug>`, or `docs/<slug>` for a docs PR
 
 ## Approved Spec section URL
@@ -42,7 +43,7 @@ For a UI slice, fill all four fields. Stitch is the visual lock. The cited `docs
 
 ## Definition of Done
 
-- [ ] The diff is only the files this brief names, on this lane, branched from `main`.
+- [ ] The diff is only the files this brief names, on this lane, branched from the base branch above.
 - [ ] The PR body uses the section order in `AGENTS.md`, including **Visual acceptance** (cited Stitch screen IDs and cited `docs/ux/` sections, or `N/A (non-UI)`).
 - [ ] A UI PR leaves Deploy Preview verification to Mugatu: 1280px and 390px against the dedicated synthetic fixture family per FT-R15.
-- [ ] The PR is open against `main`. The run stops there.
+- [ ] The PR is open against the base branch above. The run stops there.
