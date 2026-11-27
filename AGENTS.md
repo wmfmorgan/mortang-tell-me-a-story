@@ -5,7 +5,8 @@ Rules for any coding agent working in this repo. This file is the rule text. `.c
 ## What governs a task
 1. The one section of the task's plan in `docs/superpowers/plans/`, or the one Notion spec section the task links, and the product decisions that section cites (roadmap, "Product decisions"). § Build contract item 1 is the intake rule.
 2. This file: layout, gates, code rules, § Architecture and layers, and § Build contract.
-3. Older notes in `docs/impl-spec/`, `docs/plans/`, `docs/ux/`, and `docs/m14-review/` are history. Read one only when the linked plan section cites it. `docs/design-doc/` holds locked decisions, including `docs/design-doc/ci.md`. A current plan wins over that history.
+3. Older notes in `docs/impl-spec/`, `docs/plans/`, and `docs/m14-review/` are history. Read one only when the linked plan section cites it. `docs/design-doc/` holds locked decisions, including `docs/design-doc/ci.md`. A current plan wins over that history.
+4. For any UI slice, required intake is the cited `docs/ux/` section(s), the committed contact sheet, and the cited Stitch screen IDs. Stitch is the visual lock. The UX doc supplies the exact tokens and numbers, in sync with Stitch.
 
 If the code and the plan disagree, stop and report the difference. Do not reconcile silently. Chat is never a lock. If a Notion spec and a repo plan both cover the task and they disagree, stop and report in a draft PR body. Do not pick a winner.
 
@@ -28,6 +29,12 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
 - TDD: write the failing test, make it pass, then refactor with the tests green.
 - A schema change is a new SQL file under `supabase/migrations/`. Never edit a migration that has been applied.
 - Every PR follows § Build contract (intake, scope, pre-PR checks, stop-and-report). It adds to these rules and relaxes none of them.
+
+## Execution
+
+Work directly in the repo. Do not spawn nested worker subagents for a single-PR slice. Make the first commit within 15 minutes. End the run after opening the PR, without watching CI. Do not take VM screenshots.
+
+Coding-agent briefs use [`docs/process/coding-agent-brief-template.md`](docs/process/coding-agent-brief-template.md).
 
 ## Cheap lanes and docs
 
@@ -55,6 +62,14 @@ Run from the repo root unless the command names another directory. Paste the out
 - `e2e/check_flows.sh` fails when `apps/tell_me_a_story/integration_test/flows.md` and the `testWidgets` names in `apps/tell_me_a_story/integration_test/e2e_test.dart` disagree. The manifest lists flows C1 through C9.
 - The analyze ceiling is `ANALYZE_CEILING: 27` in `.github/workflows/ci.yml`. Lower it when you fix issues. Never raise it. Do not add `// ignore:` or `// ignore_for_file:` to pass a gate.
 - `docs/design-doc/ci.md` is the CI lock. It names the same four jobs.
+
+## Review gates
+
+Review follows one order. A later gate starts only after the earlier gate passes.
+
+- Docs-lane (`AGENTS.md`, `.cursor/`, `docs/`) = Dinesh PASS only.
+- Non-UI build PRs = Dinesh PASS → CI green → Monica PASS.
+- UI build PRs = Dinesh PASS → CI green → Mugatu PASS (Deploy Preview vs Stitch) → Monica PASS.
 
 ## Code rules
 - No swallowed errors. Every catch shows or returns a mapped message, or rethrows.
@@ -108,10 +123,10 @@ A parity test (test/architecture/edge_error_codes_parity_test.dart) reads ../../
 Extends Work rules, Gates, and Code rules. Architecture, layers, access control, and which CI jobs must stay green live in § Architecture and layers. This section does not change those rules. Each item has a Check that a reviewer can read from the diff or the PR body. Send the PR back when a Check fails.
 
 ### 1. Intake
-1. Read only the one plan or spec section the task links (path and heading), the product decisions that section cites, this file, and the files that section names. Read `docs/impl-spec/`, `docs/plans/`, `docs/ux/`, or `docs/m14-review/` only when that section cites it.
+1. Read only the one plan or spec section the task links (path and heading), the product decisions that section cites, this file, and the files that section names. Read `docs/impl-spec/`, `docs/plans/`, or `docs/m14-review/` only when that section cites it. For any UI slice, required intake is the cited `docs/ux/` section(s), the committed contact sheet, and the cited Stitch screen IDs. Stitch is the visual lock. The UX doc supplies the exact tokens and numbers, in sync with Stitch.
 2. Copy that section's acceptance items into the PR body as a checklist under **Spec**, with the path and heading.
 3. Stop and report (item 5) when the section is missing, unclear, contradicts the code, contradicts another linked section, or needs something it does not list. Do not improvise. When a Notion spec and a repo plan both cover the task and they differ, stop and report in a draft PR body. Do not pick a winner.
-Check: The PR body has **Spec** with one path and heading and the acceptance checklist. Every changed file traces to an item in it.
+Check: The PR body has **Spec** with one path and heading and the acceptance checklist. Every changed file traces to an item in it. A UI slice names the cited `docs/ux/` section(s), the committed contact sheet, and the cited Stitch screen IDs.
 
 ### 2. Branch and PR scope
 1. One PR is one milestone of one plan, and one lane. Branch from current `main`. Never push to `main` or merge into `main`.
@@ -119,8 +134,8 @@ Check: The PR body has **Spec** with one path and heading and the acceptance che
 3. A new file under `supabase/migrations/` is in scope only when the milestone changes the schema. Never edit a migration that has been applied.
 4. A lane is the path set the milestone declares. The lanes are the client at `apps/tell_me_a_story/`, the backend at `supabase/`, and docs at `AGENTS.md`, `.cursor/`, and `docs/`.
 5. Name the branch `<lane>/<milestone>-<slug>`. Name a docs branch `docs/<slug>`, with no milestone.
-6. Keep the PR to about 400 changed lines. Do not count migration SQL. Split the work when it is larger than that.
-Check: The PR body names **Milestone** and **Lane**. `git diff --stat main...HEAD` lists only files in that lane and milestone. The diff has no unrelated hunks and stays within the size cap.
+6. The 380-line cap applies to hand-written production code diffs only. Split that work when the hand-written production code is larger than 380 lines. Do not count migration SQL toward the cap. Mechanical `main` → feature-branch sync merges and approved docs PRs are exempt from manual size waivers. Keep DB migration PRs separate from UI PRs so Deploy Previews do not hit unapplied hosted schema.
+Check: The PR body names **Milestone** and **Lane**. `git diff --stat main...HEAD` lists only files in that lane and milestone. The diff has no unrelated hunks. Hand-written production code in the diff stays within 380 lines. A mechanical `main` → feature-branch sync merge or an approved docs PR is exempt from a manual size waiver.
 
 ### 3. Code rules for new and changed code
 1. Keep a new or changed function or method body to at most 40 lines. Count a Flutter `build` method, and extract a private widget instead of letting `build` grow past that. Take at most 4 positional parameters. Use named parameters past that.
@@ -221,7 +236,12 @@ A new error pattern means anything other than these five rules.
 
 ### PR body sections
 
-Use this order. Spec, Milestone, Lane, Changes, Gates, TDD log, Tests, Skills, Dependency note (or "None"), Stop-and-report (or "None").
+Use this order. Spec, Milestone, Lane, Changes, Visual acceptance, Gates, TDD log, Tests, Skills, Dependency note (or "None"), Stop-and-report (or "None").
+
+**Visual acceptance** is required.
+
+- A UI PR lists the cited Stitch screen IDs and the cited `docs/ux/` section(s). Mugatu verifies the Netlify Deploy Preview at 1280px and at 390px against the dedicated synthetic fixture family per FT-R15. Coding agents do not take VM screenshots and never attach real-family or prod screenshots to this public repo.
+- A non-UI or docs PR states `N/A (non-UI)`.
 
 ## Off limits
 - No secrets in code, docs, or chat. Keep the Supabase service role key (`SUPABASE_SERVICE_ROLE_KEY`), `RESEND_API_KEY`, and `RESEND_FROM` out of git. Do not commit `.env` files. `supabase/functions/.env.example` is the example and holds no secret values.
