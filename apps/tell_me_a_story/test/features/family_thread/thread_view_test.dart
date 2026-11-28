@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
+import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_band.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
@@ -96,12 +97,111 @@ void main() {
 
     expect(find.bySemanticsLabel('Family Thread, 1 story'), findsOneWidget);
   });
+
+  testWidgets(
+    'a jump from newest to oldest lands the target on the focus line',
+    (tester) async {
+      final stories = [
+        for (var year = 1800; year <= 2000; year += 10)
+          _story('s$year', year, 'S$year'),
+      ];
+      await tester.pumpWidget(_host(stories));
+      await tester.pumpAndSettle();
+      _expectCentred(tester, 'S2000');
+
+      await tester.pumpWidget(_host(stories, focusStoryId: 's1800'));
+      await tester.pumpAndSettle();
+
+      _expectCentred(tester, 'S1800');
+      expect(find.text('S2000'), findsNothing);
+    },
+  );
+
+  testWidgets('density change keeps the focused beat on the focus line', (
+    tester,
+  ) async {
+    final stories = [_story('old', 1980, 'Old'), _story('new', 2004, 'Newest')];
+    await tester.pumpWidget(_host(stories, focusStoryId: 'new'));
+    await tester.pumpAndSettle();
+    _expectCentred(tester, 'Newest');
+
+    await tester.pumpWidget(
+      _host(stories, focusStoryId: 'new', density: FamilyThreadDensity.read),
+    );
+    await tester.pumpAndSettle();
+    _expectCentred(tester, 'Newest');
+  });
+
+  testWidgets(
+    'landmark row is 56 before the first beat of each decade in browse and read and never takes focus',
+    (tester) async {
+      final stories = [
+        _story('old', 1982, 'Old'),
+        _story('mid', 1994, 'Mid'),
+        _story('new', 2004, 'Newest'),
+      ];
+      await tester.pumpWidget(_host(stories, focusStoryId: 'mid'));
+      await tester.pumpAndSettle();
+      _expectLandmark(tester, 1980, before: 'Old');
+      _expectLandmark(tester, 1990, before: 'Mid');
+      _expectLandmark(tester, 2000, before: 'Newest');
+      _expectCentred(tester, 'Mid');
+
+      await tester.pumpWidget(
+        _host(stories, focusStoryId: 'mid', density: FamilyThreadDensity.read),
+      );
+      await tester.pumpAndSettle();
+      _expectLandmark(tester, 1990, before: 'Mid');
+      _expectCentred(tester, 'Mid');
+
+      await tester.pumpWidget(
+        _host(
+          stories,
+          focusStoryId: 'mid',
+          density: FamilyThreadDensity.overview,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('landmark-1980')), findsNothing);
+      expect(find.byKey(const ValueKey('landmark-1990')), findsNothing);
+    },
+  );
 }
 
-Widget _host(List<Story> stories) {
+void _expectCentred(WidgetTester tester, String text) {
+  final tile = tester.getRect(find.widgetWithText(ThreadBeatTile, text));
+  final view = tester.getRect(find.byType(ThreadView));
+  expect(tile.center.dy, closeTo(view.center.dy, 1));
+}
+
+void _expectLandmark(
+  WidgetTester tester,
+  int decade, {
+  required String before,
+}) {
+  final mark = find.byKey(ValueKey('landmark-$decade'));
+  expect(tester.getSize(mark).height, 56);
+  final markRect = tester.getRect(mark);
+  final beat = tester.getRect(find.widgetWithText(ThreadBeatTile, before));
+  expect(markRect.bottom, lessThanOrEqualTo(beat.top + 1));
+  final view = tester.getRect(find.byType(ThreadView));
+  expect((markRect.center.dy - view.center.dy).abs(), greaterThan(1));
+}
+
+Widget _host(
+  List<Story> stories, {
+  String? focusStoryId,
+  FamilyThreadDensity density = FamilyThreadDensity.browse,
+}) {
   return MaterialApp(
     theme: albumTheme(),
-    home: Scaffold(body: ThreadView(stories: stories)),
+    home: Scaffold(
+      body: ThreadView(
+        stories: stories,
+        focusStoryId: focusStoryId,
+        density: density,
+      ),
+    ),
   );
 }
 

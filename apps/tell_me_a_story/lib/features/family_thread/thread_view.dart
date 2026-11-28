@@ -132,11 +132,19 @@ class _ThreadViewState extends State<ThreadView>
     _focusId = widget.focusStoryId ?? _newestId(widget.stories);
     _noneMatch = _noStoriesMatch();
     _retargetFocus();
-    _focusIndex = _indexOfFocus();
-    _armAnchor();
+    if (_beats.isEmpty) {
+      _focusIndex = 0;
+      _nudgePending = true;
+      return;
+    }
+    _reanchor(target: _beats[_indexOfFocus()]);
   }
 
-  void _armAnchor() {
+  /// New anchor is [target], then the same half-height nudge. Used before the
+  /// first paint (restore), on a far jump, and when density changes.
+  void _reanchor({required ThreadBeat target}) {
+    final index = _beats.indexOf(target);
+    _focusIndex = index < 0 ? _indexOfFocus() : index;
     _nudgePending = true;
     if (_scroll.hasClients && _scroll.offset != 0) _focus.place(0);
   }
@@ -294,10 +302,9 @@ class _ThreadViewState extends State<ThreadView>
     ).id;
     final changed = id != _focusId;
     setState(() {
-      _focusIndex = landed;
       _focusId = id;
+      _reanchor(target: _beats[landed]);
       if (changed) _announcement = _settledLabel();
-      _armAnchor();
     });
     if (changed) widget.onFocusChanged?.call(id);
   }
@@ -322,9 +329,8 @@ class _ThreadViewState extends State<ThreadView>
     if (!mounted || storyId == _focusId) return;
     setState(() {
       _focusId = storyId;
-      _focusIndex = _indexOfFocus();
+      _reanchor(target: _beats[_indexOfFocus()]);
       _announcement = _settledLabel();
-      _armAnchor();
     });
     widget.onFocusChanged?.call(storyId);
   }
