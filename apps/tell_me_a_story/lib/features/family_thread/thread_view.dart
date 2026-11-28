@@ -411,9 +411,9 @@ class _ThreadViewState extends State<ThreadView>
     final box = rowContext.findRenderObject();
     if (box is! RenderBox || !_scroll.hasClients) return;
     final position = _scroll.position;
-    final raw = RenderAbstractViewport.of(
-      box,
-    ).getOffsetToReveal(box, 0.5).offset;
+    final raw = RenderAbstractViewport.of(box)
+        .getOffsetToReveal(box, 0.5)
+        .offset;
     final target = (raw + position.viewportDimension / 2).clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
@@ -422,7 +422,7 @@ class _ThreadViewState extends State<ThreadView>
     _userMoved = false;
     final reduced = MediaQuery.disableAnimationsOf(context);
     final origin = position.pixels;
-    Scrollable.ensureVisible(rowContext, alignment: 0.5, duration: Duration.zero);
+    Scrollable.ensureVisible(rowContext, alignment: 0.5);
     if (reduced) {
       _place(target);
       _revealing = false;
