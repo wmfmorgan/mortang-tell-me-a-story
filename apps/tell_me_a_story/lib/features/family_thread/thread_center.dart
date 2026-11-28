@@ -31,10 +31,11 @@ abstract final class ThreadCenter {
   }
 }
 
-/// Nearest eligible row. A [_tiePx] tie absorbs layout rounding and
-/// prefers the later row, mirroring ThreadRows.landOn's later-first rule.
+/// A [_tiePx] tie absorbs layout rounding and prefers the later row,
+/// mirroring ThreadRows.landOn's later-first rule.
 const _tiePx = 0.5;
 
+/// Nearest eligible row.
 int nearestOnScreen({
   required List<({int index, double centerY})> built,
   required double focusLineY,

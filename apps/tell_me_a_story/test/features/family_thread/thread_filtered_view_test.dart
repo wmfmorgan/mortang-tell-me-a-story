@@ -7,6 +7,7 @@ import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
 import 'package:tell_me_a_story/features/family_thread/family_thread_copy.dart';
 import 'package:tell_me_a_story/features/family_thread/hollow_dot.dart';
+import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_filter.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
 
@@ -77,7 +78,7 @@ void main() {
     await tester.pumpAndSettle();
     expectOnFocusLine(tester, 'Kept');
 
-    await _drag(tester, const Offset(0, -160));
+    await _drag(tester, const Offset(0, -72));
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Focused 1996, Skipped'), findsNothing);
@@ -273,5 +274,16 @@ Future<void> _drag(WidgetTester tester, Offset delta) async {
   await tester.pump(const Duration(milliseconds: 70));
   await gesture.moveBy(Offset(0, delta.dy.sign));
   await tester.pump(const Duration(milliseconds: 70));
+  _expectSkippedNearest(tester);
   await gesture.up();
+}
+
+void _expectSkippedNearest(WidgetTester tester) {
+  final line = tester.getCenter(find.byType(ThreadView)).dy;
+  double gap(Finder row) => (tester.getCenter(row).dy - line).abs();
+  final skipped = gap(
+    find.bySemanticsLabel("Skipped, 1996, doesn't match filters"),
+  );
+  expect(skipped, lessThan(gap(find.widgetWithText(ThreadBeatTile, 'Kept'))));
+  expect(skipped, lessThan(gap(find.widgetWithText(ThreadBeatTile, 'Newest'))));
 }
