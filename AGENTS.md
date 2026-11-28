@@ -25,7 +25,7 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
 
 ## Work rules
 - Build only what the plan lists. Do not add or remove a feature, screen, endpoint, table, or dependency on your own. If it is unclear, stop and ask.
-- Prefer the simplest implementation that meets the spec. Do not add abstraction layers or helpers beyond what the spec names, except where these rules already require it (for example, extract a private widget when a `build` method would exceed 40 lines).
+- Prefer the simplest implementation that meets the spec. Do not add abstraction layers or helpers beyond what the spec names or § Code rules force (for example, extract a private widget when a `build` method would exceed 40 lines).
 - No direct push to `main`. Do not merge into `main`.
 - TDD: write the failing test, make it pass, then refactor with the tests green.
 - A schema change is a new SQL file under `supabase/migrations/`. Never edit a migration that has been applied.
@@ -35,7 +35,7 @@ If the code and the plan disagree, stop and report the difference. Do not reconc
 
 Work directly in the repo. Do not spawn nested worker subagents for a single-PR slice. Make the first commit within 15 minutes. End the run after opening the PR, without watching CI. Do not take VM screenshots.
 
-After each commit, run `git diff --stat origin/<base>...HEAD`, where `<base>` is the PR's base branch. The 380-line cap counts additions plus deletions of hand-written production code only. Tests do not count toward the cap. Do not count migration SQL toward the cap. Mechanical `main` → feature-branch sync merges and approved docs PRs are exempt from manual size waivers (same definition and exemptions as § Build contract item 2.6). If that production-code total exceeds 380 lines, stop. Do not add more code. Push the branch, open a draft PR, and put the overrun under **Stop-and-report**. Do not keep building past the cap and report at the end.
+After each commit, run the size check in § Build contract item 2.6. Over the cap, stop per § 5.
 
 Coding-agent briefs use [`docs/process/coding-agent-brief-template.md`](docs/process/coding-agent-brief-template.md).
 
@@ -137,8 +137,8 @@ Check: The PR body has **Spec** with one path and heading and the acceptance che
 3. A new file under `supabase/migrations/` is in scope only when the milestone changes the schema. Never edit a migration that has been applied.
 4. A lane is the path set the milestone declares. The lanes are the client at `apps/tell_me_a_story/`, the backend at `supabase/`, and docs at `AGENTS.md`, `.cursor/`, and `docs/`.
 5. Name the branch `<lane>/<milestone>-<slug>`. Name a docs branch `docs/<slug>`, with no milestone.
-6. The 380-line cap applies to hand-written production code diffs only. Tests do not count toward the cap. Do not count migration SQL toward the cap. Measure with `git diff --stat origin/<base>...HEAD`, where `<base>` is the PR's base branch. Count additions plus deletions of hand-written production code only; when the diff also contains tests or migration SQL, subtract those lines before comparing to 380. After each commit, if that production-code total exceeds 380 lines, stop, push, and open a draft PR with the overrun under **Stop-and-report**. Do not keep building past the cap. Mechanical `main` → feature-branch sync merges and approved docs PRs are exempt from manual size waivers. Keep DB migration PRs separate from UI PRs so Deploy Previews do not hit unapplied hosted schema.
-Check: The PR body names **Milestone** and **Lane**. `git diff --stat origin/<base>...HEAD` lists only files in that lane and milestone. The diff has no unrelated hunks. Hand-written production code in the diff stays within 380 lines. Tests and migration SQL do not count toward that total. A mechanical `main` → feature-branch sync merge or an approved docs PR is exempt from a manual size waiver.
+6. The 380-line cap applies to hand-written production code diffs only. Tests do not count toward the cap. Do not count migration SQL toward the cap. Measure with `git diff --stat origin/<base>...HEAD`, where `<base>` is the PR's base branch. Count additions plus deletions of hand-written production code only; when the diff also contains tests or migration SQL, subtract those lines before comparing to 380. After each commit, if that production-code total exceeds 380 lines, stop, push, and open a draft PR with the overrun under **Stop-and-report**. Do not keep building past the cap. Mechanical `main` → feature-branch sync merges and approved docs PRs are exempt from the cap and the size stop. Keep DB migration PRs separate from UI PRs so Deploy Previews do not hit unapplied hosted schema.
+Check: The PR body names **Milestone** and **Lane**. `git diff --stat origin/<base>...HEAD` lists only files in that lane and milestone. The diff has no unrelated hunks. Hand-written production code in the diff stays within 380 lines. Tests and migration SQL do not count toward that total. Mechanical `main` → feature-branch sync merges and approved docs PRs are exempt from the cap and the size stop.
 
 ### 3. Code rules for new and changed code
 1. Keep a new or changed function or method body to at most 40 lines. Count a Flutter `build` method, and extract a private widget instead of letting `build` grow past that. Take at most 4 positional parameters. Use named parameters past that.
@@ -207,7 +207,7 @@ Check: The added lines contain none of `throw '`, `throw "`, `throw Exception(`,
 1. Ship tests in the same PR as the code. Write the test first (Work rules: TDD). The PR body has a **TDD log** with each new test name and the failure line from before the fix.
 2. A changed non-generated file under `apps/tell_me_a_story/lib/` has a new or changed test under `apps/tell_me_a_story/test/`. A changed migration has a new or changed pgTAP file under `supabase/tests/`. A changed edge function has a new or changed `supabase/functions/*/*_test.ts`. Name any exception in the PR body, with a reason.
 3. Never lower the test count. Do not delete a test. Do not add `skip:`, `@Skip`, or a tag change that moves a test out of `flutter test`, `deno test`, or `supabase test db`, unless the spec says so.
-4. Assert what a user or a caller can observe: widget finders and text, return values, and the mapped RPC detail. Do not assert on private members. Do not add exhaustive tables that mirror the implementation unless the spec says why. `make test` passes with no `--dart-define` and does not call the hosted project.
+4. Assert what a user or a caller can observe: widget finders and text, return values, and the mapped RPC detail. Do not assert on private members. Input tables (for example a table of malformed payloads) are fine. A table that restates the code's own mapping (every enum value → the same output as the switch) is not, unless the spec says why. `make test` passes with no `--dart-define` and does not call the hosted project.
 5. Do not edit `test/core/theme/no_hardcoded_colors_test.dart` to make a color pass, except to shrink its skip list.
 Check: The diff pairs each changed source file with a test change. It removes or skips no test. The **TDD log** is present. Any color-guard edit only shrinks the skip list.
 
@@ -223,7 +223,7 @@ Check: The diff pairs each changed source file with a test change. It removes or
 9. Deploy Netlify, or change the hosted Supabase project `lchytafmnuefrgkguynt`, unless Bill asks. The GCP project `story-line-app` is not this repo's target. Do not put a secret in code, docs, or chat (Off limits).
 10. Improvise around a spec gap. Stop and report.
 11. Add a nested `AGENTS.md`, a `CLAUDE.md`, or a `.cursorrules`.
-12. Keep building after hand-written production code in `git diff --stat origin/<base>...HEAD` exceeds the 380-line cap.
+12. Keep building after the 380-line cap is exceeded.
 Check: None of these appear in the diff or the PR body.
 
 ### Client gateway errors
