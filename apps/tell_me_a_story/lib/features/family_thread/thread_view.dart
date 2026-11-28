@@ -80,7 +80,7 @@ class _ThreadViewState extends State<ThreadView>
     with SingleTickerProviderStateMixin {
   final _scroll = ScrollController();
   final _centerKey = GlobalKey();
-  final _focusKey = GlobalKey();
+  BuildContext? _focusContext;
   late final ThreadFocusController _focus;
   late final AnimationController _fade;
   late ThreadBeatModel _model;
@@ -247,24 +247,40 @@ class _ThreadViewState extends State<ThreadView>
         anchor: 0.5,
         onDensityDelta: widget.onDensityDelta,
         now: widget.now,
-        slivers: _slivers(anchor, height, phone),
+        slivers: _slivers(anchor, height, phone, _columnWidth(width, phone)),
       ),
     );
   }
 
-  List<Widget> _slivers(int anchor, double height, bool phone) {
+  double _columnWidth(double width, bool phone) {
+    final band = phone ? _phoneBandWidth : _wideBandWidth;
+    if (phone) return width - _phoneLeadWidth - band;
+    return (width - band) / 2;
+  }
+
+  List<Widget> _slivers(
+    int anchor,
+    double height,
+    bool phone,
+    double columnWidth,
+  ) {
     return [
       if (anchor > 0)
         SliverList(
           delegate: SliverChildBuilderDelegate(
-            (context, index) => _rowAt(anchor - 1 - index, phone: phone),
+            (context, index) => _rowAt(
+              anchor - 1 - index,
+              phone: phone,
+              columnWidth: columnWidth,
+            ),
             childCount: anchor,
           ),
         ),
       SliverList(
         key: _centerKey,
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _rowAt(anchor + index, phone: phone),
+          (context, index) =>
+              _rowAt(anchor + index, phone: phone, columnWidth: columnWidth),
           childCount: _rows.rows.length - anchor,
         ),
       ),
@@ -280,14 +296,13 @@ class _ThreadViewState extends State<ThreadView>
 
   void _nudgeToCentre() {
     if (!mounted) return;
-    final target = _focusKey.currentContext?.findRenderObject();
-    if (target is! RenderBox || !target.hasSize || !_scroll.hasClients) return;
+    final focus = _focusContext;
+    if (focus == null || !focus.mounted || !_scroll.hasClients) return;
+    final target = focus.findRenderObject();
+    if (target is! RenderBox || !target.hasSize) return;
     final half = target.size.height / 2;
     if ((_scroll.offset - half).abs() < 0.5) return;
     _focus.place(half);
-    // The correcting jump is posted after paint. Flush so the same pump
-    // the caller is in already shows the row on the focus line.
-    target.owner?.flushLayout();
   }
 
   bool _matchesIndex(int index) {
@@ -312,6 +327,7 @@ class _ThreadViewState extends State<ThreadView>
     if (changed) widget.onFocusChanged?.call(id);
   }
 
+  // TODO(T1a-2): merge with ThreadFocusController._landOn.
   int _landOn(int index) {
     final beats = _beats;
     final filter = widget.filter;
@@ -362,7 +378,11 @@ class _ThreadViewState extends State<ThreadView>
     return index < 0 ? _beats.length - 1 : index;
   }
 
-  Widget _rowAt(int rowIndex, {required bool phone}) {
+  Widget _rowAt(
+    int rowIndex, {
+    required bool phone,
+    required double columnWidth,
+  }) {
     final row = _rows.rows[rowIndex];
     final band = _band(rowIndex, phone: phone);
     return switch (row) {
@@ -377,6 +397,7 @@ class _ThreadViewState extends State<ThreadView>
         beat,
         beatIndex,
         phone: phone,
+        columnWidth: columnWidth,
         band: band,
       ),
     };
@@ -403,27 +424,34 @@ class _ThreadViewState extends State<ThreadView>
     ThreadBeat beat,
     int beatIndex, {
     required bool phone,
+    required double columnWidth,
     required Widget band,
   }) {
     final focused = beatIndex == _focusIndex;
     final row = _BeatRow(
       phone: phone,
       index: beatIndex,
-      tile: _tile(beat, beatIndex),
+      tile: _tile(beat, beatIndex, columnWidth),
       mark: _markFor(beat, beatIndex),
       band: band,
     );
     return KeyedSubtree(
-      key: focused ? _focusKey : ValueKey(_beatId(beat)),
-      child: row,
+      key: ValueKey(_beatId(beat)),
+      child: Builder(
+        builder: (context) {
+          if (focused) _focusContext = context;
+          return row;
+        },
+      ),
     );
   }
 
-  Widget _tile(ThreadBeat beat, int index) {
+  Widget _tile(ThreadBeat beat, int index, double columnWidth) {
     final focused = index == _focusIndex;
     final onBeat = widget.onBeat;
     return ThreadBeatTile(
       beat: beat,
+      columnWidth: columnWidth,
       focusStoryId: _focusId,
       distance: (index - _focusIndex).abs(),
       ringToken: widget.ringToken,
@@ -580,6 +608,7 @@ class _LandmarkLabel extends StatelessWidget {
       child: Text(
         '${decade}s',
         maxLines: 1,
+        // TODO(T1a-2): take this Newsreader italic from thread_row_metrics.dart.
         style: GoogleFonts.newsreader(
           fontSize: 28,
           fontStyle: FontStyle.italic,

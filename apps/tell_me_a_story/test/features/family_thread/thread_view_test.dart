@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
+import 'package:tell_me_a_story/features/family_thread/story_card.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_band.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
@@ -49,12 +50,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final band = find.descendant(
-      of: find
-          .ancestor(
-            of: find.byType(ThreadBeatTile),
-            matching: find.byType(IntrinsicHeight),
-          )
-          .first,
+      of: find.byKey(const ValueKey('y1980')),
       matching: find.byType(ThreadBand),
     );
     expect(tester.getSize(band).width, 24);
@@ -166,6 +162,22 @@ void main() {
       expect(find.byKey(const ValueKey('landmark-1990')), findsNothing);
     },
   );
+
+  testWidgets('a focused card keeps its state across a re-anchor', (
+    tester,
+  ) async {
+    final stories = [_story('old', 1980, 'Old'), _story('new', 2004, 'Newest')];
+    await tester.pumpWidget(_host(stories, focusStoryId: 'new'));
+    await tester.pumpAndSettle();
+    final card = tester.state(find.byType(StoryCard));
+
+    await tester.pumpWidget(
+      _host(List<Story>.of(stories), focusStoryId: 'new'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.state(find.byType(StoryCard)), same(card));
+  });
 
   testWidgets('1000 story jump from newest to oldest', (tester) async {
     final stories = [
