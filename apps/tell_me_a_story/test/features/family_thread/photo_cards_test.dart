@@ -344,6 +344,7 @@ Widget _tile(Story story) {
     height: 80,
     child: ThreadBeatTile(
       beat: StoryBeat(story: story),
+      columnWidth: 200,
       focusStoryId: 'other',
       distance: 1,
     ),

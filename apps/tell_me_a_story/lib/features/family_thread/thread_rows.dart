@@ -3,6 +3,7 @@ import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 import 'thread_filter.dart';
 
+// TODO(#285): move this into thread_row_metrics.dart.
 const threadLandmarkRowExtent = 56.0;
 
 sealed class ThreadRow {

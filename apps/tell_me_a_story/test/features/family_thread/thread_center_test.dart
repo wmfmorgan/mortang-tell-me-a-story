@@ -18,6 +18,28 @@ void main() {
     );
   });
 
+  test('an exact tie prefers the later row', () {
+    expect(
+      nearestOnScreen(
+        built: [(index: 0, centerY: 10), (index: 2, centerY: 10)],
+        focusLineY: 10,
+        eligible: (_) => true,
+      ),
+      2,
+    );
+  });
+
+  test('a later row 1 px farther loses to the nearer row', () {
+    expect(
+      nearestOnScreen(
+        built: [(index: 0, centerY: 10), (index: 2, centerY: 11)],
+        focusLineY: 10,
+        eligible: (_) => true,
+      ),
+      0,
+    );
+  });
+
   test('nearest on-screen row is -1 when nothing is eligible', () {
     expect(
       nearestOnScreen(

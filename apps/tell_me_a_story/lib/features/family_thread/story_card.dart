@@ -89,12 +89,10 @@ class _StoryCardState extends State<StoryCard> {
 
   @override
   Widget build(BuildContext context) {
+    final width = math.max(0.0, columnWidth - _cardEdgePad);
     return Padding(
       padding: const EdgeInsets.only(right: _cardEdgePad),
-      child: _row(
-        context,
-        BoxConstraints(maxWidth: math.max(0.0, columnWidth - _cardEdgePad)),
-      ),
+      child: _row(context, BoxConstraints(maxWidth: width)),
     );
   }
 

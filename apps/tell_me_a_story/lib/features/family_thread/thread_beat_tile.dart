@@ -20,7 +20,7 @@ class ThreadBeatTile extends StatelessWidget {
     super.key,
     required this.beat,
     required this.focusStoryId,
-    this.columnWidth,
+    required this.columnWidth,
     this.distance = 0,
     this.ringToken = 0,
     this.onBeat,
@@ -36,7 +36,7 @@ class ThreadBeatTile extends StatelessWidget {
   final String? focusStoryId;
 
   /// Side column width passed to the focused card.
-  final double? columnWidth;
+  final double columnWidth;
   final int distance;
   final int ringToken;
   final void Function({required bool focused})? onBeat;
@@ -82,7 +82,7 @@ class ThreadBeatTile extends StatelessWidget {
       final YearBeat year when distance == 0 => _yearCard(year, ink),
       StoryBeat(:final story) when distance == 0 => StoryCard(
         story: story,
-        columnWidth: columnWidth ?? 0,
+        columnWidth: columnWidth,
         ink: ink,
         semanticsLabel: _label(),
         showBody: true,
@@ -118,7 +118,7 @@ class ThreadBeatTile extends StatelessWidget {
     final card = ThreadFocus.browseCardStory(year, focusId: focusStoryId);
     return StoryCard(
       story: card,
-      columnWidth: columnWidth ?? 0,
+      columnWidth: columnWidth,
       ink: ink,
       semanticsLabel: _storyLabel(year.year, card),
       moreLabel: onMore == null ? null : _yearMore(year, card),
@@ -144,6 +144,7 @@ class ThreadBeatTile extends StatelessWidget {
   }
 
   Widget _mosaic(DecadeBeat beat) {
+    // A 112 mosaic has to sit in a 104 overview row.
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: _ImageFade(

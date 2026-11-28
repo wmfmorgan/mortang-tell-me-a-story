@@ -82,7 +82,6 @@ class _ThreadViewState extends State<ThreadView>
   final _scroll = ScrollController();
   final _centerKey = GlobalKey();
   final _built = <int, BuildContext>{};
-  BuildContext? _focusContext;
   late final ThreadFocusController _focus;
   late final AnimationController _fade;
   late ThreadBeatModel _model;
@@ -167,11 +166,9 @@ class _ThreadViewState extends State<ThreadView>
       return;
     }
     final dropped = filterChanged && _filterDropped(previousFocus);
-    if (storiesChanged || densityChanged || dropped) {
+    if (storiesChanged || densityChanged || dropped || focusChanged) {
       _reanchor(target: _beats[_indexOfFocus()]);
-      return;
     }
-    if (focusChanged) _reanchor(target: _beats[_indexOfFocus()]);
   }
 
   bool _filterDropped(String? previousFocus) {
@@ -181,7 +178,6 @@ class _ThreadViewState extends State<ThreadView>
 
   /// New anchor is [target], then the same half-height nudge.
   void _reanchor({required ThreadBeat target}) {
-    _focusContext = null;
     final index = _beats.indexOf(target);
     final landed = index < 0 ? _indexOfFocus() : index;
     _anchorIndex = landed;
@@ -341,9 +337,9 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   void _nudgeToCentre() {
-    if (!mounted) return;
-    final focus = _focusContext;
-    if (focus == null || !focus.mounted || !_scroll.hasClients) return;
+    if (!mounted || _beats.isEmpty || !_scroll.hasClients) return;
+    final focus = _built[_rows.rowOfBeat(_focusIndex)];
+    if (focus == null || !focus.mounted) return;
     final target = focus.findRenderObject();
     if (target is! RenderBox || !target.hasSize) return;
     final half = target.size.height / 2;
@@ -401,9 +397,8 @@ class _ThreadViewState extends State<ThreadView>
     final box = rowContext.findRenderObject();
     if (box is! RenderBox || !_scroll.hasClients) return;
     final position = _scroll.position;
-    final raw = RenderAbstractViewport.of(box)
-        .getOffsetToReveal(box, 0.5)
-        .offset;
+    final reveal = RenderAbstractViewport.of(box);
+    final raw = reveal.getOffsetToReveal(box, 0.5).offset;
     final target = (raw + position.viewportDimension / 2).clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
@@ -439,7 +434,7 @@ class _ThreadViewState extends State<ThreadView>
       return false;
     }
     if (drag && !MediaQuery.disableAnimationsOf(context)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _snapIfStill());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _snapAfterFrame());
       return false;
     }
     _userMoved = false;
@@ -447,7 +442,7 @@ class _ThreadViewState extends State<ThreadView>
     return false;
   }
 
-  void _snapIfStill() {
+  void _snapAfterFrame() {
     if (!mounted || !_scroll.hasClients) return;
     _userMoved = false;
     _snapToNearest();
@@ -602,7 +597,6 @@ class _ThreadViewState extends State<ThreadView>
     required double columnWidth,
     required Widget band,
   }) {
-    final focused = beatIndex == _focusIndex;
     final row = _BeatRow(
       phone: phone,
       index: beatIndex,
@@ -610,15 +604,7 @@ class _ThreadViewState extends State<ThreadView>
       mark: _markFor(beat, beatIndex),
       band: band,
     );
-    return KeyedSubtree(
-      key: ValueKey(_beatId(beat)),
-      child: Builder(
-        builder: (context) {
-          if (focused) _focusContext = context;
-          return row;
-        },
-      ),
-    );
+    return KeyedSubtree(key: ValueKey(_beatId(beat)), child: row);
   }
 
   Widget _tile(ThreadBeat beat, int index, double columnWidth) {
@@ -783,6 +769,7 @@ class _LandmarkLabel extends StatelessWidget {
       child: Text(
         '${decade}s',
         maxLines: 1,
+        // TODO(#285): take this Newsreader italic from thread_row_metrics.dart.
         style: GoogleFonts.newsreader(
           fontSize: 28,
           fontStyle: FontStyle.italic,

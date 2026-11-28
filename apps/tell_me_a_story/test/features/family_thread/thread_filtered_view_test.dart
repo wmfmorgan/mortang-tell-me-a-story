@@ -77,7 +77,7 @@ void main() {
     await tester.pumpAndSettle();
     expectOnFocusLine(tester, 'Kept');
 
-    await _drag(tester, const Offset(0, -64));
+    await _drag(tester, const Offset(0, -160));
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Focused 1996, Skipped'), findsNothing);
