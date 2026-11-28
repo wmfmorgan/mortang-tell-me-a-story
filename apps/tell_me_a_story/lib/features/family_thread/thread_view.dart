@@ -171,7 +171,7 @@ class _ThreadViewState extends State<ThreadView>
       _reanchor(target: _beats[_indexOfFocus()]);
       return;
     }
-    if (focusChanged) _followFocus();
+    if (focusChanged) _reanchor(target: _beats[_indexOfFocus()]);
   }
 
   bool _filterDropped(String? previousFocus) {
@@ -310,16 +310,17 @@ class _ThreadViewState extends State<ThreadView>
     double columnWidth,
   ) {
     return [
+      SliverToBoxAdapter(child: SizedBox(height: height / 2)),
       if (anchor > 0)
         SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            if (index == anchor) return SizedBox(height: height / 2);
-            return _rowAt(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _rowAt(
               anchor - 1 - index,
               phone: phone,
               columnWidth: columnWidth,
-            );
-          }, childCount: anchor + 1),
+            ),
+            childCount: anchor,
+          ),
         ),
       SliverList(
         key: _centerKey,
@@ -329,7 +330,7 @@ class _ThreadViewState extends State<ThreadView>
           childCount: _rows.rows.length - anchor,
         ),
       ),
-      SliverToBoxAdapter(child: SizedBox(height: height)),
+      SliverToBoxAdapter(child: SizedBox(height: height / 2)),
     ];
   }
 
@@ -389,17 +390,6 @@ class _ThreadViewState extends State<ThreadView>
     if (changed) widget.onFocusChanged?.call(id);
   }
 
-  void _followFocus() {
-    final index = _indexOfFocus();
-    final rowContext = _built[_rows.rowOfBeat(index)];
-    if (rowContext != null && _isOnScreen(rowContext)) {
-      _focusIndex = index;
-      _revealAfterFrame(rowContext);
-      return;
-    }
-    _reanchor(target: _beats[index]);
-  }
-
   void _revealAfterFrame(BuildContext rowContext) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !rowContext.mounted) return;
@@ -421,14 +411,11 @@ class _ThreadViewState extends State<ThreadView>
     _revealing = true;
     _userMoved = false;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    final origin = position.pixels;
-    Scrollable.ensureVisible(rowContext, alignment: 0.5);
     if (reduced) {
       _place(target);
       _revealing = false;
       return;
     }
-    _place(origin);
     _scroll
         .animateTo(
           target,
