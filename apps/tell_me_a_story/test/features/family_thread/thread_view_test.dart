@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
 import 'package:tell_me_a_story/data/family_thread_density.dart';
 import 'package:tell_me_a_story/data/stories_api.dart';
-import 'package:tell_me_a_story/features/family_thread/story_card.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_band.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_beat_tile.dart';
 import 'package:tell_me_a_story/features/family_thread/thread_view.dart';
@@ -169,14 +168,13 @@ void main() {
     final stories = [_story('old', 1980, 'Old'), _story('new', 2004, 'Newest')];
     await tester.pumpWidget(_host(stories, focusStoryId: 'new'));
     await tester.pumpAndSettle();
-    final card = tester.state(find.byType(StoryCard));
+    final kept = tester.element(find.byKey(const ValueKey('y2004')));
 
-    await tester.pumpWidget(
-      _host(List<Story>.of(stories), focusStoryId: 'new'),
-    );
+    await tester.pumpWidget(_host(stories, focusStoryId: 'old'));
     await tester.pumpAndSettle();
 
-    expect(tester.state(find.byType(StoryCard)), same(card));
+    expect(tester.element(find.byKey(const ValueKey('y2004'))), same(kept));
+    _expectCentred(tester, 'Old');
   });
 
   testWidgets('1000 story jump from newest to oldest', (tester) async {

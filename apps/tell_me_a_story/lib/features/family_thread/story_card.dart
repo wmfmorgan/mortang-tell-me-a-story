@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,7 +18,7 @@ class StoryCard extends StatefulWidget {
     super.key,
     required this.story,
     required this.ink,
-    this.columnWidth,
+    required this.columnWidth,
     required this.semanticsLabel,
     this.moreLabel,
     this.showBody = false,
@@ -31,8 +33,8 @@ class StoryCard extends StatefulWidget {
   final Story story;
   final Color ink;
 
-  /// Width of the side column. Null lets a parent box supply the constraints.
-  final double? columnWidth;
+  /// Width of the side column the card is laid out in.
+  final double columnWidth;
   final String semanticsLabel;
   final String? moreLabel;
   final bool showBody;
@@ -52,6 +54,9 @@ enum _CardArt { none, cover, fan }
 /// Browse row height when the card is not given a finite height.
 const _fallbackRowHeight = 64.0;
 
+/// Gap between the card and the side of its column.
+const _cardEdgePad = 4.0;
+
 /// Width kept for the date and title when Open story is absent.
 const _copyReserve = 96.0;
 
@@ -66,7 +71,7 @@ class _StoryCardState extends State<StoryCard> {
 
   Story get story => widget.story;
   Color get ink => widget.ink;
-  double? get columnWidth => widget.columnWidth;
+  double get columnWidth => widget.columnWidth;
   String get semanticsLabel => widget.semanticsLabel;
   String? get moreLabel => widget.moreLabel;
   bool get showBody => widget.showBody;
@@ -84,15 +89,12 @@ class _StoryCardState extends State<StoryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final width = columnWidth;
-    final constraints = width == null
-        ? null
-        : BoxConstraints(maxWidth: width < 4 ? 0 : width - 4);
     return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: constraints == null
-          ? LayoutBuilder(builder: _row)
-          : _row(context, constraints),
+      padding: const EdgeInsets.only(right: _cardEdgePad),
+      child: _row(
+        context,
+        BoxConstraints(maxWidth: math.max(0.0, columnWidth - _cardEdgePad)),
+      ),
     );
   }
 

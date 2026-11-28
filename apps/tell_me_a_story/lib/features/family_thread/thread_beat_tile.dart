@@ -35,7 +35,7 @@ class ThreadBeatTile extends StatelessWidget {
   final ThreadBeat beat;
   final String? focusStoryId;
 
-  /// Side column width passed to the focused card. Null in a sized parent.
+  /// Side column width passed to the focused card.
   final double? columnWidth;
   final int distance;
   final int ringToken;
@@ -82,7 +82,7 @@ class ThreadBeatTile extends StatelessWidget {
       final YearBeat year when distance == 0 => _yearCard(year, ink),
       StoryBeat(:final story) when distance == 0 => StoryCard(
         story: story,
-        columnWidth: columnWidth,
+        columnWidth: columnWidth ?? 0,
         ink: ink,
         semanticsLabel: _label(),
         showBody: true,
@@ -118,7 +118,7 @@ class ThreadBeatTile extends StatelessWidget {
     final card = ThreadFocus.browseCardStory(year, focusId: focusStoryId);
     return StoryCard(
       story: card,
-      columnWidth: columnWidth,
+      columnWidth: columnWidth ?? 0,
       ink: ink,
       semanticsLabel: _storyLabel(year.year, card),
       moreLabel: onMore == null ? null : _yearMore(year, card),
@@ -144,13 +144,16 @@ class ThreadBeatTile extends StatelessWidget {
   }
 
   Widget _mosaic(DecadeBeat beat) {
-    return _ImageFade(
-      distance: distance,
-      child: DecadeMosaic(
-        stories: beat.stories,
-        filter: filter,
-        photos: photos,
-        cache: cache,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: _ImageFade(
+        distance: distance,
+        child: DecadeMosaic(
+          stories: beat.stories,
+          filter: filter,
+          photos: photos,
+          cache: cache,
+        ),
       ),
     );
   }

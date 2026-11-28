@@ -3,8 +3,7 @@ import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 import 'thread_filter.dart';
 
-/// Browse and Read decade spacer. Moves to the constants file in T1a-2.
-const threadLandmarkRowExtent = 56.0;
+export 'thread_row_metrics.dart' show threadLandmarkRowExtent;
 
 sealed class ThreadRow {
   const ThreadRow();
@@ -66,6 +65,21 @@ class ThreadRows {
   bool eligible(int index) {
     final row = rows[index];
     return row is ThreadBeatRow && row.matches;
+  }
+
+  /// Nearest matching beat, searching later before earlier. Landmarks are not
+  /// beats, so they are never returned.
+  int landOn(int beatIndex) {
+    if (beatRow.isEmpty) return 0;
+    final clamped = beatIndex.clamp(0, beatRow.length - 1);
+    if (eligible(beatRow[clamped])) return clamped;
+    for (var distance = 1; distance < beatRow.length; distance++) {
+      final later = clamped + distance;
+      final earlier = clamped - distance;
+      if (later < beatRow.length && eligible(beatRow[later])) return later;
+      if (earlier >= 0 && eligible(beatRow[earlier])) return earlier;
+    }
+    return clamped;
   }
 }
 

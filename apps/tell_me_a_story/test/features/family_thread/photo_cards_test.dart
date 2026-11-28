@@ -326,6 +326,7 @@ Widget _card(
           width: 480,
           child: StoryCard(
             story: story,
+            columnWidth: 480,
             ink: albumInk,
             semanticsLabel: 'card',
             showBody: showBody,
