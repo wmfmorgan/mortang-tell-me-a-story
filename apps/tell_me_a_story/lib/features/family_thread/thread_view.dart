@@ -93,7 +93,9 @@ class _ThreadViewState extends State<ThreadView>
   String? _announcement;
   var _anchorIndex = 0;
   var _focusIndex = 0;
-  var _revealedLocally = false;
+  var _userMoved = false;
+  var _applying = false;
+  var _revealing = false;
   var _viewport = -1.0;
   var _nudgePending = true;
   var _noneMatch = false;
@@ -101,7 +103,7 @@ class _ThreadViewState extends State<ThreadView>
   @override
   void initState() {
     super.initState();
-    _focus = ThreadFocusController(scroll: _scroll);
+    _focus = ThreadFocusController(scroll: _scroll, onSettled: (_) {});
     _loadBeats(rebuildModel: true, regroup: true);
     _fade = AnimationController(vsync: this, duration: _fadeDuration, value: 1);
     if (_beats.isEmpty) {
@@ -186,7 +188,7 @@ class _ThreadViewState extends State<ThreadView>
     _anchorIndex = landed;
     _focusIndex = landed;
     _nudgePending = true;
-    if (_scroll.hasClients && _scroll.offset != 0) _focus.place(0);
+    if (_scroll.hasClients && _scroll.offset != 0) _place(0);
   }
 
   void _retargetFocus() {
@@ -346,7 +348,14 @@ class _ThreadViewState extends State<ThreadView>
     if (target is! RenderBox || !target.hasSize) return;
     final half = target.size.height / 2;
     if ((_scroll.offset - half).abs() < 0.5) return;
-    _focus.place(half);
+    _place(half);
+  }
+
+  void _place(double offset) {
+    _applying = true;
+    _userMoved = false;
+    _focus.place(offset);
+    _applying = false;
   }
 
   bool _matchesIndex(int index) {
@@ -365,13 +374,12 @@ class _ThreadViewState extends State<ThreadView>
     final changed = id != _focusId;
     final rowContext = _built[_rows.rowOfBeat(landed)];
     if (rowContext != null && _isOnScreen(rowContext)) {
-      _revealedLocally = true;
       setState(() {
         _focusId = id;
         _focusIndex = landed;
         if (changed) _announcement = _settledLabel();
       });
-      _reveal(rowContext);
+      _revealAfterFrame(rowContext);
     } else {
       setState(() {
         _focusId = id;
@@ -387,31 +395,60 @@ class _ThreadViewState extends State<ThreadView>
     final rowContext = _built[_rows.rowOfBeat(index)];
     if (rowContext != null && _isOnScreen(rowContext)) {
       _focusIndex = index;
-      if (_revealedLocally) {
-        _revealedLocally = false;
-        return;
-      }
-      _reveal(rowContext);
+      _revealAfterFrame(rowContext);
       return;
     }
-    _revealedLocally = false;
     _reanchor(target: _beats[index]);
   }
 
+  void _revealAfterFrame(BuildContext rowContext) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !rowContext.mounted) return;
+      _reveal(rowContext);
+    });
+  }
+
   void _reveal(BuildContext rowContext) {
-    _focus.reveal(
+    _revealing = true;
+    _userMoved = false;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    Scrollable.ensureVisible(
       rowContext,
-      reducedMotion: MediaQuery.disableAnimationsOf(context),
-    );
+      alignment: 0.5,
+      duration: reduced ? Duration.zero : const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    ).whenComplete(() => _revealing = false);
   }
 
   bool _onScroll(ScrollNotification notification) {
-    _focus.onNotification(
-      notification: notification,
-      reducedMotion: MediaQuery.disableAnimationsOf(context),
-      snap: _snapToNearest,
-    );
+    if (_applying || _revealing || notification.depth != 0) return false;
+    final drag = _pointerDrag(notification);
+    final moved =
+        notification is ScrollStartNotification ||
+        notification is ScrollUpdateNotification;
+    if (moved && drag) {
+      _userMoved = true;
+      return false;
+    }
+    if (moved || notification is! ScrollEndNotification || !_userMoved) {
+      return false;
+    }
+    _userMoved = false;
+    if (drag && !MediaQuery.disableAnimationsOf(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _snapIfStill());
+      return false;
+    }
+    _snapToNearest();
     return false;
+  }
+
+  void _snapIfStill() {
+    if (!mounted || !_scroll.hasClients) return;
+    if (_scroll.position.isScrollingNotifier.value) {
+      _userMoved = true;
+      return;
+    }
+    _snapToNearest();
   }
 
   void _snapToNearest() {
@@ -425,8 +462,8 @@ class _ThreadViewState extends State<ThreadView>
     if (rowIndex < 0) return;
     final rowContext = _built[rowIndex];
     if (rowContext == null || !rowContext.mounted) return;
-    _reveal(rowContext);
     _onSettled(rowIndex);
+    _revealAfterFrame(rowContext);
   }
 
   void _onSettled(int rowIndex) {
@@ -747,6 +784,15 @@ class _LandmarkLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _pointerDrag(ScrollNotification notification) {
+  return switch (notification) {
+    ScrollStartNotification(:final dragDetails) => dragDetails != null,
+    ScrollUpdateNotification(:final dragDetails) => dragDetails != null,
+    ScrollEndNotification(:final dragDetails) => dragDetails != null,
+    _ => false,
+  };
 }
 
 String? _newestId(List<Story> stories) {

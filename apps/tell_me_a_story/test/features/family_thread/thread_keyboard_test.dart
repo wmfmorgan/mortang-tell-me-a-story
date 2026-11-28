@@ -92,7 +92,7 @@ void main() {
     await _pumpBeats(tester, animations: false);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expectOnFocusLine(tester, 'Tractor');
   });
