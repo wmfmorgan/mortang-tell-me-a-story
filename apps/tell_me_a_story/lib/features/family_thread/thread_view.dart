@@ -638,7 +638,10 @@ class _RenderSpan extends RenderBox
     leading.layout(_loose(leadW), parentUsesSize: true);
     trailing.layout(_loose(trailW), parentUsesSize: true);
     final height = math.max(leading.size.height, trailing.size.height);
-    band.layout(BoxConstraints.tightFor(width: bandW, height: height));
+    band.layout(
+      BoxConstraints.tightFor(width: bandW, height: height),
+      parentUsesSize: true,
+    );
     size = constraints.constrain(Size(width, height));
     _place(leading, 0, height);
     _place(band, leadW, height);
