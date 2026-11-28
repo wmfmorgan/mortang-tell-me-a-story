@@ -95,6 +95,49 @@ void main() {
     expect(_logCall.hasMatch('showDialog('), isFalse);
     expect(_logCall.hasMatch('log('), isTrue);
   });
+  test('beat model does not import thread_row_metrics or flutter painting', () {
+    final banned = RegExp(
+      'thread_row_metrics|package:flutter/(painting|widgets|material)\\.dart',
+    );
+    const files = [
+      'lib/features/family_thread/thread_beat_model.dart',
+      'lib/features/family_thread/thread_beat.dart',
+    ];
+    final hits = [
+      for (final path in files)
+        if (banned.hasMatch(File(path).readAsStringSync())) path,
+    ];
+    expect(hits, isEmpty);
+  });
+  test('row extents come from itemExtentBuilder in thread_view only', () {
+    final builder = RegExp(r'itemExtentBuilder');
+    final fixed = RegExp(
+      r'itemExtent:|_browseExtent|_overviewExtent|_readExtent',
+    );
+    final readback = RegExp(
+      r'\b(RenderBox|GlobalKey|IntrinsicHeight|IntrinsicWidth|shrinkWrap)\b',
+    );
+    final builders = <String>[];
+    final fixedHits = <String>[];
+    final readbackHits = <String>[];
+    for (final file in _featureFiles()) {
+      final path = _libPath(file.path);
+      final source = file.readAsStringSync();
+      if (builder.hasMatch(source)) builders.add(path);
+      if (fixed.hasMatch(source)) fixedHits.add(path);
+      const sized = {
+        'lib/features/family_thread/thread_row_metrics.dart',
+        'lib/features/family_thread/thread_rows.dart',
+        'lib/features/family_thread/thread_view.dart',
+      };
+      if (sized.contains(path) && readback.hasMatch(source)) {
+        readbackHits.add(path);
+      }
+    }
+    expect(builders, ['lib/features/family_thread/thread_view.dart']);
+    expect(fixedHits, isEmpty);
+    expect(readbackHits, isEmpty);
+  });
 }
 
 List<File> _familyThreadDataFiles() {

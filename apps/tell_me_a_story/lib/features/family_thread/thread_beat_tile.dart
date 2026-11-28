@@ -138,13 +138,16 @@ class ThreadBeatTile extends StatelessWidget {
   }
 
   Widget _mosaic(DecadeBeat beat) {
-    return _ImageFade(
-      distance: distance,
-      child: DecadeMosaic(
-        stories: beat.stories,
-        filter: filter,
-        photos: photos,
-        cache: cache,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: _ImageFade(
+        distance: distance,
+        child: DecadeMosaic(
+          stories: beat.stories,
+          filter: filter,
+          photos: photos,
+          cache: cache,
+        ),
       ),
     );
   }

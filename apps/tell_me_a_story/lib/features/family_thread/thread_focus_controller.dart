@@ -2,10 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import 'thread_beat.dart';
 import 'thread_center.dart';
-import 'thread_filter.dart';
-import 'thread_focus.dart';
 
 enum _SnapPhase { idle, dragging, snapping }
 
@@ -38,12 +35,12 @@ class ThreadFocusController {
 
   void onNotification({
     required ScrollNotification notification,
-    required List<ThreadBeat> beats,
-    required double extent,
+    required List<double> extents,
+    required List<double> offsets,
     required double viewport,
-    required String? focusId,
     required bool reducedMotion,
-    ThreadFilter filter = ThreadFilter.cleared,
+    required bool Function(int index) eligible,
+    required void Function(int index) onMove,
   }) {
     if (_applying || notification.depth != 0) return;
     final drag = switch (notification) {
@@ -66,45 +63,36 @@ class ThreadFocusController {
     }
     if (notification is! ScrollEndNotification) return;
     if (drag != null) {
-      _release(
-        beats: beats,
-        extent: extent,
-        viewport: viewport,
-        focusId: focusId,
-        reducedMotion: reducedMotion,
-        filter: filter,
-      );
+      _release(extents, offsets, viewport, eligible, onMove, reducedMotion);
       return;
     }
-    if (_phase == _SnapPhase.dragging || _phase == _SnapPhase.snapping) return;
-    _snap(
-      beats: beats,
-      extent: extent,
-      viewport: viewport,
-      focusId: focusId,
-      reducedMotion: reducedMotion,
-      filter: filter,
-    );
+    if (_phase == _SnapPhase.dragging || _phase == _SnapPhase.snapping) {
+      return;
+    }
+    _snap(extents, offsets, viewport, eligible, onMove);
   }
 
-  void _release({
-    required List<ThreadBeat> beats,
-    required double extent,
-    required double viewport,
+  void moveToOffset({
+    required double offset,
+    required String storyId,
     required String? focusId,
     required bool reducedMotion,
-    required ThreadFilter filter,
   }) {
+    if (_phase == _SnapPhase.dragging) return;
+    _moveTo(offset, storyId, focusId, reducedMotion);
+  }
+
+  void _release(
+    List<double> extents,
+    List<double> offsets,
+    double viewport,
+    bool Function(int index) eligible,
+    void Function(int index) onMove,
+    bool reducedMotion,
+  ) {
     _phase = _SnapPhase.idle;
     if (reducedMotion) {
-      _snap(
-        beats: beats,
-        extent: extent,
-        viewport: viewport,
-        focusId: focusId,
-        reducedMotion: reducedMotion,
-        filter: filter,
-      );
+      _snap(extents, offsets, viewport, eligible, onMove);
       return;
     }
     final generation = _generation;
@@ -114,79 +102,27 @@ class ThreadFocusController {
       if (!scroll.hasClients || scroll.position.isScrollingNotifier.value) {
         return;
       }
-      _snap(
-        beats: beats,
-        extent: extent,
-        viewport: viewport,
-        focusId: focusId,
-        reducedMotion: reducedMotion,
-        filter: filter,
-      );
+      _snap(extents, offsets, viewport, eligible, onMove);
     });
   }
 
-  void _snap({
-    required List<ThreadBeat> beats,
-    required double extent,
-    required double viewport,
-    required String? focusId,
-    required bool reducedMotion,
-    required ThreadFilter filter,
-  }) {
-    if (_phase == _SnapPhase.dragging) return;
-    moveToBeat(
-      index: ThreadCenter.nearestIndex(
-        scroll.hasClients ? scroll.offset : 0,
-        beats.length,
-        viewport,
-        extent,
+  void _snap(
+    List<double> extents,
+    List<double> offsets,
+    double viewport,
+    bool Function(int index) eligible,
+    void Function(int index) onMove,
+  ) {
+    if (_phase == _SnapPhase.dragging || extents.isEmpty) return;
+    onMove(
+      ThreadCenter.nearestRow(
+        offset: scroll.hasClients ? scroll.offset : 0,
+        extents: extents,
+        offsets: offsets,
+        viewport: viewport,
+        eligible: eligible,
       ),
-      beats: beats,
-      extent: extent,
-      viewport: viewport,
-      focusId: focusId,
-      reducedMotion: reducedMotion,
-      filter: filter,
     );
-  }
-
-  void moveToBeat({
-    required int index,
-    required List<ThreadBeat> beats,
-    required double extent,
-    required double viewport,
-    required String? focusId,
-    required bool reducedMotion,
-    ThreadFilter filter = ThreadFilter.cleared,
-  }) {
-    if (!scroll.hasClients || beats.isEmpty || viewport <= 0 || extent <= 0) {
-      return;
-    }
-    final landed = _landOn(index, beats, filter);
-    _moveTo(
-      ThreadCenter.centerOffset(landed, beats.length, viewport, extent),
-      ThreadFocus.representative(
-        beats[landed],
-        previousFocusId: focusId,
-        filter: filter,
-      ).id,
-      focusId,
-      reducedMotion,
-    );
-  }
-
-  int _landOn(int index, List<ThreadBeat> beats, ThreadFilter filter) {
-    final clamped = index.clamp(0, beats.length - 1).toInt();
-    if (filter.matchesBeat(beats[clamped])) return clamped;
-    for (var distance = 1; distance < beats.length; distance++) {
-      final later = clamped + distance;
-      final earlier = clamped - distance;
-      if (later < beats.length && filter.matchesBeat(beats[later])) {
-        return later;
-      }
-      if (earlier >= 0 && filter.matchesBeat(beats[earlier])) return earlier;
-    }
-    return clamped;
   }
 
   void _moveTo(
@@ -195,6 +131,7 @@ class ThreadFocusController {
     String? focusId,
     bool reducedMotion,
   ) {
+    if (!scroll.hasClients) return;
     final generation = ++_generation;
     if ((scroll.offset - target).abs() < 0.5) {
       _settle(storyId, focusId, generation);
