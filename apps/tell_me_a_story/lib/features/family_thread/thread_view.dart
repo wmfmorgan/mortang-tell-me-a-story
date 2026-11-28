@@ -450,7 +450,7 @@ class _ThreadViewState extends State<ThreadView>
 }
 
 class _ThreadScroll extends CustomScrollView {
-  _ThreadScroll({
+  const _ThreadScroll({
     required ScrollController super.controller,
     required super.center,
     required super.anchor,
@@ -604,16 +604,12 @@ class _SpanRow extends MultiChildRenderObjectWidget {
   }
 }
 
+class _SpanParentData extends ContainerBoxParentData<RenderBox> {}
+
 class _RenderSpan extends RenderBox
     with
-        ContainerRenderObjectMixin<
-          RenderBox,
-          ContainerBoxParentData<RenderBox>
-        >,
-        RenderBoxContainerDefaultsMixin<
-          RenderBox,
-          ContainerBoxParentData<RenderBox>
-        > {
+        ContainerRenderObjectMixin<RenderBox, _SpanParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _SpanParentData> {
   _RenderSpan(this._phone);
 
   bool _phone;
@@ -625,8 +621,8 @@ class _RenderSpan extends RenderBox
 
   @override
   void setupParentData(RenderBox child) {
-    if (child.parentData is! ContainerBoxParentData<RenderBox>) {
-      child.parentData = ContainerBoxParentData<RenderBox>();
+    if (child.parentData is! _SpanParentData) {
+      child.parentData = _SpanParentData();
     }
   }
 
@@ -662,7 +658,7 @@ class _RenderSpan extends RenderBox
   }
 
   void _place(RenderBox child, double x, double height) {
-    final data = child.parentData! as ContainerBoxParentData<RenderBox>;
+    final data = child.parentData! as _SpanParentData;
     data.offset = Offset(x, (height - child.size.height) / 2);
   }
 
