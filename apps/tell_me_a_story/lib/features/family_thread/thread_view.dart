@@ -12,6 +12,7 @@ import 'thread_band.dart';
 import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 import 'thread_beat_tile.dart';
+import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 import 'thread_keyboard.dart';
@@ -80,7 +81,7 @@ class _ThreadViewState extends State<ThreadView>
     with SingleTickerProviderStateMixin {
   final _scroll = ScrollController();
   final _centerKey = GlobalKey();
-  BuildContext? _focusContext;
+  final _built = <int, BuildContext>{};
   late final ThreadFocusController _focus;
   late final AnimationController _fade;
   late ThreadBeatModel _model;
@@ -88,7 +89,11 @@ class _ThreadViewState extends State<ThreadView>
   late ThreadRows _rows;
   String? _focusId;
   String? _announcement;
+  var _anchorIndex = 0;
   var _focusIndex = 0;
+  var _userMoved = false;
+  var _applying = false;
+  var _revealing = false;
   var _viewport = -1.0;
   var _nudgePending = true;
   var _noneMatch = false;
@@ -96,9 +101,14 @@ class _ThreadViewState extends State<ThreadView>
   @override
   void initState() {
     super.initState();
-    _focus = ThreadFocusController(scroll: _scroll, onSettled: _onSettled);
-    _bind(rebuildModel: true, regroup: true);
+    _focus = ThreadFocusController(scroll: _scroll, onSettled: (_) {});
+    _loadBeats(rebuildModel: true, regroup: true);
     _fade = AnimationController(vsync: this, duration: _fadeDuration, value: 1);
+    if (_beats.isEmpty) {
+      _nudgePending = true;
+      return;
+    }
+    _reanchor(target: _beats[_indexOfFocus()]);
   }
 
   @override
@@ -111,11 +121,19 @@ class _ThreadViewState extends State<ThreadView>
     if (!storiesChanged && !densityChanged && !focusChanged && !filterChanged) {
       return;
     }
-    _bind(
+    final previousFocus = _focusId;
+    _loadBeats(
       rebuildModel: storiesChanged,
       regroup: storiesChanged || densityChanged,
     );
     if (densityChanged) _fadeIn();
+    _anchorAfterUpdate(
+      storiesChanged: storiesChanged,
+      densityChanged: densityChanged,
+      focusChanged: focusChanged,
+      filterChanged: filterChanged,
+      previousFocus: previousFocus,
+    );
   }
 
   @override
@@ -125,28 +143,47 @@ class _ThreadViewState extends State<ThreadView>
     super.dispose();
   }
 
-  void _bind({required bool rebuildModel, required bool regroup}) {
+  void _loadBeats({required bool rebuildModel, required bool regroup}) {
     if (rebuildModel) _model = ThreadBeatModel.build(widget.stories);
     if (regroup) _beats = _model.beatsFor(widget.density);
     _rows = ThreadRows.build(_beats, widget.density, widget.filter);
     _focusId = widget.focusStoryId ?? _newestId(widget.stories);
     _noneMatch = _noStoriesMatch();
     _retargetFocus();
+  }
+
+  void _anchorAfterUpdate({
+    required bool storiesChanged,
+    required bool densityChanged,
+    required bool focusChanged,
+    required bool filterChanged,
+    required String? previousFocus,
+  }) {
     if (_beats.isEmpty) {
+      _anchorIndex = 0;
       _focusIndex = 0;
       _nudgePending = true;
       return;
     }
-    _reanchor(target: _beats[_indexOfFocus()]);
+    final dropped = filterChanged && _filterDropped(previousFocus);
+    if (storiesChanged || densityChanged || dropped || focusChanged) {
+      _reanchor(target: _beats[_indexOfFocus()]);
+    }
   }
 
-  /// New anchor is [target], then the same half-height nudge. Used before the
-  /// first paint (restore), on a far jump, and when density changes.
+  bool _filterDropped(String? previousFocus) {
+    final story = _storyById(previousFocus);
+    return story != null && !widget.filter.matches(story);
+  }
+
+  /// New anchor is [target], then the same half-height nudge.
   void _reanchor({required ThreadBeat target}) {
     final index = _beats.indexOf(target);
-    _focusIndex = index < 0 ? _indexOfFocus() : index;
+    final landed = index < 0 ? _indexOfFocus() : index;
+    _anchorIndex = landed;
+    _focusIndex = landed;
     _nudgePending = true;
-    if (_scroll.hasClients && _scroll.offset != 0) _focus.place(0);
+    if (_scroll.hasClients && _scroll.offset != 0) _place(0);
   }
 
   void _retargetFocus() {
@@ -236,23 +273,27 @@ class _ThreadViewState extends State<ThreadView>
   Widget _list(double height, double width) {
     if (_rows.rows.isEmpty) return const SizedBox.shrink();
     final phone = width < threadPhoneBreakpoint;
-    final anchor = _rows.rowOfBeat(_focusIndex);
+    final anchor = _rows.rowOfBeat(_anchorIndex);
     return Semantics(
       container: true,
       explicitChildNodes: true,
       label: FamilyThreadCopy.threadList(widget.stories.length),
-      child: _ThreadScroll(
-        controller: _scroll,
-        center: _centerKey,
-        anchor: 0.5,
-        onDensityDelta: widget.onDensityDelta,
-        now: widget.now,
-        slivers: _slivers(anchor, height, phone, _columnWidth(width, phone)),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: _ThreadScroll(
+          controller: _scroll,
+          center: _centerKey,
+          anchor: 0.5,
+          onDensityDelta: widget.onDensityDelta,
+          now: widget.now,
+          slivers: _slivers(anchor, height, phone, _columnWidth(width, phone)),
+        ),
       ),
     );
   }
 
   double _columnWidth(double width, bool phone) {
+    // Phone lead plus band, or half the width beside the band: [_BeatRow].
     final band = phone ? _phoneBandWidth : _wideBandWidth;
     if (phone) return width - _phoneLeadWidth - band;
     return (width - band) / 2;
@@ -265,6 +306,7 @@ class _ThreadViewState extends State<ThreadView>
     double columnWidth,
   ) {
     return [
+      SliverToBoxAdapter(child: SizedBox(height: height / 2)),
       if (anchor > 0)
         SliverList(
           delegate: SliverChildBuilderDelegate(
@@ -284,7 +326,7 @@ class _ThreadViewState extends State<ThreadView>
           childCount: _rows.rows.length - anchor,
         ),
       ),
-      SliverToBoxAdapter(child: SizedBox(height: height)),
+      SliverToBoxAdapter(child: SizedBox(height: height / 2)),
     ];
   }
 
@@ -295,14 +337,21 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   void _nudgeToCentre() {
-    if (!mounted) return;
-    final focus = _focusContext;
-    if (focus == null || !focus.mounted || !_scroll.hasClients) return;
+    if (!mounted || _beats.isEmpty || !_scroll.hasClients) return;
+    final focus = _built[_rows.rowOfBeat(_focusIndex)];
+    if (focus == null || !focus.mounted) return;
     final target = focus.findRenderObject();
     if (target is! RenderBox || !target.hasSize) return;
     final half = target.size.height / 2;
     if ((_scroll.offset - half).abs() < 0.5) return;
-    _focus.place(half);
+    _place(half);
+  }
+
+  void _place(double offset) {
+    _applying = true;
+    _userMoved = false;
+    _focus.place(offset);
+    _applying = false;
   }
 
   bool _matchesIndex(int index) {
@@ -312,46 +361,161 @@ class _ThreadViewState extends State<ThreadView>
 
   void _moveBeat(int index) {
     if (_beats.isEmpty) return;
-    final landed = _landOn(index);
+    final landed = _rows.landOn(index);
     final id = ThreadFocus.representative(
       _beats[landed],
       previousFocusId: _focusId,
       filter: widget.filter,
     ).id;
     final changed = id != _focusId;
-    setState(() {
-      _focusId = id;
-      _reanchor(target: _beats[landed]);
-      if (changed) _announcement = _settledLabel();
-    });
+    final rowContext = _built[_rows.rowOfBeat(landed)];
+    if (rowContext != null && _isOnScreen(rowContext)) {
+      setState(() {
+        _focusId = id;
+        _focusIndex = landed;
+        if (changed) _announcement = _settledLabel();
+      });
+      _revealAfterFrame(rowContext);
+    } else {
+      setState(() {
+        _focusId = id;
+        _reanchor(target: _beats[landed]);
+        if (changed) _announcement = _settledLabel();
+      });
+    }
     if (changed) widget.onFocusChanged?.call(id);
   }
 
-  // TODO(T1a-2): merge with ThreadFocusController._landOn.
-  int _landOn(int index) {
-    final beats = _beats;
-    final filter = widget.filter;
-    final clamped = index.clamp(0, beats.length - 1);
-    if (filter.matchesBeat(beats[clamped])) return clamped;
-    for (var distance = 1; distance < beats.length; distance++) {
-      final later = clamped + distance;
-      final earlier = clamped - distance;
-      if (later < beats.length && filter.matchesBeat(beats[later])) {
-        return later;
-      }
-      if (earlier >= 0 && filter.matchesBeat(beats[earlier])) return earlier;
-    }
-    return clamped;
+  void _revealAfterFrame(BuildContext rowContext) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !rowContext.mounted) return;
+      _reveal(rowContext);
+    });
   }
 
-  void _onSettled(String storyId) {
-    if (!mounted || storyId == _focusId) return;
+  void _reveal(BuildContext rowContext) {
+    final box = rowContext.findRenderObject();
+    if (box is! RenderBox || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    final reveal = RenderAbstractViewport.of(box);
+    final raw = reveal.getOffsetToReveal(box, 0.5).offset;
+    final target = (raw + position.viewportDimension / 2).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    _revealing = true;
+    _userMoved = false;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (reduced) {
+      _place(target);
+      _revealing = false;
+      return;
+    }
+    _scroll
+        .animateTo(
+          target,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        )
+        .whenComplete(() => _revealing = false);
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (_applying || _revealing || notification.depth != 0) return false;
+    final drag = _pointerDrag(notification);
+    final moved =
+        notification is ScrollStartNotification ||
+        notification is ScrollUpdateNotification;
+    if (moved && drag) {
+      _userMoved = true;
+      return false;
+    }
+    if (moved || notification is! ScrollEndNotification || !_userMoved) {
+      return false;
+    }
+    if (drag && !MediaQuery.disableAnimationsOf(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _snapAfterFrame());
+      return false;
+    }
+    _userMoved = false;
+    _snapToNearest();
+    return false;
+  }
+
+  void _snapAfterFrame() {
+    if (!mounted || !_scroll.hasClients) return;
+    _userMoved = false;
+    _snapToNearest();
+  }
+
+  void _snapToNearest() {
+    final view = context.findRenderObject();
+    if (view is! RenderBox || !view.hasSize) return;
+    final rowIndex = nearestOnScreen(
+      built: _centers(view),
+      focusLineY: view.size.height / 2,
+      eligible: _rows.eligible,
+    );
+    if (rowIndex < 0) return;
+    final rowContext = _built[rowIndex];
+    if (rowContext == null || !rowContext.mounted) return;
+    final moved = _onSettled(rowIndex);
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (moved && !reduced) {
+      _revealAfterFrame(rowContext);
+      return;
+    }
+    _reveal(rowContext);
+  }
+
+  bool _onSettled(int rowIndex) {
+    if (!mounted || rowIndex < 0 || rowIndex >= _rows.rows.length) return false;
+    final row = _rows.rows[rowIndex];
+    if (row is! ThreadBeatRow) return false;
+    final id = ThreadFocus.representative(
+      row.beat,
+      previousFocusId: _focusId,
+      filter: widget.filter,
+    ).id;
+    if (id == _focusId && row.beatIndex == _focusIndex) return false;
     setState(() {
-      _focusId = storyId;
-      _reanchor(target: _beats[_indexOfFocus()]);
+      _focusId = id;
+      _focusIndex = row.beatIndex;
       _announcement = _settledLabel();
     });
-    widget.onFocusChanged?.call(storyId);
+    widget.onFocusChanged?.call(id);
+    return true;
+  }
+
+  List<({int index, double centerY})> _centers(RenderBox view) {
+    final built = <({int index, double centerY})>[];
+    final stale = <int>[];
+    for (final entry in _built.entries) {
+      final rowContext = entry.value;
+      if (!rowContext.mounted || entry.key >= _rows.rows.length) {
+        stale.add(entry.key);
+        continue;
+      }
+      final box = rowContext.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) continue;
+      final top = box.localToGlobal(Offset.zero, ancestor: view).dy;
+      built.add((index: entry.key, centerY: top + box.size.height / 2));
+    }
+    for (final index in stale) {
+      _built.remove(index);
+    }
+    return built;
+  }
+
+  bool _isOnScreen(BuildContext rowContext) {
+    if (!rowContext.mounted) return false;
+    final box = rowContext.findRenderObject();
+    final view = context.findRenderObject();
+    if (box is! RenderBox || view is! RenderBox) return false;
+    if (!box.attached || !box.hasSize || !view.hasSize) return false;
+    final top = box.localToGlobal(Offset.zero, ancestor: view).dy;
+    final bottom = top + box.size.height;
+    return bottom > 0 && top < view.size.height;
   }
 
   String _settledLabel() {
@@ -385,7 +549,7 @@ class _ThreadViewState extends State<ThreadView>
   }) {
     final row = _rows.rows[rowIndex];
     final band = _band(rowIndex, phone: phone);
-    return switch (row) {
+    final child = switch (row) {
       ThreadLandmarkRow(:final decadeStart) => _LandmarkRow(
         key: ValueKey('landmark-$decadeStart'),
         decade: decadeStart,
@@ -401,6 +565,12 @@ class _ThreadViewState extends State<ThreadView>
         band: band,
       ),
     };
+    return Builder(
+      builder: (context) {
+        _built[rowIndex] = context;
+        return child;
+      },
+    );
   }
 
   bool _contentOnLeft(int landmarkIndex) {
@@ -427,7 +597,6 @@ class _ThreadViewState extends State<ThreadView>
     required double columnWidth,
     required Widget band,
   }) {
-    final focused = beatIndex == _focusIndex;
     final row = _BeatRow(
       phone: phone,
       index: beatIndex,
@@ -435,15 +604,7 @@ class _ThreadViewState extends State<ThreadView>
       mark: _markFor(beat, beatIndex),
       band: band,
     );
-    return KeyedSubtree(
-      key: ValueKey(_beatId(beat)),
-      child: Builder(
-        builder: (context) {
-          if (focused) _focusContext = context;
-          return row;
-        },
-      ),
-    );
+    return KeyedSubtree(key: ValueKey(_beatId(beat)), child: row);
   }
 
   Widget _tile(ThreadBeat beat, int index, double columnWidth) {
@@ -608,7 +769,7 @@ class _LandmarkLabel extends StatelessWidget {
       child: Text(
         '${decade}s',
         maxLines: 1,
-        // TODO(T1a-2): take this Newsreader italic from thread_row_metrics.dart.
+        // TODO(#285): take this Newsreader italic from thread_row_metrics.dart.
         style: GoogleFonts.newsreader(
           fontSize: 28,
           fontStyle: FontStyle.italic,
@@ -618,6 +779,15 @@ class _LandmarkLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _pointerDrag(ScrollNotification notification) {
+  return switch (notification) {
+    ScrollStartNotification(:final dragDetails) => dragDetails != null,
+    ScrollUpdateNotification(:final dragDetails) => dragDetails != null,
+    ScrollEndNotification(:final dragDetails) => dragDetails != null,
+    _ => false,
+  };
 }
 
 String? _newestId(List<Story> stories) {

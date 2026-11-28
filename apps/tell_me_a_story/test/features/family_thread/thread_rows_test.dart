@@ -40,6 +40,21 @@ void main() {
     );
     expect(overview.rows.whereType<ThreadLandmarkRow>(), isEmpty);
   });
+
+  test('landOn skips a beat the filter rejects', () {
+    final model = ThreadBeatModel.build([
+      _story('old', 1982),
+      _story('mid', 1994),
+      _story('new', 2004),
+    ]);
+    final rows = ThreadRows.build(
+      model.beatsFor(FamilyThreadDensity.browse),
+      FamilyThreadDensity.browse,
+      const ThreadFilter(search: 'new'),
+    );
+    expect(rows.landOn(0), 2);
+    expect(rows.landOn(2), 2);
+  });
 }
 
 List<int> _decades(ThreadRows rows) {

@@ -326,6 +326,7 @@ Widget _card(
           width: 480,
           child: StoryCard(
             story: story,
+            columnWidth: 480,
             ink: albumInk,
             semanticsLabel: 'card',
             showBody: showBody,
@@ -343,6 +344,7 @@ Widget _tile(Story story) {
     height: 80,
     child: ThreadBeatTile(
       beat: StoryBeat(story: story),
+      columnWidth: 200,
       focusStoryId: 'other',
       distance: 1,
     ),

@@ -20,7 +20,7 @@ class ThreadBeatTile extends StatelessWidget {
     super.key,
     required this.beat,
     required this.focusStoryId,
-    this.columnWidth,
+    required this.columnWidth,
     this.distance = 0,
     this.ringToken = 0,
     this.onBeat,
@@ -35,8 +35,8 @@ class ThreadBeatTile extends StatelessWidget {
   final ThreadBeat beat;
   final String? focusStoryId;
 
-  /// Side column width passed to the focused card. Null in a sized parent.
-  final double? columnWidth;
+  /// Side column width passed to the focused card.
+  final double columnWidth;
   final int distance;
   final int ringToken;
   final void Function({required bool focused})? onBeat;
@@ -144,13 +144,17 @@ class ThreadBeatTile extends StatelessWidget {
   }
 
   Widget _mosaic(DecadeBeat beat) {
-    return _ImageFade(
-      distance: distance,
-      child: DecadeMosaic(
-        stories: beat.stories,
-        filter: filter,
-        photos: photos,
-        cache: cache,
+    // A 112 mosaic has to sit in a 104 overview row.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: _ImageFade(
+        distance: distance,
+        child: DecadeMosaic(
+          stories: beat.stories,
+          filter: filter,
+          photos: photos,
+          cache: cache,
+        ),
       ),
     );
   }

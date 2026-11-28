@@ -89,6 +89,23 @@ void main() {
     }
     expect(hits, isEmpty, reason: hits.join('\n'));
   });
+  test('beat model does not import thread_row_metrics or flutter painting', () {
+    final banned = RegExp(
+      'thread_row_metrics|package:flutter/(painting|widgets|material)\\.dart',
+    );
+    const files = [
+      'lib/features/family_thread/thread_beat_model.dart',
+      'lib/features/family_thread/thread_beat.dart',
+      'lib/features/family_thread/decade_beat.dart',
+      'lib/features/family_thread/year_beat.dart',
+      'lib/features/family_thread/story_beat.dart',
+    ];
+    final hits = [
+      for (final path in files)
+        if (banned.hasMatch(File(path).readAsStringSync())) path,
+    ];
+    expect(hits, isEmpty);
+  });
   test('driver and showDialog do not trip the guard', () {
     expect(_river.hasMatch('driver'), isFalse);
     expect(_river.hasMatch('river'), isTrue);
