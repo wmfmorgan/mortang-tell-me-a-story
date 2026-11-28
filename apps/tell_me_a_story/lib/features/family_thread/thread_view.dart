@@ -19,6 +19,7 @@ import 'thread_keyboard.dart';
 import 'thread_photo_cache.dart';
 import 'thread_filter.dart';
 import 'thread_pointer_handler.dart';
+import 'thread_row_metrics.dart' show threadLandmarkFont;
 import 'thread_rows.dart';
 
 const threadPhoneBreakpoint = 600.0;
@@ -796,7 +797,7 @@ class _LandmarkLabel extends StatelessWidget {
         '${decade}s',
         maxLines: 1,
         style: GoogleFonts.newsreader(
-          fontSize: 28,
+          fontSize: threadLandmarkFont,
           fontStyle: FontStyle.italic,
           height: 1,
           color: albumInkDim,
