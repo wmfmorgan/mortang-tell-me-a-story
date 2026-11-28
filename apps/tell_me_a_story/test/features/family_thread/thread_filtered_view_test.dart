@@ -265,10 +265,10 @@ Story _story(String id, int year, String title, {String? person}) {
   );
 }
 
+Finder _threadScroll() => find.byType(Scrollable);
+
 Future<void> _drag(WidgetTester tester, Offset delta) async {
-  final gesture = await tester.startGesture(
-    tester.getCenter(find.bySubtype<ListView>()),
-  );
+  final gesture = await tester.startGesture(tester.getCenter(_threadScroll()));
   await gesture.moveBy(delta);
   await tester.pump(const Duration(milliseconds: 70));
   await gesture.moveBy(Offset(0, delta.dy.sign));

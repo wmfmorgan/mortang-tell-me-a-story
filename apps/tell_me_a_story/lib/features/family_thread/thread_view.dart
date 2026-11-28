@@ -285,6 +285,9 @@ class _ThreadViewState extends State<ThreadView>
     final half = target.size.height / 2;
     if ((_scroll.offset - half).abs() < 0.5) return;
     _focus.place(half);
+    // The correcting jump is posted after paint. Flush so the same pump
+    // the caller is in already shows the row on the focus line.
+    target.owner?.flushLayout();
   }
 
   bool _matchesIndex(int index) {

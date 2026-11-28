@@ -200,7 +200,7 @@ class _HollowBeat extends StatelessWidget {
         story.publishedStart.year,
       ),
       excludeSemantics: true,
-      child: const HollowDot(),
+      child: const Center(child: HollowDot()),
     );
   }
 }

@@ -112,7 +112,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.bySubtype<ListView>(), const Offset(0, 2000));
+    await tester.drag(_threadScroll(), const Offset(0, 2000));
     await tester.pumpAndSettle();
     expectOnFocusLine(tester, 'Old');
 
@@ -209,6 +209,13 @@ double _opacity(WidgetTester tester, Finder finder) {
     return true;
   });
   return opacity;
+}
+
+Finder _threadScroll() {
+  return find.descendant(
+    of: find.byKey(const Key('family-thread-loaded')),
+    matching: find.byType(Scrollable),
+  );
 }
 
 Widget _host(ThreadStories stories, {bool animations = true}) {
