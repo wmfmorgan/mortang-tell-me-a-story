@@ -166,6 +166,54 @@ void main() {
       expect(find.byKey(const ValueKey('landmark-1990')), findsNothing);
     },
   );
+
+  testWidgets('1000 story jump from newest to oldest', (tester) async {
+    final stories = [
+      for (var i = 0; i < 1000; i++) _story('s$i', 1000 + i, 'S$i'),
+    ];
+    await tester.pumpWidget(_host(stories));
+    final open = await _framesUntilCentred(tester, 'S999');
+    expect(open.centred, isTrue);
+    expect(find.text('S0', skipOffstage: false), findsNothing);
+
+    await tester.pumpWidget(_host(stories, focusStoryId: 's0'));
+    final jump = await _framesUntilCentred(tester, 'S0');
+    final built = find
+        .byType(ThreadBeatTile, skipOffstage: false)
+        .evaluate()
+        .length;
+    final line =
+        'P4 jumpFrames=${jump.frames} jumpMs=${jump.ms} '
+        'openFrames=${open.frames} builtAfterJump=$built '
+        'target=2 frames';
+    debugPrint(line);
+    expect(jump.centred, isTrue);
+    expect(find.text('S500', skipOffstage: false), findsNothing);
+    expect(built, lessThan(40));
+  });
+}
+
+Future<({int frames, int ms, bool centred})> _framesUntilCentred(
+  WidgetTester tester,
+  String text,
+) async {
+  final watch = Stopwatch()..start();
+  var frames = 1;
+  var centred = _isCentred(tester, text);
+  while (!centred && frames < 8) {
+    await tester.pump();
+    frames += 1;
+    centred = _isCentred(tester, text);
+  }
+  return (frames: frames, ms: watch.elapsedMilliseconds, centred: centred);
+}
+
+bool _isCentred(WidgetTester tester, String text) {
+  final tiles = find.widgetWithText(ThreadBeatTile, text);
+  if (tiles.evaluate().isEmpty) return false;
+  final tile = tester.getRect(tiles);
+  final view = tester.getRect(find.byType(ThreadView));
+  return (tile.center.dy - view.center.dy).abs() <= 1;
 }
 
 void _expectCentred(WidgetTester tester, String text) {
