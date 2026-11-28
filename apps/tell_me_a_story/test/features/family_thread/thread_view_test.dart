@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tell_me_a_story/core/theme/album_theme.dart';
@@ -170,7 +171,7 @@ void main() {
     await tester.pumpAndSettle();
     final kept = tester.element(find.byKey(const ValueKey('y2004')));
 
-    await tester.pumpWidget(_host(stories, focusStoryId: 'old'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
 
     expect(tester.element(find.byKey(const ValueKey('y2004'))), same(kept));

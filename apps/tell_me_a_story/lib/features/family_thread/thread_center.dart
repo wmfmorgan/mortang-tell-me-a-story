@@ -41,7 +41,9 @@ int nearestOnScreen({
   for (final row in built) {
     if (!eligible(row.index)) continue;
     final distance = (row.centerY - focusLineY).abs();
-    if (distance < bestDistance) {
+    final nearer = distance < bestDistance;
+    final laterTie = row.index > best && (distance - bestDistance).abs() <= 2;
+    if (nearer || laterTie) {
       best = row.index;
       bestDistance = distance;
     }

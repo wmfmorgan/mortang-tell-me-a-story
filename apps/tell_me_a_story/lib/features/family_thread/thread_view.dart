@@ -465,7 +465,8 @@ class _ThreadViewState extends State<ThreadView>
     final rowContext = _built[rowIndex];
     if (rowContext == null || !rowContext.mounted) return;
     final moved = _onSettled(rowIndex);
-    if (moved) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (moved && !reduced) {
       _revealAfterFrame(rowContext);
       return;
     }
