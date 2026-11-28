@@ -313,14 +313,14 @@ class _ThreadViewState extends State<ThreadView>
     return [
       if (anchor > 0)
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => _rowAt(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            if (index == anchor) return SizedBox(height: height / 2);
+            return _rowAt(
               anchor - 1 - index,
               phone: phone,
               columnWidth: columnWidth,
-            ),
-            childCount: anchor,
-          ),
+            );
+          }, childCount: anchor + 1),
         ),
       SliverList(
         key: _centerKey,
@@ -409,15 +409,34 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   void _reveal(BuildContext rowContext) {
+    final box = rowContext.findRenderObject();
+    if (box is! RenderBox || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    final raw = RenderAbstractViewport.of(
+      box,
+    ).getOffsetToReveal(box, 0.5).offset;
+    final target = (raw + position.viewportDimension / 2).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
     _revealing = true;
     _userMoved = false;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    Scrollable.ensureVisible(
-      rowContext,
-      alignment: 0.5,
-      duration: reduced ? Duration.zero : const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-    ).whenComplete(() => _revealing = false);
+    final origin = position.pixels;
+    Scrollable.ensureVisible(rowContext, alignment: 0.5, duration: Duration.zero);
+    if (reduced) {
+      _place(target);
+      _revealing = false;
+      return;
+    }
+    _place(origin);
+    _scroll
+        .animateTo(
+          target,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        )
+        .whenComplete(() => _revealing = false);
   }
 
   bool _onScroll(ScrollNotification notification) {
@@ -433,21 +452,18 @@ class _ThreadViewState extends State<ThreadView>
     if (moved || notification is! ScrollEndNotification || !_userMoved) {
       return false;
     }
-    _userMoved = false;
     if (drag && !MediaQuery.disableAnimationsOf(context)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _snapIfStill());
       return false;
     }
+    _userMoved = false;
     _snapToNearest();
     return false;
   }
 
   void _snapIfStill() {
     if (!mounted || !_scroll.hasClients) return;
-    if (_scroll.position.isScrollingNotifier.value) {
-      _userMoved = true;
-      return;
-    }
+    _userMoved = false;
     _snapToNearest();
   }
 
@@ -462,26 +478,31 @@ class _ThreadViewState extends State<ThreadView>
     if (rowIndex < 0) return;
     final rowContext = _built[rowIndex];
     if (rowContext == null || !rowContext.mounted) return;
-    _onSettled(rowIndex);
-    _revealAfterFrame(rowContext);
+    final moved = _onSettled(rowIndex);
+    if (moved) {
+      _revealAfterFrame(rowContext);
+      return;
+    }
+    _reveal(rowContext);
   }
 
-  void _onSettled(int rowIndex) {
-    if (!mounted || rowIndex < 0 || rowIndex >= _rows.rows.length) return;
+  bool _onSettled(int rowIndex) {
+    if (!mounted || rowIndex < 0 || rowIndex >= _rows.rows.length) return false;
     final row = _rows.rows[rowIndex];
-    if (row is! ThreadBeatRow) return;
+    if (row is! ThreadBeatRow) return false;
     final id = ThreadFocus.representative(
       row.beat,
       previousFocusId: _focusId,
       filter: widget.filter,
     ).id;
-    if (id == _focusId && row.beatIndex == _focusIndex) return;
+    if (id == _focusId && row.beatIndex == _focusIndex) return false;
     setState(() {
       _focusId = id;
       _focusIndex = row.beatIndex;
       _announcement = _settledLabel();
     });
     widget.onFocusChanged?.call(id);
+    return true;
   }
 
   List<({int index, double centerY})> _centers(RenderBox view) {
