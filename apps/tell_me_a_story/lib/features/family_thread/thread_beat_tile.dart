@@ -54,7 +54,7 @@ class ThreadBeatTile extends StatelessWidget {
     }
     final ink = distance >= 2 ? albumInkDim : albumInk;
     return Stack(
-      fit: StackFit.expand,
+      fit: StackFit.loose,
       children: [
         _main(ink),
         if (distance == 0)
@@ -200,7 +200,7 @@ class _HollowBeat extends StatelessWidget {
         story.publishedStart.year,
       ),
       excludeSemantics: true,
-      child: const Center(child: HollowDot()),
+      child: const HollowDot(),
     );
   }
 }
@@ -281,6 +281,7 @@ class _YearContents extends StatelessWidget {
 
   Widget _copy(TextTheme theme, String title) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -312,6 +313,7 @@ class _ReadContents extends StatelessWidget {
       label: _beatLabel(story.publishedStart.year, title, story),
       excludeSemantics: true,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

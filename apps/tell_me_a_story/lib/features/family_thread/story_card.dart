@@ -152,6 +152,7 @@ class _StoryCardState extends State<StoryCard> {
       label: semanticsLabel,
       excludeSemantics: true,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -208,16 +209,14 @@ class _StoryCardState extends State<StoryCard> {
   Widget _body(BuildContext context) {
     final text = _bodyText();
     if (text.isEmpty) return const SizedBox.shrink();
-    return Flexible(
-      child: threadTap(
-        Text(
-          text,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ink),
-        ),
-        onCard,
+    return threadTap(
+      Text(
+        text,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ink),
       ),
+      onCard,
     );
   }
 
