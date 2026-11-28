@@ -275,7 +275,7 @@ Future<void> _drag(WidgetTester tester, Offset delta) async {
 }
 
 Offset _listCenter(WidgetTester tester) {
-  return tester.getCenter(find.bySubtype<ListView>());
+  return tester.getCenter(find.byType(Scrollable));
 }
 
 double _offset(WidgetTester tester) {

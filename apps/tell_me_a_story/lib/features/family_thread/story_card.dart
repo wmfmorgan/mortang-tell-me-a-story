@@ -16,6 +16,7 @@ class StoryCard extends StatefulWidget {
     super.key,
     required this.story,
     required this.ink,
+    this.columnWidth,
     required this.semanticsLabel,
     this.moreLabel,
     this.showBody = false,
@@ -29,6 +30,9 @@ class StoryCard extends StatefulWidget {
 
   final Story story;
   final Color ink;
+
+  /// Width of the side column. Null lets a parent box supply the constraints.
+  final double? columnWidth;
   final String semanticsLabel;
   final String? moreLabel;
   final bool showBody;
@@ -62,6 +66,7 @@ class _StoryCardState extends State<StoryCard> {
 
   Story get story => widget.story;
   Color get ink => widget.ink;
+  double? get columnWidth => widget.columnWidth;
   String get semanticsLabel => widget.semanticsLabel;
   String? get moreLabel => widget.moreLabel;
   bool get showBody => widget.showBody;
@@ -79,9 +84,15 @@ class _StoryCardState extends State<StoryCard> {
 
   @override
   Widget build(BuildContext context) {
+    final width = columnWidth;
+    final constraints = width == null
+        ? null
+        : BoxConstraints(maxWidth: width < 4 ? 0 : width - 4);
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: LayoutBuilder(builder: _row),
+      child: constraints == null
+          ? LayoutBuilder(builder: _row)
+          : _row(context, constraints),
     );
   }
 
@@ -152,6 +163,7 @@ class _StoryCardState extends State<StoryCard> {
       label: semanticsLabel,
       excludeSemantics: true,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -208,16 +220,14 @@ class _StoryCardState extends State<StoryCard> {
   Widget _body(BuildContext context) {
     final text = _bodyText();
     if (text.isEmpty) return const SizedBox.shrink();
-    return Flexible(
-      child: threadTap(
-        Text(
-          text,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ink),
-        ),
-        onCard,
+    return threadTap(
+      Text(
+        text,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ink),
       ),
+      onCard,
     );
   }
 

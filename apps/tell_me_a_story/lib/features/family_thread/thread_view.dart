@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/album_theme.dart';
 import '../../data/family_thread_density.dart';
@@ -11,34 +12,20 @@ import 'thread_band.dart';
 import 'thread_beat.dart';
 import 'thread_beat_model.dart';
 import 'thread_beat_tile.dart';
-import 'thread_center.dart';
 import 'thread_focus.dart';
 import 'thread_focus_controller.dart';
 import 'thread_keyboard.dart';
 import 'thread_photo_cache.dart';
 import 'thread_filter.dart';
 import 'thread_pointer_handler.dart';
+import 'thread_rows.dart';
 
 const threadPhoneBreakpoint = 600.0;
-const _browseExtent = 64.0;
-const _overviewExtent = 112.0;
-
-/// Three title lines plus the date at text scale 1. Read rows grow with the
-/// text scaler.
-const _readExtent = 124.0;
 const _phoneBandWidth = 16.0;
 const _wideBandWidth = 24.0;
 const _phoneLeadWidth = 32.0;
 const _phoneMarkMaxWidth = 160.0;
 const _fadeDuration = Duration(milliseconds: 150);
-
-double _extentFor(FamilyThreadDensity density) {
-  return switch (density) {
-    FamilyThreadDensity.overview => _overviewExtent,
-    FamilyThreadDensity.browse => _browseExtent,
-    FamilyThreadDensity.read => _readExtent,
-  };
-}
 
 class ThreadView extends StatefulWidget {
   const ThreadView({
@@ -92,16 +79,18 @@ class ThreadView extends StatefulWidget {
 class _ThreadViewState extends State<ThreadView>
     with SingleTickerProviderStateMixin {
   final _scroll = ScrollController();
+  final _centerKey = GlobalKey();
+  BuildContext? _focusContext;
   late final ThreadFocusController _focus;
   late final AnimationController _fade;
   late ThreadBeatModel _model;
   late List<ThreadBeat> _beats;
+  late ThreadRows _rows;
   String? _focusId;
   String? _announcement;
   var _focusIndex = 0;
-  var _extent = _browseExtent;
   var _viewport = -1.0;
-  var _centrePending = true;
+  var _nudgePending = true;
   var _noneMatch = false;
 
   @override
@@ -110,12 +99,6 @@ class _ThreadViewState extends State<ThreadView>
     _focus = ThreadFocusController(scroll: _scroll, onSettled: _onSettled);
     _bind(rebuildModel: true, regroup: true);
     _fade = AnimationController(vsync: this, duration: _fadeDuration, value: 1);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _applyExtent();
   }
 
   @override
@@ -132,8 +115,6 @@ class _ThreadViewState extends State<ThreadView>
       rebuildModel: storiesChanged,
       regroup: storiesChanged || densityChanged,
     );
-    _applyExtent();
-    _centrePending = true;
     if (densityChanged) _fadeIn();
   }
 
@@ -147,11 +128,25 @@ class _ThreadViewState extends State<ThreadView>
   void _bind({required bool rebuildModel, required bool regroup}) {
     if (rebuildModel) _model = ThreadBeatModel.build(widget.stories);
     if (regroup) _beats = _model.beatsFor(widget.density);
-    _extent = _extentFor(widget.density);
+    _rows = ThreadRows.build(_beats, widget.density, widget.filter);
     _focusId = widget.focusStoryId ?? _newestId(widget.stories);
     _noneMatch = _noStoriesMatch();
     _retargetFocus();
-    _focusIndex = _indexOfFocus();
+    if (_beats.isEmpty) {
+      _focusIndex = 0;
+      _nudgePending = true;
+      return;
+    }
+    _reanchor(target: _beats[_indexOfFocus()]);
+  }
+
+  /// New anchor is [target], then the same half-height nudge. Used before the
+  /// first paint (restore), on a far jump, and when density changes.
+  void _reanchor({required ThreadBeat target}) {
+    final index = _beats.indexOf(target);
+    _focusIndex = index < 0 ? _indexOfFocus() : index;
+    _nudgePending = true;
+    if (_scroll.hasClients && _scroll.offset != 0) _focus.place(0);
   }
 
   void _retargetFocus() {
@@ -181,20 +176,6 @@ class _ThreadViewState extends State<ThreadView>
     return null;
   }
 
-  void _applyExtent() {
-    final next = _scaledExtent(_extentFor(widget.density));
-    if (next == _extent) return;
-    _extent = next;
-    _centrePending = true;
-  }
-
-  double _scaledExtent(double base) {
-    if (widget.density != FamilyThreadDensity.read) return base;
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    if (scale <= 1) return base;
-    return base * scale;
-  }
-
   void _fadeIn() {
     if (MediaQuery.disableAnimationsOf(context)) {
       _fade.value = 1;
@@ -211,7 +192,7 @@ class _ThreadViewState extends State<ThreadView>
     return ThreadKeyboard(
       onBeat: _moveBeat,
       beatCount: _beats.length,
-      currentIndex: _nearestIndex,
+      currentIndex: () => _focusIndex,
       matches: _matchesIndex,
       onDensityDelta: widget.onDensityDelta,
       onDrill: widget.onBeat == null ? null : _drill,
@@ -236,70 +217,92 @@ class _ThreadViewState extends State<ThreadView>
         final height = constraints.maxHeight;
         if (height != _viewport) {
           _viewport = height;
-          _centrePending = true;
+          _nudgePending = true;
         }
         _scheduleCentre();
-        return NotificationListener<ScrollNotification>(
-          onNotification: _onScroll,
-          child: Stack(
-            children: [
-              FadeTransition(
-                opacity: _fade,
-                child: _list(height, constraints.maxWidth),
-              ),
-              if (_announcement != null) _FocusAnnouncement(_announcement!),
-            ],
-          ),
+        return Stack(
+          children: [
+            FadeTransition(
+              opacity: _fade,
+              child: _list(height, constraints.maxWidth),
+            ),
+            if (_announcement != null) _FocusAnnouncement(_announcement!),
+          ],
         );
       },
     );
   }
 
   Widget _list(double height, double width) {
-    final pad = ThreadCenter.pad(height, _extent);
+    if (_rows.rows.isEmpty) return const SizedBox.shrink();
+    final phone = width < threadPhoneBreakpoint;
+    final anchor = _rows.rowOfBeat(_focusIndex);
     return Semantics(
       container: true,
       explicitChildNodes: true,
       label: FamilyThreadCopy.threadList(widget.stories.length),
-      child: _ThreadList(
+      child: _ThreadScroll(
         controller: _scroll,
-        itemExtent: _extent,
-        padding: EdgeInsets.symmetric(vertical: pad),
-        itemCount: _beats.length,
+        center: _centerKey,
+        anchor: 0.5,
         onDensityDelta: widget.onDensityDelta,
         now: widget.now,
-        itemBuilder: (context, index) =>
-            _row(index, phone: width < threadPhoneBreakpoint),
+        slivers: _slivers(anchor, height, phone, _columnWidth(width, phone)),
       ),
     );
   }
 
-  void _scheduleCentre() {
-    if (!_centrePending || _viewport <= 0) return;
-    final offset = ThreadCenter.centerOffset(
-      _focusIndex,
-      _beats.length,
-      _viewport,
-      _extent,
-    );
-    _centrePending = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) {
-        _centrePending = true;
-        return;
-      }
-      if ((_scroll.offset - offset).abs() < 0.5) return;
-      _focus.place(offset);
-    });
+  double _columnWidth(double width, bool phone) {
+    final band = phone ? _phoneBandWidth : _wideBandWidth;
+    if (phone) return width - _phoneLeadWidth - band;
+    return (width - band) / 2;
   }
 
-  int _nearestIndex() {
-    return ThreadCenter.nearestIndex(
-      _scroll.hasClients ? _scroll.offset : 0,
-      _beats.length,
-      _viewport,
-      _extent,
-    );
+  List<Widget> _slivers(
+    int anchor,
+    double height,
+    bool phone,
+    double columnWidth,
+  ) {
+    return [
+      if (anchor > 0)
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _rowAt(
+              anchor - 1 - index,
+              phone: phone,
+              columnWidth: columnWidth,
+            ),
+            childCount: anchor,
+          ),
+        ),
+      SliverList(
+        key: _centerKey,
+        delegate: SliverChildBuilderDelegate(
+          (context, index) =>
+              _rowAt(anchor + index, phone: phone, columnWidth: columnWidth),
+          childCount: _rows.rows.length - anchor,
+        ),
+      ),
+      SliverToBoxAdapter(child: SizedBox(height: height)),
+    ];
+  }
+
+  void _scheduleCentre() {
+    if (!_nudgePending || _viewport <= 0) return;
+    _nudgePending = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _nudgeToCentre());
+  }
+
+  void _nudgeToCentre() {
+    if (!mounted) return;
+    final focus = _focusContext;
+    if (focus == null || !focus.mounted || !_scroll.hasClients) return;
+    final target = focus.findRenderObject();
+    if (target is! RenderBox || !target.hasSize) return;
+    final half = target.size.height / 2;
+    if ((_scroll.offset - half).abs() < 0.5) return;
+    _focus.place(half);
   }
 
   bool _matchesIndex(int index) {
@@ -308,40 +311,44 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   void _moveBeat(int index) {
-    _focus.moveToBeat(
-      index: index,
-      beats: _beats,
-      extent: _extent,
-      viewport: _viewport,
-      focusId: _focusId,
-      reducedMotion: MediaQuery.disableAnimationsOf(context),
+    if (_beats.isEmpty) return;
+    final landed = _landOn(index);
+    final id = ThreadFocus.representative(
+      _beats[landed],
+      previousFocusId: _focusId,
       filter: widget.filter,
-    );
+    ).id;
+    final changed = id != _focusId;
+    setState(() {
+      _focusId = id;
+      _reanchor(target: _beats[landed]);
+      if (changed) _announcement = _settledLabel();
+    });
+    if (changed) widget.onFocusChanged?.call(id);
   }
 
-  bool _onScroll(ScrollNotification notification) {
-    _focus.onNotification(
-      notification: notification,
-      beats: _beats,
-      extent: _extent,
-      viewport: _viewport,
-      focusId: _focusId,
-      reducedMotion: MediaQuery.disableAnimationsOf(context),
-      filter: widget.filter,
-    );
-    return false;
+  // TODO(T1a-2): merge with ThreadFocusController._landOn.
+  int _landOn(int index) {
+    final beats = _beats;
+    final filter = widget.filter;
+    final clamped = index.clamp(0, beats.length - 1);
+    if (filter.matchesBeat(beats[clamped])) return clamped;
+    for (var distance = 1; distance < beats.length; distance++) {
+      final later = clamped + distance;
+      final earlier = clamped - distance;
+      if (later < beats.length && filter.matchesBeat(beats[later])) {
+        return later;
+      }
+      if (earlier >= 0 && filter.matchesBeat(beats[earlier])) return earlier;
+    }
+    return clamped;
   }
 
   void _onSettled(String storyId) {
     if (!mounted || storyId == _focusId) return;
     setState(() {
       _focusId = storyId;
-      _focusIndex = ThreadCenter.nearestIndex(
-        _scroll.offset,
-        _beats.length,
-        _viewport,
-        _extent,
-      );
+      _reanchor(target: _beats[_indexOfFocus()]);
       _announcement = _settledLabel();
     });
     widget.onFocusChanged?.call(storyId);
@@ -371,27 +378,80 @@ class _ThreadViewState extends State<ThreadView>
     return index < 0 ? _beats.length - 1 : index;
   }
 
-  Widget _row(int index, {required bool phone}) {
-    final beat = _beats[index];
-    return _BeatRow(
+  Widget _rowAt(
+    int rowIndex, {
+    required bool phone,
+    required double columnWidth,
+  }) {
+    final row = _rows.rows[rowIndex];
+    final band = _band(rowIndex, phone: phone);
+    return switch (row) {
+      ThreadLandmarkRow(:final decadeStart) => _LandmarkRow(
+        key: ValueKey('landmark-$decadeStart'),
+        decade: decadeStart,
+        phone: phone,
+        contentOnLeft: _contentOnLeft(rowIndex),
+        band: band,
+      ),
+      ThreadBeatRow(:final beat, :final beatIndex) => _beatRow(
+        beat,
+        beatIndex,
+        phone: phone,
+        columnWidth: columnWidth,
+        band: band,
+      ),
+    };
+  }
+
+  bool _contentOnLeft(int landmarkIndex) {
+    final next = landmarkIndex + 1;
+    if (next >= _rows.rows.length) return true;
+    final row = _rows.rows[next];
+    return row is ThreadBeatRow && row.beatIndex.isEven;
+  }
+
+  Widget _band(int rowIndex, {required bool phone}) {
+    final last = _rows.rows.length - 1;
+    return ThreadBand(
+      bandWidth: phone ? _phoneBandWidth : _wideBandWidth,
+      roundTop: rowIndex == 0,
+      roundBottom: rowIndex == last,
+      knot: rowIndex == 0,
+    );
+  }
+
+  Widget _beatRow(
+    ThreadBeat beat,
+    int beatIndex, {
+    required bool phone,
+    required double columnWidth,
+    required Widget band,
+  }) {
+    final focused = beatIndex == _focusIndex;
+    final row = _BeatRow(
       phone: phone,
-      index: index,
-      tile: _tile(beat, index),
-      mark: _markFor(beat, index),
-      band: ThreadBand(
-        bandWidth: phone ? _phoneBandWidth : _wideBandWidth,
-        roundTop: index == 0,
-        roundBottom: index == _beats.length - 1,
-        knot: index == 0,
+      index: beatIndex,
+      tile: _tile(beat, beatIndex, columnWidth),
+      mark: _markFor(beat, beatIndex),
+      band: band,
+    );
+    return KeyedSubtree(
+      key: ValueKey(_beatId(beat)),
+      child: Builder(
+        builder: (context) {
+          if (focused) _focusContext = context;
+          return row;
+        },
       ),
     );
   }
 
-  Widget _tile(ThreadBeat beat, int index) {
+  Widget _tile(ThreadBeat beat, int index, double columnWidth) {
     final focused = index == _focusIndex;
     final onBeat = widget.onBeat;
     return ThreadBeatTile(
       beat: beat,
+      columnWidth: columnWidth,
       focusStoryId: _focusId,
       distance: (index - _focusIndex).abs(),
       ringToken: widget.ringToken,
@@ -420,19 +480,15 @@ class _ThreadViewState extends State<ThreadView>
   }
 }
 
-/// A [Listener] outside the list loses the pointer-signal race, because the
-/// inner [Scrollable] registers first. The handler has to sit under that
-/// scrollable, which means this list builds the viewport itself.
-class _ThreadList extends ListView {
-  _ThreadList({
+class _ThreadScroll extends CustomScrollView {
+  const _ThreadScroll({
     required ScrollController super.controller,
-    required super.itemExtent,
-    required super.padding,
-    required int super.itemCount,
-    required super.itemBuilder,
+    required super.center,
+    required super.anchor,
+    required super.slivers,
     required this.onDensityDelta,
     required this.now,
-  }) : super.builder();
+  });
 
   final ValueChanged<int>? onDensityDelta;
   final Duration Function()? now;
@@ -497,13 +553,84 @@ class _BeatRow extends StatelessWidget {
     final trailing = phone
         ? Expanded(child: tile)
         : Expanded(child: index.isEven ? mark : tile);
-    return Row(children: [leading, band, trailing]);
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [leading, band, trailing],
+      ),
+    );
+  }
+}
+
+class _LandmarkRow extends StatelessWidget {
+  const _LandmarkRow({
+    super.key,
+    required this.decade,
+    required this.phone,
+    required this.contentOnLeft,
+    required this.band,
+  });
+
+  final int decade;
+  final bool phone;
+  final bool contentOnLeft;
+  final Widget band;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _LandmarkLabel(decade);
+    final leading = phone
+        ? const SizedBox(width: _phoneLeadWidth)
+        : Expanded(child: contentOnLeft ? const SizedBox.shrink() : label);
+    final trailing = phone
+        ? Expanded(
+            child: Align(alignment: Alignment.centerLeft, child: label),
+          )
+        : Expanded(child: contentOnLeft ? label : const SizedBox.shrink());
+    return SizedBox(
+      height: threadLandmarkRowExtent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [leading, band, trailing],
+      ),
+    );
+  }
+}
+
+class _LandmarkLabel extends StatelessWidget {
+  const _LandmarkLabel(this.decade);
+
+  final int decade;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Text(
+        '${decade}s',
+        maxLines: 1,
+        // TODO(T1a-2): take this Newsreader italic from thread_row_metrics.dart.
+        style: GoogleFonts.newsreader(
+          fontSize: 28,
+          fontStyle: FontStyle.italic,
+          height: 1,
+          color: albumInkDim,
+        ),
+      ),
+    );
   }
 }
 
 String? _newestId(List<Story> stories) {
   if (stories.isEmpty) return null;
   return stories.last.id;
+}
+
+String _beatId(ThreadBeat beat) {
+  return switch (beat) {
+    DecadeBeat(:final decadeStart) => 'd$decadeStart',
+    YearBeat(:final year) => 'y$year',
+    StoryBeat(:final story) => story.id,
+  };
 }
 
 Widget _decadeMark(int decade) {

@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(_host(stories, live));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.bySubtype<ListView>(), const Offset(0, 2000));
+    await tester.drag(_threadScroll(), const Offset(0, 2000));
     await tester.pumpAndSettle();
     expectOnFocusLine(tester, 'Early');
 
@@ -138,6 +138,13 @@ void main() {
     expectOnFocusLine(tester, 'Later');
     expect(find.text('Focused'), findsNothing);
   });
+}
+
+Finder _threadScroll() {
+  return find.descendant(
+    of: find.byKey(const Key('family-thread-loaded')),
+    matching: find.byType(Scrollable),
+  );
 }
 
 Widget _host(ThreadStories stories, FakeTimelineLive live) {

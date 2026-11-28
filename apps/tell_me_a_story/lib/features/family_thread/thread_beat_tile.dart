@@ -20,6 +20,7 @@ class ThreadBeatTile extends StatelessWidget {
     super.key,
     required this.beat,
     required this.focusStoryId,
+    this.columnWidth,
     this.distance = 0,
     this.ringToken = 0,
     this.onBeat,
@@ -33,6 +34,9 @@ class ThreadBeatTile extends StatelessWidget {
 
   final ThreadBeat beat;
   final String? focusStoryId;
+
+  /// Side column width passed to the focused card. Null in a sized parent.
+  final double? columnWidth;
   final int distance;
   final int ringToken;
   final void Function({required bool focused})? onBeat;
@@ -54,7 +58,7 @@ class ThreadBeatTile extends StatelessWidget {
     }
     final ink = distance >= 2 ? albumInkDim : albumInk;
     return Stack(
-      fit: StackFit.expand,
+      fit: StackFit.loose,
       children: [
         _main(ink),
         if (distance == 0)
@@ -78,6 +82,7 @@ class ThreadBeatTile extends StatelessWidget {
       final YearBeat year when distance == 0 => _yearCard(year, ink),
       StoryBeat(:final story) when distance == 0 => StoryCard(
         story: story,
+        columnWidth: columnWidth,
         ink: ink,
         semanticsLabel: _label(),
         showBody: true,
@@ -113,6 +118,7 @@ class ThreadBeatTile extends StatelessWidget {
     final card = ThreadFocus.browseCardStory(year, focusId: focusStoryId);
     return StoryCard(
       story: card,
+      columnWidth: columnWidth,
       ink: ink,
       semanticsLabel: _storyLabel(year.year, card),
       moreLabel: onMore == null ? null : _yearMore(year, card),
@@ -281,6 +287,7 @@ class _YearContents extends StatelessWidget {
 
   Widget _copy(TextTheme theme, String title) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -312,6 +319,7 @@ class _ReadContents extends StatelessWidget {
       label: _beatLabel(story.publishedStart.year, title, story),
       excludeSemantics: true,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
