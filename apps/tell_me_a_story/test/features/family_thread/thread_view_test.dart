@@ -47,7 +47,15 @@ void main() {
     await tester.pumpWidget(_host([_story('one', 1980, 'One')]));
     await tester.pumpAndSettle();
 
-    final band = find.byType(ThreadBand);
+    final band = find.descendant(
+      of: find
+          .ancestor(
+            of: find.byType(ThreadBeatTile),
+            matching: find.byType(IntrinsicHeight),
+          )
+          .first,
+      matching: find.byType(ThreadBand),
+    );
     expect(tester.getSize(band).width, 24);
     expect(
       find.descendant(

@@ -81,7 +81,7 @@ class _StoryCardState extends State<StoryCard> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: LayoutBuilder(builder: _row),
+      child: _row(context, const BoxConstraints()),
     );
   }
 

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -93,8 +91,6 @@ class _ThreadViewState extends State<ThreadView>
   var _focusIndex = 0;
   var _viewport = -1.0;
   var _nudgePending = true;
-  var _nudgeQueued = false;
-  var _nudgeTries = 0;
   var _noneMatch = false;
 
   @override
@@ -142,7 +138,6 @@ class _ThreadViewState extends State<ThreadView>
 
   void _armAnchor() {
     _nudgePending = true;
-    _nudgeTries = 0;
     if (_scroll.hasClients && _scroll.offset != 0) _focus.place(0);
   }
 
@@ -270,30 +265,18 @@ class _ThreadViewState extends State<ThreadView>
   }
 
   void _scheduleCentre() {
-    if (!_nudgePending || _viewport <= 0 || _nudgeQueued) return;
-    _nudgeQueued = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nudgeQueued = false;
-      _nudgeToCentre();
-    });
+    if (!_nudgePending || _viewport <= 0) return;
+    _nudgePending = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _nudgeToCentre());
   }
 
   void _nudgeToCentre() {
-    if (!mounted || !_nudgePending) return;
+    if (!mounted) return;
     final target = _focusKey.currentContext?.findRenderObject();
-    if (target is! RenderBox || !target.hasSize || !_scroll.hasClients) {
-      _nudgeTries += 1;
-      if (_nudgeTries > 8) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _nudgeToCentre());
-      return;
-    }
+    if (target is! RenderBox || !target.hasSize || !_scroll.hasClients) return;
     final half = target.size.height / 2;
-    final owner = target.owner;
-    _nudgePending = false;
-    _nudgeTries = 0;
     if ((_scroll.offset - half).abs() < 0.5) return;
     _focus.place(half);
-    owner?.flushLayout();
   }
 
   bool _matchesIndex(int index) {
@@ -418,6 +401,7 @@ class _ThreadViewState extends State<ThreadView>
       phone: phone,
       index: beatIndex,
       tile: _tile(beat, beatIndex),
+      mark: _markFor(beat, beatIndex),
       band: band,
     );
     return KeyedSubtree(
@@ -446,6 +430,16 @@ class _ThreadViewState extends State<ThreadView>
           ? () => widget.onMore!(beat)
           : null,
     );
+  }
+
+  Widget _markFor(ThreadBeat beat, int index) {
+    return switch (beat) {
+      DecadeBeat() => const SizedBox.shrink(),
+      YearBeat() || StoryBeat() =>
+        _startsDecade(_beats, index)
+            ? _decadeMark(threadDecadeOfYear(_yearOf(beat)))
+            : const SizedBox.shrink(),
+    };
   }
 }
 
@@ -497,17 +491,18 @@ class _BeatRow extends StatelessWidget {
     required this.phone,
     required this.index,
     required this.tile,
+    required this.mark,
     required this.band,
   });
 
   final bool phone;
   final int index;
   final Widget tile;
+  final Widget mark;
   final Widget band;
 
   @override
   Widget build(BuildContext context) {
-    final mark = const SizedBox.shrink();
     final leading = phone
         ? SizedBox(
             width: _phoneLeadWidth,
@@ -517,13 +512,15 @@ class _BeatRow extends StatelessWidget {
               child: mark,
             ),
           )
-        : (index.isEven ? tile : mark);
-    final trailing = phone ? tile : (index.isEven ? mark : tile);
-    return _SpanRow(
-      phone: phone,
-      leading: leading,
-      band: band,
-      trailing: trailing,
+        : Expanded(child: index.isEven ? tile : mark);
+    final trailing = phone
+        ? Expanded(child: tile)
+        : Expanded(child: index.isEven ? mark : tile);
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [leading, band, trailing],
+      ),
     );
   }
 }
@@ -585,97 +582,6 @@ class _LandmarkLabel extends StatelessWidget {
   }
 }
 
-class _SpanRow extends MultiChildRenderObjectWidget {
-  _SpanRow({
-    required this.phone,
-    required Widget leading,
-    required Widget band,
-    required Widget trailing,
-  }) : super(children: [leading, band, trailing]);
-
-  final bool phone;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) => _RenderSpan(phone);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderSpan renderObject) {
-    renderObject.phone = phone;
-  }
-}
-
-class _SpanParentData extends ContainerBoxParentData<RenderBox> {}
-
-class _RenderSpan extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _SpanParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _SpanParentData> {
-  _RenderSpan(this._phone);
-
-  bool _phone;
-  set phone(bool value) {
-    if (_phone == value) return;
-    _phone = value;
-    markNeedsLayout();
-  }
-
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _SpanParentData) {
-      child.parentData = _SpanParentData();
-    }
-  }
-
-  @override
-  void performLayout() {
-    final width = constraints.maxWidth;
-    final bandW = _phone ? _phoneBandWidth : _wideBandWidth;
-    final leadW = math.max(0.0, _phone ? _phoneLeadWidth : (width - bandW) / 2);
-    final trailW = math.max(0.0, width - leadW - bandW);
-    final leading = _child(0);
-    final band = _child(1);
-    final trailing = _child(2);
-    leading.layout(_loose(leadW), parentUsesSize: true);
-    trailing.layout(_loose(trailW), parentUsesSize: true);
-    final height = math.max(leading.size.height, trailing.size.height);
-    band.layout(
-      BoxConstraints.tightFor(width: bandW, height: height),
-      parentUsesSize: true,
-    );
-    size = constraints.constrain(Size(width, height));
-    _place(leading, 0, height);
-    _place(band, leadW, height);
-    _place(trailing, leadW + bandW, height);
-  }
-
-  BoxConstraints _loose(double maxWidth) {
-    return BoxConstraints(maxWidth: maxWidth);
-  }
-
-  RenderBox _child(int index) {
-    var child = firstChild!;
-    for (var i = 0; i < index; i++) {
-      child = childAfter(child)!;
-    }
-    return child;
-  }
-
-  void _place(RenderBox child, double x, double height) {
-    final data = child.parentData! as _SpanParentData;
-    data.offset = Offset(x, (height - child.size.height) / 2);
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
-  }
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    return defaultHitTestChildren(result, position: position);
-  }
-}
-
 String? _newestId(List<Story> stories) {
   if (stories.isEmpty) return null;
   return stories.last.id;
@@ -686,5 +592,32 @@ String _beatId(ThreadBeat beat) {
     DecadeBeat(:final decadeStart) => 'd$decadeStart',
     YearBeat(:final year) => 'y$year',
     StoryBeat(:final story) => story.id,
+  };
+}
+
+Widget _decadeMark(int decade) {
+  return Builder(
+    builder: (context) => ExcludeSemantics(
+      child: Text(
+        '${decade}s',
+        maxLines: 1,
+        style: Theme.of(context).textTheme.headlineLarge
+            ?.copyWith(fontSize: 40, height: 1, color: albumInkDim),
+      ),
+    ),
+  );
+}
+
+bool _startsDecade(List<ThreadBeat> beats, int index) {
+  if (index == 0) return true;
+  return threadDecadeOfYear(_yearOf(beats[index])) !=
+      threadDecadeOfYear(_yearOf(beats[index - 1]));
+}
+
+int _yearOf(ThreadBeat beat) {
+  return switch (beat) {
+    YearBeat(:final year) => year,
+    StoryBeat(:final story) => story.publishedStart.year,
+    DecadeBeat(:final decadeStart) => decadeStart,
   };
 }
